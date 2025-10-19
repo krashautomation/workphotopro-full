@@ -1,8 +1,9 @@
 import { databases } from './client';
-import { ID, Query } from 'appwrite';
+import { ID, Query } from 'react-native-appwrite';
 
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID || '';
 
+// Simple database service for basic CRUD operations
 export const databaseService = {
   /**
    * Create a new document in a collection
@@ -75,29 +76,59 @@ export const databaseService = {
   },
 };
 
-// Job-specific helpers
-export const jobService = {
-  COLLECTION_ID: 'jobs', // You'll create this in Appwrite Console
+// Simple JobChat service (matching old working version)
+export const jobChatService = {
+  COLLECTION_ID: 'jobchat', // Using old collection name
 
-  async createJob(data: any) {
+  async createJobChat(data: any) {
     return databaseService.createDocument(this.COLLECTION_ID, data);
   },
 
-  async getJob(jobId: string) {
-    return databaseService.getDocument(this.COLLECTION_ID, jobId);
+  async getJobChat(jobChatId: string) {
+    return databaseService.getDocument(this.COLLECTION_ID, jobChatId);
   },
 
-  async listJobs(userId?: string) {
-    const queries = userId ? [Query.equal('userId', userId)] : [];
-    return databaseService.listDocuments(this.COLLECTION_ID, queries);
+  async listJobChats() {
+    // No filtering for now - get all job chats
+    return databaseService.listDocuments(this.COLLECTION_ID, [Query.limit(100)]);
   },
 
-  async updateJob(jobId: string, data: any) {
-    return databaseService.updateDocument(this.COLLECTION_ID, jobId, data);
+  async updateJobChat(jobChatId: string, data: any) {
+    return databaseService.updateDocument(this.COLLECTION_ID, jobChatId, data);
   },
 
-  async deleteJob(jobId: string) {
-    return databaseService.deleteDocument(this.COLLECTION_ID, jobId);
+  async deleteJobChat(jobChatId: string) {
+    return databaseService.deleteDocument(this.COLLECTION_ID, jobChatId);
   },
 };
 
+// Simple Message service (matching old working version)
+export const messageService = {
+  COLLECTION_ID: 'messages',
+
+  async createMessage(data: any) {
+    return databaseService.createDocument(this.COLLECTION_ID, data);
+  },
+
+  async getMessage(messageId: string) {
+    return databaseService.getDocument(this.COLLECTION_ID, messageId);
+  },
+
+  async listMessages(jobId: string) {
+    // Use jobId instead of jobChatId to match old version
+    const queries = [
+      Query.equal('jobId', jobId),
+      Query.orderAsc('$createdAt'),
+      Query.limit(100)
+    ];
+    return databaseService.listDocuments(this.COLLECTION_ID, queries);
+  },
+
+  async updateMessage(messageId: string, data: any) {
+    return databaseService.updateDocument(this.COLLECTION_ID, messageId, data);
+  },
+
+  async deleteMessage(messageId: string) {
+    return databaseService.deleteDocument(this.COLLECTION_ID, messageId);
+  },
+};

@@ -13,11 +13,10 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import GoogleAuthButton from '@/components/ui/GoogleAuthButton';
-import AppleAuthButton from '@/components/ui/AppleAuthButton';
+import GoogleAuthButton from '@/components/GoogleAuthButton';
 
 export default function SignUp() {
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
   const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -58,10 +57,16 @@ export default function SignUp() {
     }
   };
 
-  const handleGoogleSuccess = async (user: any) => {
-    console.log('Google sign up success:', user);
-    // TODO: Handle Google OAuth success
-    router.replace('/(app)/jobs');
+  const handleGoogleSuccess = async () => {
+    try {
+      console.log('🟡 SignUp: handleGoogleSuccess called');
+      // GoogleAuthButton already calls signInWithGoogle(), so we just navigate
+      console.log('🟡 SignUp: OAuth successful, navigating to jobs...');
+      router.replace('/(jobs)');
+    } catch (error: any) {
+      console.error('🔴 SignUp: Google OAuth error:', error);
+      setError(error.message || 'Google sign up failed. Please try again.');
+    }
   };
 
   const handleGoogleError = (error: Error) => {
@@ -69,16 +74,6 @@ export default function SignUp() {
     setError(error.message || 'Google sign up failed. Please try again.');
   };
 
-  const handleAppleSuccess = async (user: any) => {
-    console.log('Apple sign up success:', user);
-    // TODO: Handle Apple OAuth success
-    router.replace('/(app)/jobs');
-  };
-
-  const handleAppleError = (error: Error) => {
-    console.error('Apple sign up error:', error);
-    setError(error.message || 'Apple sign up failed. Please try again.');
-  };
 
   return (
     <KeyboardAvoidingView
@@ -136,18 +131,11 @@ export default function SignUp() {
             <View style={styles.dividerLine} />
           </View>
 
-          <View style={styles.authButtonsRow}>
-            <GoogleAuthButton 
-              onSuccess={handleGoogleSuccess}
-              onError={handleGoogleError}
-              mode="sign-up"
-            />
-            <AppleAuthButton
-              onSuccess={handleAppleSuccess}
-              onError={handleAppleError}
-              mode="sign-up"
-            />
-          </View>
+          <GoogleAuthButton 
+            onSuccess={handleGoogleSuccess}
+            onError={handleGoogleError}
+            mode="sign-up"
+          />
 
           <View style={globalStyles.linkContainer}>
             <Text style={globalStyles.body}>Already have an account? </Text>
@@ -176,12 +164,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     color: '#666',
     fontSize: 14,
-  },
-  authButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 20,
   },
 });
 

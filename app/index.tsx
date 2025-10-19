@@ -17,7 +17,7 @@ export default function Index() {
   }
 
   if (isAuthenticated) {
-    return <Redirect href="/(app)/jobs" />;
+    return <Redirect href="/(jobs)" />;
   }
 
   return (
@@ -47,18 +47,18 @@ export default function Index() {
       {/* Content Section */}
       <View style={globalStyles.contentSection}>
         <View style={globalStyles.buttonSection}>
-          <TouchableOpacity>
-            <LinearGradient
-              colors={['#22c55e', '#84cc16', '#eab308']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={globalStyles.gradientButton}
-            >
-              <Link href="/(auth)/sign-up">
+          <Link href="/(auth)/sign-up" asChild>
+            <TouchableOpacity>
+              <LinearGradient
+                colors={['#22c55e', '#84cc16', '#eab308']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={globalStyles.gradientButton}
+              >
                 <Text style={globalStyles.buttonText}>Get Started</Text>
-              </Link>
-            </LinearGradient>
-          </TouchableOpacity>
+              </LinearGradient>
+            </TouchableOpacity>
+          </Link>
           
           <View style={globalStyles.verticalLinkContainer}>
             <Text style={globalStyles.body}>

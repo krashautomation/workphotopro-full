@@ -70,8 +70,10 @@ Then:
 
 1. App should load to welcome screen
 2. Click "Get Started"
-3. Create an account
+3. Create an account with email OTP
 4. You should be signed in automatically
+5. Navigate to Jobs to test job creation
+6. Click on a job to test the real-time chat feature
 
 ## 🐛 Common Issues
 

@@ -1,33 +1,32 @@
-import { TouchableOpacity, Text, StyleSheet, View, ActivityIndicator, Platform, Image } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, View, ActivityIndicator, Image } from 'react-native';
 import { useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
-type AppleAuthButtonProps = {
-  onSuccess: (user: any) => void;
+type GoogleAuthButtonProps = {
+  onSuccess: () => void;
   onError: (error: Error) => void;
   mode: 'sign-up' | 'sign-in';
 };
 
-export default function AppleAuthButton({ onSuccess, onError, mode }: AppleAuthButtonProps) {
+export default function GoogleAuthButton({ onSuccess, onError, mode }: GoogleAuthButtonProps) {
   const [loading, setLoading] = useState(false);
+  const { signInWithGoogle } = useAuth();
 
   const handlePress = async () => {
-    // Apple Sign In is only available on iOS and web in production
-    if (Platform.OS !== 'ios' && Platform.OS !== 'web') {
-      console.log('Apple Sign-In is only available on iOS and web');
-      onError(new Error('Apple Sign-In is only available on iOS and web'));
-      return;
-    }
+    console.log(`🟠 GoogleAuthButton: ${mode} button pressed`);
     setLoading(true);
     try {
-      // TODO: Implement Apple OAuth
-      console.log(`Apple ${mode} initiated`);
+      console.log(`🟠 GoogleAuthButton: ${mode} initiated`);
       
-      // Placeholder - will implement actual OAuth later
-      setTimeout(() => {
-        setLoading(false);
-        // onSuccess(user);
-      }, 1000);
+      // Call the OAuth flow from AuthContext
+      await signInWithGoogle();
+      
+      console.log('🟠 GoogleAuthButton: OAuth successful, calling onSuccess...');
+      setLoading(false);
+      onSuccess();
+      console.log('🟠 GoogleAuthButton: onSuccess callback completed');
     } catch (error) {
+      console.error('🔴 GoogleAuthButton: Error:', error);
       setLoading(false);
       onError(error as Error);
     }
@@ -45,10 +44,10 @@ export default function AppleAuthButton({ onSuccess, onError, mode }: AppleAuthB
       ) : (
         <View style={styles.content}>
           <Image 
-            source={require('@/assets/images/apple-icon.png')}
+            source={require('@/assets/images/google-icon.png')}
             style={styles.icon}
           />
-          <Text style={styles.text}>Apple</Text>
+          <Text style={styles.text}>Google</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -57,7 +56,6 @@ export default function AppleAuthButton({ onSuccess, onError, mode }: AppleAuthB
 
 const styles = StyleSheet.create({
   button: {
-    flex: 1,
     backgroundColor: '#1e1e1e',
     borderWidth: 1,
     borderColor: '#333',
@@ -67,6 +65,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 50,
+    marginBottom: 20,
   },
   content: {
     flexDirection: 'row',

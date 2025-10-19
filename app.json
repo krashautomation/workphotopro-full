@@ -5,7 +5,7 @@
     "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "workphotopro",
+    "scheme": "appwrite-callback-68e9d42100365e14f358",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash-icon.png",

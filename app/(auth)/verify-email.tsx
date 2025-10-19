@@ -40,7 +40,7 @@ export default function VerifyEmail() {
       // Refresh user data in context
       await refreshUser();
       // Navigate to app
-      router.replace('/(app)/jobs');
+      router.replace('/(jobs)');
     } catch (err: any) {
       console.error('Verify OTP error:', err);
       setError(err.message || 'Invalid code. Please try again.');

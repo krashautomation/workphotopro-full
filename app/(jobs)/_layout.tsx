@@ -2,7 +2,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Redirect, Stack } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 
-export default function AppLayout() {
+export default function JobsLayout() {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
@@ -20,10 +20,19 @@ export default function AppLayout() {
   return (
     <Stack>
       <Stack.Screen
-        name="jobs"
+        name="index"
         options={{
           headerShown: true,
           title: 'Jobs',
+          headerStyle: { backgroundColor: '#1a1a1a' },
+          headerTintColor: '#fff',
+        }}
+      />
+      <Stack.Screen
+        name="new-job"
+        options={{
+          headerShown: true,
+          title: 'New Job',
           headerStyle: { backgroundColor: '#1a1a1a' },
           headerTintColor: '#fff',
         }}
@@ -37,7 +46,15 @@ export default function AppLayout() {
           headerTintColor: '#fff',
         }}
       />
+      <Stack.Screen
+        name="[job]"
+        options={{
+          headerShown: true,
+          title: 'Job Chat',
+          headerStyle: { backgroundColor: '#1a1a1a' },
+          headerTintColor: '#fff',
+        }}
+      />
     </Stack>
   );
 }
-

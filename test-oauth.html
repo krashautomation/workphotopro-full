@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OAuth Test</title>
+</head>
+<body>
+    <h1>Testing Appwrite OAuth URL</h1>
+    <p>Click the button below to test the OAuth URL:</p>
+    <button onclick="testOAuth()">Test Google OAuth</button>
+    <div id="result"></div>
+    
+    <script>
+        function testOAuth() {
+            const oauthUrl = 'https://sfo.cloud.appwrite.io/v1/account/sessions/oauth2/google?success=appwrite-callback-68e9d42100365e14f358%3A%2F%2F&project=68e9d42100365e14f358';
+            
+            document.getElementById('result').innerHTML = '<p>Opening OAuth URL...</p>';
+            
+            // Open in new tab
+            window.open(oauthUrl, '_blank');
+            
+            // Also try to fetch the URL to see what happens
+            fetch(oauthUrl)
+                .then(response => {
+                    document.getElementById('result').innerHTML += '<p>Response status: ' + response.status + '</p>';
+                    return response.text();
+                })
+                .then(text => {
+                    document.getElementById('result').innerHTML += '<p>Response preview: ' + text.substring(0, 200) + '...</p>';
+                })
+                .catch(error => {
+                    document.getElementById('result').innerHTML += '<p>Error: ' + error.message + '</p>';
+                });
+        }
+    </script>
+</body>
+</html>

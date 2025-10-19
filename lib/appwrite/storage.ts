@@ -1,5 +1,5 @@
 import { storage } from './client';
-import { ID } from 'appwrite';
+import { ID } from 'react-native-appwrite';
 
 const BUCKET_ID = process.env.EXPO_PUBLIC_APPWRITE_BUCKET_ID || '';
 

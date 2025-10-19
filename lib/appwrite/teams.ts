@@ -1,5 +1,5 @@
 import { teams } from './client';
-import { ID } from 'appwrite';
+import { ID } from 'react-native-appwrite';
 
 export const teamService = {
   /**

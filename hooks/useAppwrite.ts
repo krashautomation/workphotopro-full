@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Models } from 'appwrite';
+import { Models } from 'react-native-appwrite';
 
 /**
  * Hook for handling async operations with loading and error states

@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { authService } from '@/lib/appwrite/auth';
-import { Models } from 'appwrite';
+import { Models } from 'react-native-appwrite';
 
 type User = Models.User<Models.Preferences>;
 
@@ -11,6 +11,10 @@ type AuthContextType = {
   signUp: (email: string, password: string, name: string) => Promise<{ userId: string; email: string }>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  getUserProfilePicture: () => Promise<string | null>;
+  getGoogleUserData: () => Promise<any>;
+  updateUserProfilePicture: (pictureUrl: string) => Promise<void>;
   isAuthenticated: boolean;
 };
 
@@ -74,6 +78,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await checkAuth();
   };
 
+  const signInWithGoogle = async () => {
+    try {
+      console.log('🟢 AuthContext: Starting Google OAuth...');
+      const user = await authService.signInWithGoogle();
+      console.log('🟢 AuthContext: OAuth successful, user:', user);
+      setUser(user);
+      console.log('🟢 AuthContext: User state updated');
+    } catch (error) {
+      console.error('🔴 AuthContext: Google OAuth sign in error:', error);
+      throw error;
+    }
+  };
+
+  const getUserProfilePicture = async () => {
+    return await authService.getUserProfilePicture();
+  };
+
+  const getGoogleUserData = async () => {
+    return await authService.getGoogleUserData();
+  };
+
+  const updateUserProfilePicture = async (pictureUrl: string) => {
+    return await authService.updateUserProfilePicture(pictureUrl);
+  };
+
   const value: AuthContextType = {
     user,
     loading,
@@ -81,6 +110,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signOut,
     refreshUser,
+    signInWithGoogle,
+    getUserProfilePicture,
+    getGoogleUserData,
+    updateUserProfilePicture,
     isAuthenticated: !!user,
   };
 

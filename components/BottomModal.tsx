@@ -13,7 +13,7 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 type BottomModalProps = {
   visible: boolean;
   onClose: () => void;
-  content: React.ReactNode;
+  content: React.ReactNode; // any React element you pass in
 };
 
 export default function BottomModal({ visible, onClose, content }: BottomModalProps) {
@@ -66,4 +66,3 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
 });
-

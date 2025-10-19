@@ -4,9 +4,11 @@ A modern, multi-tenant work photo management app built with **Expo** and **Appwr
 
 ## 📋 Features
 
-- ✅ **Authentication** - Email/password sign up, sign in, forgot password
+- ✅ **Authentication** - Email OTP sign up, sign in, forgot password
 - ✅ **User Profiles** - View and manage user information
-- 🚧 **Jobs Management** - Create and organize work photo projects (coming soon)
+- ✅ **Jobs Management** - Create and organize work photo projects
+- ✅ **Real-time Chat** - Multi-user job chat with image sharing
+- ✅ **Google OAuth** - Sign in with Google integration
 - 🚧 **Multi-tenant** - Organizations, teams, and role-based permissions (coming soon)
 - 🚧 **Photo Management** - Upload, organize, and share work photos (coming soon)
 
@@ -18,6 +20,8 @@ A modern, multi-tenant work photo management app built with **Expo** and **Appwr
 - **Routing**: Expo Router
 - **State Management**: React Context API
 - **Styling**: React Native StyleSheet
+- **Real-time**: Appwrite Realtime subscriptions
+- **UI Components**: Custom components with LegendList for performance
 
 ## 📦 Prerequisites
 
@@ -113,10 +117,14 @@ WorkPhotoProV2/
 │   │   ├── sign-up.tsx
 │   │   ├── forgot-password.tsx
 │   │   └── verify-email.tsx
-│   └── (app)/                   # App screens (authenticated)
+│   └── (jobs)/                  # Jobs management screens (authenticated)
 │       ├── _layout.tsx
-│       ├── jobs.tsx             # Jobs list
-│       └── profile.tsx          # User profile
+│       ├── index.tsx            # Jobs list
+│       ├── new-job.tsx          # Create new job
+│       ├── profile.tsx          # User profile
+│       ├── [job].tsx            # Job chat screen
+│       └── settings/
+│           └── [job].tsx        # Job settings
 │
 ├── lib/                         # Appwrite SDK & services
 │   └── appwrite/
@@ -130,9 +138,11 @@ WorkPhotoProV2/
 │   └── AuthContext.tsx          # Auth state management
 │
 ├── components/                  # Reusable components
-│   └── ui/
-│       ├── Input.tsx
-│       └── BottomModal.tsx
+│   ├── Input.tsx                # Custom text input
+│   ├── BottomModal.tsx          # Animated bottom sheet
+│   ├── GoogleAuthButton.tsx     # Google OAuth button
+│   ├── IconSymbol.tsx           # Icon components
+│   └── IconSymbol.iso.tsx       # Icon ISO components
 │
 ├── hooks/                       # Custom hooks
 │   └── useAppwrite.ts
@@ -141,26 +151,49 @@ WorkPhotoProV2/
 │   └── globalStyles.ts
 │
 ├── utils/                       # Utilities
-│   └── colors.ts
+│   ├── appwrite.ts              # Appwrite configuration
+│   ├── colors.ts                # Color constants
+│   ├── types.ts                 # TypeScript types
+│   ├── test-data.ts             # Test data
+│   └── cache.ts                 # Cache utilities
 │
-└── types/                       # TypeScript types
-    └── index.ts
+└── docs/                        # Documentation
+    ├── PROJECT_ARCHITECTURE.md  # Architecture overview
+    └── DATA_MODEL_IMPLEMENTATION.md # Data models
 ```
 
 ## 🔐 Authentication Flow
 
-The app uses Appwrite's built-in authentication:
+The app uses Appwrite's authentication with Email OTP:
 
-1. **Sign Up**: Creates new user account
-2. **Sign In**: Creates email/password session
-3. **Forgot Password**: Sends recovery email with deep link
-4. **Email Verification**: Verifies email via deep link
+1. **Sign Up**: User enters email and name, receives 6-digit OTP
+2. **Sign In**: User enters email and password (traditional) or uses Google OAuth
+3. **Email Verification**: OTP verification for new accounts
+4. **Forgot Password**: Sends recovery email with deep link
+5. **Google OAuth**: Sign in with Google integration
 
 ### Deep Links Setup
 
 The app is configured to handle these deep links:
 - `workphotopro://verify-email` - Email verification
 - `workphotopro://reset-password` - Password reset
+
+## 💬 Job Chat System
+
+The app features a real-time chat system for job collaboration:
+
+### Features:
+- **Multi-user chat**: Team members can communicate within job contexts
+- **Real-time messaging**: Powered by Appwrite real-time subscriptions
+- **Image sharing**: Users can upload and share photos in chat
+- **Message management**: Users can delete their own messages
+- **Responsive UI**: Optimized for mobile with keyboard handling
+
+### Technical Implementation:
+- **Dynamic routing**: `[job].tsx` handles individual job chats
+- **Real-time updates**: Automatic message synchronization across devices
+- **Image uploads**: Integrated with Appwrite Storage for photo sharing
+- **Performance**: Uses LegendList for optimized list rendering
 
 ## 🎨 Styling
 
@@ -176,8 +209,11 @@ See `styles/globalStyles.ts` for the complete design system.
 This is a complete rewrite of WorkPhotoPro, migrating from Clerk to Appwrite:
 
 ### What Changed:
-- ❌ Removed: Clerk authentication
-- ✅ Added: Appwrite authentication
+- ❌ Removed: Clerk authentication and dependencies
+- ✅ Added: Appwrite authentication with Email OTP
+- ✅ Added: Real-time job chat system
+- ✅ Added: Image sharing in chat
+- ✅ Added: Google OAuth integration
 - ✅ Clean architecture designed for multi-tenancy
 - ✅ Built-in team/organization support
 
@@ -189,10 +225,13 @@ This is a complete rewrite of WorkPhotoPro, migrating from Clerk to Appwrite:
 ## 🚧 Next Steps
 
 ### Immediate (Week 1-2):
-- [ ] Test authentication flow thoroughly
-- [ ] Add image picker integration
-- [ ] Build job creation feature
-- [ ] Implement photo upload to Appwrite Storage
+- [x] Test authentication flow thoroughly
+- [x] Add image picker integration
+- [x] Build job creation feature
+- [x] Implement photo upload to Appwrite Storage
+- [x] Real-time job chat system
+- [ ] Fix chat refresh and display issues
+- [ ] Improve chat performance and stability
 
 ### Short-term (Week 3-4):
 - [ ] Create organizations/teams feature

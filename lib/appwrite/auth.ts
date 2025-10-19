@@ -1,5 +1,8 @@
 import { account } from './client';
-import { ID } from 'appwrite';
+import { ID, OAuthProvider } from 'react-native-appwrite';
+import { Linking, Platform } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
 
 export const authService = {
   /**
@@ -164,6 +167,253 @@ export const authService = {
       return await account.updatePassword(newPassword, oldPassword);
     } catch (error) {
       console.error('Update password error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Sign in with Google OAuth using proper OAuth2 flow with deep links
+   * Following the exact pattern from Appwrite React Native documentation
+   */
+  async signInWithGoogle() {
+    try {
+      console.log('🔵 Starting Google OAuth flow following Appwrite docs...');
+      
+      // Create deep link that works across Expo environments
+      // Use preferLocalhost: false to get the actual IP address for physical devices
+      const deepLink = new URL(makeRedirectUri({ preferLocalhost: false }));
+      const scheme = `${deepLink.protocol}//`; // e.g. 'exp://' or 'appwrite-callback-<PROJECT_ID>://'
+      
+      console.log('🔵 Deep link created:', deepLink.toString());
+      console.log('🔵 Scheme:', scheme);
+      
+      // Start OAuth flow
+      console.log('🔵 Creating OAuth2 token...');
+      const loginUrl = await account.createOAuth2Token({
+        provider: OAuthProvider.Google,
+        success: `${deepLink}`,
+        failure: `${deepLink}`,
+        scopes: ['profile', 'email', 'openid'], // Add scopes to get profile picture
+      });
+      
+      console.log('🔵 OAuth login URL generated:', loginUrl);
+      
+      // Open loginUrl and listen for the scheme redirect
+      console.log('🔵 Opening OAuth session...');
+      const result = await WebBrowser.openAuthSessionAsync(`${loginUrl}`, scheme);
+      
+      console.log('🔵 WebBrowser result:', {
+        type: result.type,
+        url: result.url,
+        error: result.error
+      });
+      
+      if (result.type === 'success' && result.url) {
+        return await this.processOAuthResult(result.url);
+      } else if (result.type === 'cancel') {
+        console.log('🔴 OAuth flow cancelled by user');
+        throw new Error('OAuth authentication cancelled by user');
+      } else {
+        console.log('🔴 OAuth flow failed:', result.error);
+        throw new Error(`OAuth authentication failed: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('🔴 Google OAuth sign in error:', error);
+      throw error;
+    }
+  },
+
+
+  /**
+   * Process OAuth result and create session
+   * Following the exact pattern from Appwrite React Native documentation
+   */
+  async processOAuthResult(redirectUrl: string) {
+    try {
+      console.log('🔵 Processing OAuth redirect:', redirectUrl);
+      
+      // Extract credentials from OAuth redirect URL
+      const url = new URL(redirectUrl);
+      const secret = url.searchParams.get('secret');
+      const userId = url.searchParams.get('userId');
+      
+      console.log('🔵 Extracted parameters:', {
+        secret: secret ? '***' : 'null',
+        userId: userId
+      });
+      
+      // Check if we have the required credentials
+      if (!secret || !userId) {
+        console.log('🔴 Missing OAuth credentials in redirect URL');
+        throw new Error('OAuth authentication failed - missing credentials in redirect URL');
+      }
+      
+      // Create session with OAuth credentials
+      console.log('🔵 Creating session with OAuth credentials...');
+      await account.createSession({
+        userId,
+        secret
+      });
+      
+      console.log('🔵 Session created successfully');
+      
+      // Get the current user to verify authentication
+      console.log('🔵 Getting current user...');
+      const user = await this.getCurrentUser();
+      
+      if (!user) {
+        throw new Error('Failed to get user after OAuth session creation');
+      }
+      
+      console.log('🔵 Google OAuth sign in successful!', user);
+      console.log('🔵 User prefs:', user.prefs);
+      console.log('🔵 User prefs picture:', user.prefs?.picture);
+      console.log('🔵 User prefs keys:', user.prefs ? Object.keys(user.prefs) : 'No prefs');
+      
+      // Store Google profile picture and additional data if available
+      if (user.prefs) {
+        try {
+          await this.storeGoogleUserData(user.$id, user.prefs);
+        } catch (error) {
+          console.warn('Failed to store Google user data:', error);
+          // Don't throw here as it's not critical for sign-in
+        }
+      } else {
+        console.warn('🔴 No user preferences found - Google data may not be available');
+        // Try to get Google profile data directly
+        try {
+          await this.fetchGoogleProfileData(user.$id);
+        } catch (error) {
+          console.warn('Failed to fetch Google profile data directly:', error);
+        }
+      }
+      
+      return user;
+    } catch (error) {
+      console.error('🔴 Error processing OAuth result:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get OAuth session information
+   */
+  async getOAuthSession(sessionId: string = 'current') {
+    try {
+      const session = await account.getSession(sessionId);
+      return session;
+    } catch (error) {
+      console.error('Get OAuth session error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Refresh OAuth session
+   */
+  async refreshOAuthSession(sessionId: string = 'current') {
+    try {
+      const session = await account.updateOAuth2Session(sessionId);
+      return session;
+    } catch (error) {
+      console.error('Refresh OAuth session error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Store Google user data including profile picture and other info
+   */
+  async storeGoogleUserData(userId: string, googleData: any) {
+    try {
+      console.log('🔵 Storing Google user data:', googleData);
+      
+      // Extract and clean Google user data
+      const userData: any = {};
+      
+      // Store profile picture if available
+      if (googleData.picture) {
+        userData.profilePicture = googleData.picture;
+      }
+      
+      // Store additional Google data
+      if (googleData.name) userData.googleName = googleData.name;
+      if (googleData.email) userData.googleEmail = googleData.email;
+      if (googleData.given_name) userData.firstName = googleData.given_name;
+      if (googleData.family_name) userData.lastName = googleData.family_name;
+      if (googleData.locale) userData.locale = googleData.locale;
+      
+      // Add timestamp for when data was last updated
+      userData.googleDataUpdated = new Date().toISOString();
+      
+      // Update user preferences with Google data
+      await account.updatePrefs(userData);
+      console.log('🔵 Google user data stored successfully:', userData);
+    } catch (error) {
+      console.error('Store Google user data error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get user profile picture from preferences
+   */
+  async getUserProfilePicture(): Promise<string | null> {
+    try {
+      const user = await this.getCurrentUser();
+      return user?.prefs?.profilePicture || null;
+    } catch (error) {
+      console.error('Get profile picture error:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Get all Google user data from preferences
+   */
+  async getGoogleUserData(): Promise<any> {
+    try {
+      const user = await this.getCurrentUser();
+      return user?.prefs || null;
+    } catch (error) {
+      console.error('Get Google user data error:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Update user profile picture manually
+   */
+  async updateUserProfilePicture(pictureUrl: string) {
+    try {
+      await account.updatePrefs({
+        profilePicture: pictureUrl,
+        profilePictureUpdated: new Date().toISOString(),
+      });
+      console.log('Profile picture updated successfully');
+    } catch (error) {
+      console.error('Update profile picture error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Fetch Google profile data directly from Google API
+   */
+  async fetchGoogleProfileData(userId: string) {
+    try {
+      console.log('🔵 Attempting to fetch Google profile data directly...');
+      
+      // Get the OAuth session to access the access token
+      const session = await this.getOAuthSession();
+      console.log('🔵 OAuth session:', session);
+      
+      // Note: This is a fallback approach - Appwrite should provide the data automatically
+      // If this is needed, we would need to implement Google API calls with the access token
+      console.log('🔵 Direct Google API fetch not implemented - relying on Appwrite OAuth data');
+      
+    } catch (error) {
+      console.error('Error fetching Google profile data:', error);
       throw error;
     }
   },
