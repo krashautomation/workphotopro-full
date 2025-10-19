@@ -15,7 +15,7 @@ import * as React from 'react'
 import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { Query } from 'react-native-appwrite'
 import ImageViewing from 'react-native-image-viewing'
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 
 export default function Job() {
@@ -452,17 +452,11 @@ const getMessages = async () => {
 
     return (
         <>
-            <Stack.Screen 
-                options={{
-                    headerTitle: jobChat?.title
-                }} 
-            />
-            <SafeAreaView style={{ flex: 1 }} edges={[]}>
-                <KeyboardAvoidingView
-                    style={{ flex: 1 }}
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : insets.bottom}
-                >
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
+            >
                 <LegendList 
                     ref={listRef}
                     data={messages}
@@ -569,7 +563,7 @@ const getMessages = async () => {
                     estimatedItemSize={120}
                 />
 
-                <View style={{ marginHorizontal: 10, marginBottom: insets.bottom + 8 }}>
+                <View style={{ marginHorizontal: 10, marginBottom: Platform.OS === 'ios' ? 34 : insets.bottom + 16 }}>
                     {/* Image Preview */}
                     {selectedImage && (
                         <View style={{
@@ -673,7 +667,6 @@ const getMessages = async () => {
                     </View>
                 </View>
                 </KeyboardAvoidingView>
-            </SafeAreaView>
 
             {/* Delete Message Modal */}
             <BottomModal
@@ -745,7 +738,7 @@ const getMessages = async () => {
                 HeaderComponent={() => (
                     <View style={{
                         position: 'absolute',
-                        top: insets.top + 10,
+                        top: Platform.OS === 'ios' ? 50 : 10,
                         right: 20,
                         zIndex: 1,
                     }}>
