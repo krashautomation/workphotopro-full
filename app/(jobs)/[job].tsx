@@ -452,6 +452,13 @@ const getMessages = async () => {
 
     return (
         <>
+            <Stack.Screen 
+                options={{
+                    headerTitle: jobChat?.title || 'Job Chat',
+                    headerStyle: { backgroundColor: '#1a1a1a' },
+                    headerTintColor: '#fff',
+                }} 
+            />
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}

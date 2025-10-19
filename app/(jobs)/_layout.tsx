@@ -50,7 +50,6 @@ export default function JobsLayout() {
         name="[job]"
         options={{
           headerShown: true,
-          title: 'Job Chat',
           headerStyle: { backgroundColor: '#1a1a1a' },
           headerTintColor: '#fff',
         }}
