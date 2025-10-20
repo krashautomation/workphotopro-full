@@ -19,6 +19,7 @@ const handleCreateRoom = async () => {
       ID.unique(), {
       title: jobName,
       description: jobDescription,
+      status: 'current', // Default status for new jobs
     });
     router.back();
   } catch (error) {

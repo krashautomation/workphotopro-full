@@ -168,6 +168,34 @@ export default function Job() {
             console.error('🔍 getJobChat: Error fetching job chat:', e);
         }
     };
+
+    // Function to update jobChat status locally and in database
+    const updateJobStatus = async (status: 'current' | 'complete') => {
+        try {
+            console.log('🔍 updateJobStatus: Updating job status to:', status);
+            
+            // Update the database
+            await db.updateDocument(
+                appwriteConfig.db,
+                appwriteConfig.col.jobchat,
+                jobId as string,
+                { status }
+            );
+            
+            // Update local state to reflect the change immediately
+            setJobChat(prevJobChat => {
+                if (prevJobChat) {
+                    return { ...prevJobChat, status };
+                }
+                return prevJobChat;
+            });
+            
+            console.log('🔍 updateJobStatus: Status updated successfully');
+        } catch (error) {
+            console.error('🔍 updateJobStatus: Error updating job status:', error);
+            throw error; // Re-throw to let the calling component handle the error
+        }
+    };
         
 
 const getMessages = async () => {
@@ -740,6 +768,7 @@ const getMessages = async () => {
                         jobId={jobId as string}
                         jobChat={jobChat}
                         onJobDeleted={handleJobDeleted}
+                        onStatusUpdate={updateJobStatus}
                     />
                 )}
             </View>

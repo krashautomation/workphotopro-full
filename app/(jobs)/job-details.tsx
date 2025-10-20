@@ -10,12 +10,21 @@ interface JobDetailsProps {
     jobId: string
     jobChat: JobChat | null
     onJobDeleted: () => void
+    onStatusUpdate: (status: 'current' | 'complete') => Promise<void>
 }
 
-export default function JobDetails({ jobId, jobChat, onJobDeleted }: JobDetailsProps) {
-    const [isCurrent, setIsCurrent] = React.useState(jobChat?.status === 'current' || false)
+export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdate }: JobDetailsProps) {
+    const [isCurrent, setIsCurrent] = React.useState(jobChat?.status === 'current' || jobChat?.status === undefined || false)
     const [isComplete, setIsComplete] = React.useState(jobChat?.status === 'complete' || false)
     const [isDeleting, setIsDeleting] = React.useState(false)
+
+    // Update state when jobChat prop changes (e.g., when switching tabs)
+    React.useEffect(() => {
+        if (jobChat) {
+            setIsCurrent(jobChat.status === 'current' || jobChat.status === undefined)
+            setIsComplete(jobChat.status === 'complete' || false)
+        }
+    }, [jobChat])
 
     const handleStatusChange = async (status: 'current' | 'complete', checked: boolean) => {
         try {
@@ -28,15 +37,8 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted }: JobDetailsP
                 setIsCurrent(!checked)
             }
 
-            // Update the job status in the database
-            await db.updateDocument(
-                appwriteConfig.db,
-                appwriteConfig.col.jobchat,
-                jobId,
-                {
-                    status: checked ? status : 'current',
-                }
-            )
+            // Use the parent's update function to maintain consistency across tabs
+            await onStatusUpdate(checked ? status : 'current')
         } catch (error) {
             console.error('Error updating job status:', error)
             Alert.alert('Error', 'Failed to update job status. Please try again.')
