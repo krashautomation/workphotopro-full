@@ -10,18 +10,20 @@ import { useAuth } from '@/context/AuthContext'
 import { LegendList } from '@legendapp/list'
 import { useHeaderHeight } from '@react-navigation/elements'
 import * as ImagePicker from 'expo-image-picker'
-import { Stack, useLocalSearchParams, useFocusEffect } from 'expo-router'
+import { Stack, useLocalSearchParams, useFocusEffect, useRouter } from 'expo-router'
 import * as React from 'react'
 import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { Query } from 'react-native-appwrite'
 import ImageViewing from 'react-native-image-viewing'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import JobDetails from './job-details'
 
 
 export default function Job() {
     const { job: jobId } = useLocalSearchParams()
     const { user, getUserProfilePicture } = useAuth();
     const insets = useSafeAreaInsets();
+    const router = useRouter();
 
     console.log('🔍 Job Component: Component mounted/rendered');
     console.log('🔍 Job Component: jobId from params:', jobId);
@@ -40,6 +42,7 @@ export default function Job() {
 
     const [messageContent, setMessageContent] = React.useState('');
     const [jobChat, setJobChat] = React.useState<JobChat | null>(null);
+    const [activeTab, setActiveTab] = React.useState<'chat' | 'details'>('chat');
 
     const [messages, setMessages] = React.useState<Message[]>([]);
     const [isLoading, setIsLoading] = React.useState(false);
@@ -429,6 +432,13 @@ const getMessages = async () => {
         }
     };
 
+    const handleJobDeleted = () => {
+        console.log('🔍 Job Component: Job deleted, navigating back to jobs list');
+        // Navigate back to the jobs list when job is deleted
+        // The jobs list will auto-refresh when it comes into focus
+        router.back();
+    };
+
     if(isLoading) {
         return (
             <View style={globalStyles.centeredContainer}>
@@ -459,221 +469,280 @@ const getMessages = async () => {
                     headerTintColor: '#fff',
                 }} 
             />
-            <KeyboardAvoidingView
-                style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
-            >
-                <LegendList 
-                    ref={listRef}
-                    data={messages}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={isRefreshing}
-                            onRefresh={handleRefresh}
-                            colors={[Colors.Primary]}
-                            tintColor={Colors.Primary}
-                            title="Pull to refresh messages"
-                            titleColor={Colors.Text}
-                        />
-                    }
-                    renderItem={({ item }: { item: Message }) => {
-                        console.log('🔍 LegendList renderItem: Rendering message:', { id: item.$id, content: item.content, senderId: item.senderId });
-                        const isSender = item.senderId === user?.$id;
-                        const isPressed = pressedMessageId === item.$id;
-                        return (
-                            <View style={{ 
-                                padding: 10,
-                                borderRadius: 10,
-                                flexDirection: 'row',
-                                justifyContent: isSender ? 'flex-end' : 'flex-start',
-                            }}>
-                                {!isSender && (
-                                <Avatar 
-                                    name={item.senderName || 'Unknown User'}
-                                    imageUrl={item.senderPhoto}
-                                    size={30}
-                                    style={{ marginRight: 10 }}
+            <View style={{ flex: 1 }}>
+                {/* Tab Header */}
+                <View style={{
+                    flexDirection: 'row',
+                    backgroundColor: Colors.Secondary,
+                    borderBottomWidth: 1,
+                    borderBottomColor: Colors.Gray,
+                }}>
+                    {/* Chat Tab */}
+                    <Pressable
+                        style={{
+                            flex: 1,
+                            paddingVertical: 16,
+                            alignItems: 'center',
+                            borderBottomWidth: 3,
+                            borderBottomColor: activeTab === 'chat' ? Colors.Success : 'transparent',
+                        }}
+                        onPress={() => setActiveTab('chat')}
+                    >
+                        <Text style={{
+                            color: activeTab === 'chat' ? Colors.Success : Colors.Gray,
+                            fontSize: 16,
+                            fontWeight: activeTab === 'chat' ? '600' : '400',
+                        }}>
+                            Chat
+                        </Text>
+                    </Pressable>
+
+                    {/* Details Tab */}
+                    <Pressable
+                        style={{
+                            flex: 1,
+                            paddingVertical: 16,
+                            alignItems: 'center',
+                            borderBottomWidth: 3,
+                            borderBottomColor: activeTab === 'details' ? Colors.Success : 'transparent',
+                        }}
+                        onPress={() => setActiveTab('details')}
+                    >
+                        <Text style={{
+                            color: activeTab === 'details' ? Colors.Success : Colors.Gray,
+                            fontSize: 16,
+                            fontWeight: activeTab === 'details' ? '600' : '400',
+                        }}>
+                            Details
+                        </Text>
+                    </Pressable>
+                </View>
+
+                {/* Tab Content */}
+                {activeTab === 'chat' ? (
+                    <KeyboardAvoidingView
+                        style={{ flex: 1 }}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+                        keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
+                    >
+                        <LegendList 
+                            ref={listRef}
+                            data={messages}
+                            refreshControl={
+                                <RefreshControl
+                                    refreshing={isRefreshing}
+                                    onRefresh={handleRefresh}
+                                    colors={[Colors.Primary]}
+                                    tintColor={Colors.Primary}
+                                    title="Pull to refresh messages"
+                                    titleColor={Colors.Text}
                                 />
-                                )}
-                                <Pressable
-                                    onLongPress={() => handleLongPress(item)}
-                                    delayLongPress={500}
-                                    style={{ 
-                                        backgroundColor: isSender ? Colors.Purple : Colors.Secondary,
+                            }
+                            renderItem={({ item }: { item: Message }) => {
+                                console.log('🔍 LegendList renderItem: Rendering message:', { id: item.$id, content: item.content, senderId: item.senderId });
+                                const isSender = item.senderId === user?.$id;
+                                const isPressed = pressedMessageId === item.$id;
+                                return (
+                                    <View style={{ 
                                         padding: 10,
                                         borderRadius: 10,
-                                        minWidth: '70%',
-                                        maxWidth: '70%',
-                                        opacity: isPressed ? 0.7 : 1,
-                                        borderWidth: isPressed ? 2 : 0,
-                                        borderColor: isPressed ? Colors.Primary : 'transparent',
+                                        flexDirection: 'row',
+                                        justifyContent: isSender ? 'flex-end' : 'flex-start',
+                                    }}>
+                                        {!isSender && (
+                                        <Avatar 
+                                            name={item.senderName || 'Unknown User'}
+                                            imageUrl={item.senderPhoto}
+                                            size={30}
+                                            style={{ marginRight: 10 }}
+                                        />
+                                        )}
+                                        <Pressable
+                                            onLongPress={() => handleLongPress(item)}
+                                            delayLongPress={500}
+                                            style={{ 
+                                                backgroundColor: isSender ? Colors.Purple : Colors.Secondary,
+                                                padding: 10,
+                                                borderRadius: 10,
+                                                minWidth: '70%',
+                                                maxWidth: '70%',
+                                                opacity: isPressed ? 0.7 : 1,
+                                                borderWidth: isPressed ? 2 : 0,
+                                                borderColor: isPressed ? Colors.Primary : 'transparent',
+                                            }}
+                                        >
+                                            <Text style={{ color: Colors.Text, fontWeight: 'bold', marginBottom: 5 }}>{item.senderName}</Text>
+                                            
+                                            {item.imageUrl && item.content !== 'Message deleted by user' && (
+                                                <TouchableOpacity 
+                                                    onPress={() => {
+                                                        setFullScreenImage(item.imageUrl || null);
+                                                        setIsImageViewVisible(true);
+                                                    }}
+                                                    activeOpacity={0.9}
+                                                >
+                                                    <Image 
+                                                        source={{ uri: item.imageUrl }} 
+                                                        style={{ 
+                                                            width: '100%', 
+                                                            height: 200, 
+                                                            borderRadius: 8,
+                                                            marginBottom: 8
+                                                        }}
+                                                        resizeMode="cover"
+                                                    />
+                                                </TouchableOpacity>
+                                            )}
+                                            
+                                            {item.content && (
+                                                <Text style={{ 
+                                                    color: Colors.Text,
+                                                    fontStyle: item.content === 'Message deleted by user' ? 'italic' : 'normal',
+                                                    opacity: item.content === 'Message deleted by user' ? 0.6 : 1,
+                                                }}>
+                                                    {item.content}
+                                                </Text>
+                                            )}
+
+                                            <Text
+                                            style={{
+                                                fontSize: 10,
+                                                textAlign: "right",
+                                                color: Colors.White,
+                                            }}
+                                            >
+                                            {new Date(item.$createdAt!).toLocaleTimeString([], {
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                            })}
+                                            </Text>
+                                        </Pressable>
+                                    </View>
+                                );
+                            }}
+                            keyExtractor={(item) => item?.$id ?? "unknown"}
+                            contentContainerStyle={{ 
+                                padding: 10,
+                                paddingBottom: 20
+                            }}
+                            recycleItems={false}
+                            maintainScrollAtEnd
+                            maintainScrollAtEndThreshold={0.1}
+                            estimatedItemSize={120}
+                        />
+
+                        <View style={{ marginHorizontal: 10, marginBottom: Platform.OS === 'ios' ? 34 : insets.bottom + 16 }}>
+                            {/* Image Preview */}
+                            {selectedImage && (
+                                <View style={{
+                                    position: 'relative',
+                                    marginBottom: 8,
+                                    borderRadius: 8,
+                                    overflow: 'hidden',
+                                }}>
+                                    <Image 
+                                        source={{ uri: selectedImage }}
+                                        style={{
+                                            width: '100%',
+                                            height: 200,
+                                            borderRadius: 8,
+                                        }}
+                                        resizeMode="cover"
+                                    />
+                                    <Pressable
+                                        onPress={() => setSelectedImage(null)}
+                                        style={{
+                                            position: 'absolute',
+                                            top: 8,
+                                            right: 8,
+                                            backgroundColor: 'rgba(0,0,0,0.6)',
+                                            borderRadius: 16,
+                                            width: 32,
+                                            height: 32,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                        }}
+                                    >
+                                        <IconSymbol name="xmark" color={Colors.White} size={20} />
+                                    </Pressable>
+                                </View>
+                            )}
+
+                            {/* Input Area */}
+                            <View
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 8,
+                                paddingVertical: 2,
+                                paddingHorizontal: 10,
+                                borderWidth: 1,
+                                borderColor: Colors.Gray,
+                                borderRadius: 8,
+                            }}>
+                                {/* Image Picker Button */}
+                                <Pressable 
+                                    onPress={pickImage}
+                                    disabled={isUploading}
+                                    style={{
+                                        width: 32,
+                                        height: 32,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
                                     }}
                                 >
-                                    <Text style={{ color: Colors.Text, fontWeight: 'bold', marginBottom: 5 }}>{item.senderName}</Text>
-                                    
-                                    {item.imageUrl && item.content !== 'Message deleted by user' && (
-                                        <TouchableOpacity 
-                                            onPress={() => {
-                                                setFullScreenImage(item.imageUrl || null);
-                                                setIsImageViewVisible(true);
-                                            }}
-                                            activeOpacity={0.9}
-                                        >
-                                            <Image 
-                                                source={{ uri: item.imageUrl }} 
-                                                style={{ 
-                                                    width: '100%', 
-                                                    height: 200, 
-                                                    borderRadius: 8,
-                                                    marginBottom: 8
-                                                }}
-                                                resizeMode="cover"
-                                            />
-                                        </TouchableOpacity>
-                                    )}
-                                    
-                                    {item.content && (
-                                        <Text style={{ 
-                                            color: Colors.Text,
-                                            fontStyle: item.content === 'Message deleted by user' ? 'italic' : 'normal',
-                                            opacity: item.content === 'Message deleted by user' ? 0.6 : 1,
-                                        }}>
-                                            {item.content}
-                                        </Text>
-                                    )}
+                                    <IconSymbol 
+                                        name="photo" 
+                                        color={isUploading ? Colors.Gray : Colors.Primary}
+                                        size={24}
+                                    />
+                                </Pressable>
 
-                                    <Text
+                                <TextInput 
+                                placeholder="Type your message..."
+                                onChangeText={setMessageContent}
+                                value={messageContent}
+                                editable={!isUploading}
+                                style={{minHeight: 40, color: Colors.Text, flexGrow: 1,
+                                    paddingVertical: 2, paddingHorizontal: 3, flexShrink: 1,
+                                }}
+                                placeholderTextColor={Colors.Gray}
+                                onSubmitEditing={sendMessage}
+                                blurOnSubmit={false}
+                                returnKeyType="send"
+                                />    
+                            
+                                {/* Send Button */}
+                                <Pressable 
+                                    disabled={messageContent === '' && !selectedImage || isUploading} 
                                     style={{
-                                        fontSize: 10,
-                                        textAlign: "right",
-                                        color: Colors.White,
+                                        width: 32,
+                                        height: 32,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
                                     }}
-                                    >
-                                    {new Date(item.$createdAt!).toLocaleTimeString([], {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                    })}
-                                    </Text>
+                                    onPress={sendMessage}
+                                >
+                                    {isUploading ? (
+                                        <ActivityIndicator size="small" color={Colors.Primary} />
+                                    ) : (
+                                        <IconSymbol 
+                                        name="paperplane" 
+                                        color={(messageContent || selectedImage) ? Colors.Primary : Colors.Gray}
+                                        />
+                                    )}
                                 </Pressable>
                             </View>
-                        );
-                    }}
-                    keyExtractor={(item) => item?.$id ?? "unknown"}
-                    contentContainerStyle={{ 
-                        padding: 10,
-                        paddingBottom: 20
-                    }}
-                    recycleItems={false}
-                    maintainScrollAtEnd
-                    maintainScrollAtEndThreshold={0.1}
-                    estimatedItemSize={120}
-                />
-
-                <View style={{ marginHorizontal: 10, marginBottom: Platform.OS === 'ios' ? 34 : insets.bottom + 16 }}>
-                    {/* Image Preview */}
-                    {selectedImage && (
-                        <View style={{
-                            position: 'relative',
-                            marginBottom: 8,
-                            borderRadius: 8,
-                            overflow: 'hidden',
-                        }}>
-                            <Image 
-                                source={{ uri: selectedImage }}
-                                style={{
-                                    width: '100%',
-                                    height: 200,
-                                    borderRadius: 8,
-                                }}
-                                resizeMode="cover"
-                            />
-                            <Pressable
-                                onPress={() => setSelectedImage(null)}
-                                style={{
-                                    position: 'absolute',
-                                    top: 8,
-                                    right: 8,
-                                    backgroundColor: 'rgba(0,0,0,0.6)',
-                                    borderRadius: 16,
-                                    width: 32,
-                                    height: 32,
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                }}
-                            >
-                                <IconSymbol name="xmark" color={Colors.White} size={20} />
-                            </Pressable>
                         </View>
-                    )}
-
-                    {/* Input Area */}
-                    <View
-                    style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 8,
-                        paddingVertical: 2,
-                        paddingHorizontal: 10,
-                        borderWidth: 1,
-                        borderColor: Colors.Gray,
-                        borderRadius: 8,
-                    }}>
-                        {/* Image Picker Button */}
-                        <Pressable 
-                            onPress={pickImage}
-                            disabled={isUploading}
-                            style={{
-                                width: 32,
-                                height: 32,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            <IconSymbol 
-                                name="photo" 
-                                color={isUploading ? Colors.Gray : Colors.Primary}
-                                size={24}
-                            />
-                        </Pressable>
-
-                        <TextInput 
-                        placeholder="Type your message..."
-                        onChangeText={setMessageContent}
-                        value={messageContent}
-                        editable={!isUploading}
-                        style={{minHeight: 40, color: Colors.Text, flexGrow: 1,
-                            paddingVertical: 2, paddingHorizontal: 3, flexShrink: 1,
-                        }}
-                        placeholderTextColor={Colors.Gray}
-                        onSubmitEditing={sendMessage}
-                        blurOnSubmit={false}
-                        returnKeyType="send"
-                        />    
-                    
-                        {/* Send Button */}
-                        <Pressable 
-                            disabled={messageContent === '' && !selectedImage || isUploading} 
-                            style={{
-                                width: 32,
-                                height: 32,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                            onPress={sendMessage}
-                        >
-                            {isUploading ? (
-                                <ActivityIndicator size="small" color={Colors.Primary} />
-                            ) : (
-                                <IconSymbol 
-                                name="paperplane" 
-                                color={(messageContent || selectedImage) ? Colors.Primary : Colors.Gray}
-                                />
-                            )}
-                        </Pressable>
-                    </View>
-                </View>
-                </KeyboardAvoidingView>
+                    </KeyboardAvoidingView>
+                ) : (
+                    <JobDetails 
+                        jobId={jobId as string}
+                        jobChat={jobChat}
+                        onJobDeleted={handleJobDeleted}
+                    />
+                )}
+            </View>
 
             {/* Delete Message Modal */}
             <BottomModal

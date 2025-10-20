@@ -89,8 +89,27 @@ export const jobChatService = {
   },
 
   async listJobChats() {
-    // No filtering for now - get all job chats
-    return databaseService.listDocuments(this.COLLECTION_ID, [Query.limit(100)]);
+    // Get all jobs and filter out soft-deleted ones in the application
+    // This approach handles both cases: jobs without deletedAt field and jobs with deletedAt = null
+    const response = await databaseService.listDocuments(this.COLLECTION_ID, [
+      Query.limit(100),
+      Query.orderDesc('$createdAt') // Order by creation date to get latest jobs first
+    ]);
+    
+    console.log('🔍 Database Service: Raw jobs response:', response.documents.length, 'jobs');
+    
+    // Filter out soft-deleted jobs in the application
+    const activeJobs = response.documents.filter((job: any) => 
+      !job.deletedAt || job.deletedAt === null
+    );
+    
+    console.log('🔍 Database Service: Active jobs after filtering:', activeJobs.length, 'jobs');
+    
+    return {
+      ...response,
+      documents: activeJobs,
+      total: activeJobs.length
+    };
   },
 
   async updateJobChat(jobChatId: string, data: any) {
@@ -99,6 +118,31 @@ export const jobChatService = {
 
   async deleteJobChat(jobChatId: string) {
     return databaseService.deleteDocument(this.COLLECTION_ID, jobChatId);
+  },
+
+  async restoreJobChat(jobChatId: string) {
+    // Restore a soft-deleted job by removing the deletedAt field
+    return databaseService.updateDocument(this.COLLECTION_ID, jobChatId, {
+      deletedAt: null,
+    });
+  },
+
+  async listDeletedJobChats() {
+    // Get all jobs and filter for soft-deleted ones in the application
+    const response = await databaseService.listDocuments(this.COLLECTION_ID, [
+      Query.limit(100)
+    ]);
+    
+    // Filter for soft-deleted jobs only
+    const deletedJobs = response.documents.filter((job: any) => 
+      job.deletedAt && job.deletedAt !== null
+    );
+    
+    return {
+      ...response,
+      documents: deletedJobs,
+      total: deletedJobs.length
+    };
   },
 };
 

@@ -2,13 +2,13 @@ import { useAuth } from '@/context/AuthContext';
 import { globalStyles, colors } from '@/styles/globalStyles';
 import { jobChatService } from '@/lib/appwrite/database';
 import { JobChat } from '@/utils/types';
-import { Link, useRouter } from 'expo-router';
+import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Avatar from '@/components/Avatar';
 
 export default function Jobs() {
-  const { user, isAuthenticated, signOut, getUserProfilePicture } = useAuth();
+  const { user, isAuthenticated, getUserProfilePicture } = useAuth();
   const router = useRouter();
   
   // State for job chat management
@@ -45,6 +45,13 @@ export default function Jobs() {
       await Promise.all([
         loadUserProfilePicture(),
         jobChatService.listJobChats().then(response => {
+          console.log('🔍 Jobs Index: Fetched jobs response:', response);
+          console.log('🔍 Jobs Index: Number of jobs:', response.documents.length);
+          console.log('🔍 Jobs Index: Jobs data:', response.documents.map(job => ({ 
+            id: job.$id, 
+            title: job.title, 
+            deletedAt: job.deletedAt 
+          })));
           setJobChats(response.documents as unknown as JobChat[]);
         })
       ]);
@@ -78,6 +85,16 @@ export default function Jobs() {
       setLoading(false);
     }
   }, [isAuthenticated, user]);
+
+  // Auto-refresh jobs when screen comes into focus (e.g., returning from job detail)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🔍 Jobs Index: Screen focused, refreshing jobs list');
+      if (isAuthenticated && user) {
+        fetchJobs();
+      }
+    }, [isAuthenticated, user])
+  );
 
   // Show loading state
   if (loading) {
@@ -120,19 +137,6 @@ export default function Jobs() {
             onPress={() => router.push('/(jobs)/new-job')}
           >
             <Text style={styles.newJobButtonText}>+</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.signOutButton}
-            onPress={async () => {
-              try {
-                await signOut();
-                router.replace('/(auth)/sign-in');
-              } catch (error) {
-                console.error('Sign out error:', error);
-              }
-            }}
-          >
-            <Text style={styles.signOutButtonText}>🚪</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.profileButton}
@@ -250,18 +254,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  signOutButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.error,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  signOutButtonText: {
-    fontSize: 16,
-    color: colors.text,
   },
   profileButton: {
     width: 36,
