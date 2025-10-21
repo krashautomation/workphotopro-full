@@ -16,6 +16,8 @@ export interface JobChat {
   description: string;
   isPrivate: boolean | null;
   status?: 'current' | 'complete'; // Job status
+  createdBy?: string; // Creator's user ID
+  createdByName?: string; // Creator's display name
   deletedAt?: string; // Soft delete timestamp (ISO string)
   $sequence: number;
   $createdAt: string;

@@ -395,7 +395,7 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <Avatar 
-                            name={jobChat?.createdBy || 'Unknown User'}
+                            name={jobChat?.createdByName || 'Unknown User'}
                             size={40}
                         />
                         <Text style={{
@@ -403,7 +403,7 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                             fontSize: 16,
                             marginLeft: 12,
                         }}>
-                            {jobChat?.createdBy || 'Unknown User'}
+                            {jobChat?.createdByName || 'Unknown User'}
                         </Text>
                     </View>
                     <View style={{

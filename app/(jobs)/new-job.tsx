@@ -1,4 +1,5 @@
 import Input from '@/components/Input';
+import { useAuth } from '@/context/AuthContext';
 import { appwriteConfig, db, ID } from '@/utils/appwrite';
 import { Colors } from '@/utils/colors';
 import { Image } from 'expo-image';
@@ -7,10 +8,10 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function NewJob() {
-
-const [jobName, setJobName] = useState('');
-const [jobDescription, setJobDescription] = useState('');
-const [isLoading, setIsLoading ] = useState(false);
+  const { user } = useAuth();
+  const [jobName, setJobName] = useState('');
+  const [jobDescription, setJobDescription] = useState('');
+  const [isLoading, setIsLoading ] = useState(false);
 
 const handleCreateRoom = async () => {
   try {
@@ -20,6 +21,8 @@ const handleCreateRoom = async () => {
       title: jobName,
       description: jobDescription,
       status: 'current', // Default status for new jobs
+      createdBy: user?.$id || 'unknown',
+      createdByName: user?.name || 'Unknown User',
     });
     router.back();
   } catch (error) {
