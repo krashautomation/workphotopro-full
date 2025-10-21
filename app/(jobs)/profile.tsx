@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Alert, Switch } from 'react-native';
 import { Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import UserProfile from '@/components/UserProfile';
@@ -11,6 +11,12 @@ export default function ProfileScreen() {
   const { user, getGoogleUserData, signOut } = useAuth();
   const [googleData, setGoogleData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Settings state
+  const [imageTimestamps, setImageTimestamps] = useState(true);
+  const [storeImagesLocally, setStoreImagesLocally] = useState(false);
+  const [fullHDImages, setFullHDImages] = useState(true);
+  const [notifications, setNotifications] = useState(true);
 
   useEffect(() => {
     loadGoogleData();
@@ -104,6 +110,13 @@ export default function ProfileScreen() {
             </Text>
           </View>
           
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Joined</Text>
+            <Text style={styles.infoValue}>
+              {user?.$createdAt ? new Date(user.$createdAt).toLocaleDateString() : 'Not available'}
+            </Text>
+          </View>
+          
           {googleData?.firstName && (
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>First Name</Text>
@@ -135,31 +148,117 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Profile Picture Info */}
-        <View style={styles.infoSection}>
-          <Text style={styles.sectionTitle}>Profile Picture</Text>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Source</Text>
-            <Text style={styles.infoValue}>
-              {googleData?.profilePicture ? 'Google Account' : 'Uploaded Photo'}
-            </Text>
+
+        {/* Settings Section */}
+        <View style={styles.settingsSection}>
+          <Text style={styles.sectionTitle}>Settings</Text>
+          
+          <View style={styles.settingsCard}>
+            <Pressable style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <IconSymbol name="clock.badge.checkmark" color="#22C55E" size={20} />
+                <Text style={styles.settingText}>Image timestamps</Text>
+              </View>
+              <Switch
+                value={imageTimestamps}
+                onValueChange={setImageTimestamps}
+                trackColor={{ false: Colors.Gray, true: "#22C55E" }}
+                thumbColor={Colors.White}
+              />
+            </Pressable>
+            
+            <Pressable style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <IconSymbol name="internaldrive" color="#22C55E" size={20} />
+                <Text style={styles.settingText}>Store images locally</Text>
+              </View>
+              <Switch
+                value={storeImagesLocally}
+                onValueChange={setStoreImagesLocally}
+                trackColor={{ false: Colors.Gray, true: "#22C55E" }}
+                thumbColor={Colors.White}
+              />
+            </Pressable>
+            
+            <Pressable style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <IconSymbol name="4k.tv" color="#22C55E" size={20} />
+                <Text style={styles.settingText}>Full HD images</Text>
+              </View>
+              <Switch
+                value={fullHDImages}
+                onValueChange={setFullHDImages}
+                trackColor={{ false: Colors.Gray, true: "#22C55E" }}
+                thumbColor={Colors.White}
+              />
+            </Pressable>
+            
+            <Pressable style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <IconSymbol name="archivebox.fill" color="#22C55E" size={20} />
+                <Text style={styles.settingText}>Archived work groups</Text>
+              </View>
+              <IconSymbol name="chevron.right" color={Colors.Gray} size={16} />
+            </Pressable>
+            
+            <Pressable style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <IconSymbol name="folder.badge.plus" color="#22C55E" size={20} />
+                <Text style={styles.settingText}>Local images</Text>
+              </View>
+              <IconSymbol name="chevron.right" color={Colors.Gray} size={16} />
+            </Pressable>
+            
+            <Pressable style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <IconSymbol name="bell" color="#22C55E" size={20} />
+                <Text style={styles.settingText}>Notifications</Text>
+              </View>
+              <Switch
+                value={notifications}
+                onValueChange={setNotifications}
+                trackColor={{ false: Colors.Gray, true: "#22C55E" }}
+                thumbColor={Colors.White}
+              />
+            </Pressable>
           </View>
-          {googleData?.profilePicture && (
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Google URL</Text>
-              <Text style={styles.infoValue} numberOfLines={2}>
-                {googleData.profilePicture}
-              </Text>
+        </View>
+
+        {/* Additional Settings Section */}
+        <View style={styles.additionalSettingsSection}>
+          <View style={styles.settingsCard}>
+            <Pressable style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <IconSymbol name="envelope.badge" color="#22C55E" size={20} />
+                <Text style={styles.settingText}>Contact us</Text>
+              </View>
+              <IconSymbol name="chevron.right" color={Colors.Gray} size={16} />
+            </Pressable>
+            
+            <Pressable style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <IconSymbol name="shield.checkered" color="#22C55E" size={20} />
+                <Text style={styles.settingText}>Privacy policy</Text>
+              </View>
+              <IconSymbol name="chevron.right" color={Colors.Gray} size={16} />
+            </Pressable>
+            
+            <Pressable style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <IconSymbol name="doc.text.magnifyingglass" color="#22C55E" size={20} />
+                <Text style={styles.settingText}>Terms & conditions</Text>
+              </View>
+              <IconSymbol name="chevron.right" color={Colors.Gray} size={16} />
+            </Pressable>
+            
+            <View style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <IconSymbol name="app.badge" color="#22C55E" size={20} />
+                <Text style={styles.settingText}>App version</Text>
+              </View>
+              <Text style={styles.versionText}>0.1.22.165</Text>
             </View>
-          )}
-          {googleData?.profilePictureUrl && googleData.profilePictureUrl !== googleData?.profilePicture && (
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Uploaded URL</Text>
-              <Text style={styles.infoValue} numberOfLines={2}>
-                {googleData.profilePictureUrl}
-              </Text>
-            </View>
-          )}
+          </View>
         </View>
 
         {/* Actions Section */}
@@ -237,6 +336,40 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: 16,
     color: Colors.Text,
+  },
+  settingsSection: {
+    marginBottom: 20,
+  },
+  additionalSettingsSection: {
+    marginBottom: 20,
+  },
+  settingsCard: {
+    backgroundColor: Colors.Secondary,
+    borderRadius: 12,
+    padding: 16,
+  },
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.Gray + '20',
+  },
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  settingText: {
+    fontSize: 16,
+    color: Colors.Text,
+    marginLeft: 12,
+  },
+  versionText: {
+    fontSize: 14,
+    color: Colors.Gray,
+    fontWeight: '500',
   },
   actionsSection: {
     marginTop: 20,

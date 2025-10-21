@@ -1,6 +1,7 @@
 import React from 'react'
 import { View, Text, Pressable, Alert, ActivityIndicator } from 'react-native'
 import { IconSymbol } from '@/components/IconSymbol'
+import Avatar from '@/components/Avatar'
 import { globalStyles } from '@/styles/globalStyles'
 import { Colors } from '@/utils/colors'
 import { appwriteConfig, db, ID } from '@/utils/appwrite'
@@ -17,6 +18,11 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
     const [isCurrent, setIsCurrent] = React.useState(jobChat?.status === 'current' || jobChat?.status === undefined || false)
     const [isComplete, setIsComplete] = React.useState(jobChat?.status === 'complete' || false)
     const [isDeleting, setIsDeleting] = React.useState(false)
+    
+    // Tags state
+    const [yellowTag, setYellowTag] = React.useState(false)
+    const [blueTag, setBlueTag] = React.useState(false)
+    const [redTag, setRedTag] = React.useState(false)
 
     // Update state when jobChat prop changes (e.g., when switching tabs)
     React.useEffect(() => {
@@ -219,6 +225,200 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                         Complete
                     </Text>
                 </Pressable>
+            </View>
+
+            {/* Tags Section */}
+            <View style={{ marginBottom: 40 }}>
+                <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 20
+                }}>
+                    <Text style={{
+                        fontSize: 18,
+                        fontWeight: '600',
+                        color: Colors.Text,
+                    }}>
+                        Tags
+                    </Text>
+                    <IconSymbol name="pencil" color="#007AFF" size={20} />
+                </View>
+
+                {/* Yellow Tag */}
+                <Pressable
+                    style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingVertical: 12,
+                        paddingHorizontal: 16,
+                        backgroundColor: Colors.Secondary,
+                        borderRadius: 12,
+                        marginBottom: 12,
+                    }}
+                    onPress={() => setYellowTag(!yellowTag)}
+                >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <IconSymbol name="circle" color="#FFD700" size={16} />
+                        <Text style={{
+                            color: Colors.Text,
+                            fontSize: 16,
+                            marginLeft: 12,
+                        }}>
+                            Yellow
+                        </Text>
+                    </View>
+                    <View style={{
+                        width: 24,
+                        height: 24,
+                        borderWidth: 2,
+                        borderColor: yellowTag ? Colors.Primary : Colors.Gray,
+                        borderRadius: 4,
+                        backgroundColor: yellowTag ? Colors.Primary : 'transparent',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}>
+                        {yellowTag && (
+                            <IconSymbol name="checkmark" color={Colors.White} size={16} />
+                        )}
+                    </View>
+                </Pressable>
+
+                {/* Blue Tag */}
+                <Pressable
+                    style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingVertical: 12,
+                        paddingHorizontal: 16,
+                        backgroundColor: Colors.Secondary,
+                        borderRadius: 12,
+                        marginBottom: 12,
+                    }}
+                    onPress={() => setBlueTag(!blueTag)}
+                >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <IconSymbol name="circle" color="#007AFF" size={16} />
+                        <Text style={{
+                            color: Colors.Text,
+                            fontSize: 16,
+                            marginLeft: 12,
+                        }}>
+                            Blue
+                        </Text>
+                    </View>
+                    <View style={{
+                        width: 24,
+                        height: 24,
+                        borderWidth: 2,
+                        borderColor: blueTag ? Colors.Primary : Colors.Gray,
+                        borderRadius: 4,
+                        backgroundColor: blueTag ? Colors.Primary : 'transparent',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}>
+                        {blueTag && (
+                            <IconSymbol name="checkmark" color={Colors.White} size={16} />
+                        )}
+                    </View>
+                </Pressable>
+
+                {/* Red Tag */}
+                <Pressable
+                    style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingVertical: 12,
+                        paddingHorizontal: 16,
+                        backgroundColor: Colors.Secondary,
+                        borderRadius: 12,
+                    }}
+                    onPress={() => setRedTag(!redTag)}
+                >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <IconSymbol name="circle" color="#FF3B30" size={16} />
+                        <Text style={{
+                            color: Colors.Text,
+                            fontSize: 16,
+                            marginLeft: 12,
+                        }}>
+                            Red
+                        </Text>
+                    </View>
+                    <View style={{
+                        width: 24,
+                        height: 24,
+                        borderWidth: 2,
+                        borderColor: redTag ? Colors.Primary : Colors.Gray,
+                        borderRadius: 4,
+                        backgroundColor: redTag ? Colors.Primary : 'transparent',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}>
+                        {redTag && (
+                            <IconSymbol name="checkmark" color={Colors.White} size={16} />
+                        )}
+                    </View>
+                </Pressable>
+            </View>
+
+            {/* Team Members Section */}
+            <View style={{ marginBottom: 40 }}>
+                <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 20
+                }}>
+                    <Text style={{
+                        fontSize: 18,
+                        fontWeight: '600',
+                        color: Colors.Text,
+                    }}>
+                        Team Members
+                    </Text>
+                    <IconSymbol name="pencil" color="#007AFF" size={20} />
+                </View>
+
+                {/* Job Creator */}
+                <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    backgroundColor: Colors.Secondary,
+                    borderRadius: 12,
+                }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Avatar 
+                            name={jobChat?.createdBy || 'Unknown User'}
+                            size={40}
+                        />
+                        <Text style={{
+                            color: Colors.Text,
+                            fontSize: 16,
+                            marginLeft: 12,
+                        }}>
+                            {jobChat?.createdBy || 'Unknown User'}
+                        </Text>
+                    </View>
+                    <View style={{
+                        width: 24,
+                        height: 24,
+                        borderWidth: 2,
+                        borderColor: Colors.Primary,
+                        borderRadius: 4,
+                        backgroundColor: Colors.Primary,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}>
+                        <IconSymbol name="checkmark" color={Colors.White} size={16} />
+                    </View>
+                </View>
             </View>
 
             {/* Delete Job Section */}

@@ -23,6 +23,23 @@ const MAPPING = {
   paperplane: "send",
   photo: "image",
   xmark: "close",
+  // Settings icons
+  "clock.badge.checkmark": "schedule",
+  "internaldrive": "storage",
+  "4k.tv": "hd",
+  "archivebox.fill": "archive",
+  "folder.badge.plus": "folder-open",
+  "envelope.badge": "mail",
+  "shield.checkered": "security",
+  "doc.text.magnifyingglass": "description",
+  "app.badge": "apps",
+  "bell": "notifications",
+  "circle": "fiber-manual-record",
+  "checkmark": "check",
+  "trash": "delete",
+  // Additional common icons
+  "arrow.right.square": "logout",
+  "pencil": "edit",
 } as Partial<
   Record<
     import("expo-symbols").SymbolViewProps["name"],
