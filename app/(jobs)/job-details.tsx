@@ -5,7 +5,9 @@ import Avatar from '@/components/Avatar'
 import { globalStyles } from '@/styles/globalStyles'
 import { Colors } from '@/utils/colors'
 import { appwriteConfig, db, ID } from '@/utils/appwrite'
-import { JobChat } from '@/utils/types'
+import { JobChat, TagTemplate, JobTagAssignment } from '@/utils/types'
+import { tagService } from '@/lib/appwrite/database'
+import { useAuth } from '@/context/AuthContext'
 
 interface JobDetailsProps {
     jobId: string
@@ -15,14 +17,22 @@ interface JobDetailsProps {
 }
 
 export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdate }: JobDetailsProps) {
+    const { user } = useAuth()
     const [isCurrent, setIsCurrent] = React.useState(jobChat?.status === 'current' || jobChat?.status === undefined || false)
     const [isComplete, setIsComplete] = React.useState(jobChat?.status === 'complete' || false)
     const [isDeleting, setIsDeleting] = React.useState(false)
     
     // Tags state
-    const [yellowTag, setYellowTag] = React.useState(false)
-    const [blueTag, setBlueTag] = React.useState(false)
-    const [redTag, setRedTag] = React.useState(false)
+    const [tagTemplates, setTagTemplates] = React.useState<TagTemplate[]>([])
+    const [assignedTags, setAssignedTags] = React.useState<JobTagAssignment[]>([])
+    const [isLoadingTags, setIsLoadingTags] = React.useState(true)
+
+    // Load tags when component mounts or jobId changes
+    React.useEffect(() => {
+        if (jobId) {
+            loadTags()
+        }
+    }, [jobId, loadTags])
 
     // Update state when jobChat prop changes (e.g., when switching tabs)
     React.useEffect(() => {
@@ -31,6 +41,97 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
             setIsComplete(jobChat.status === 'complete' || false)
         }
     }, [jobChat])
+
+    const loadTags = React.useCallback(async () => {
+        console.log('🔍 JobDetails: Starting to load tags for jobId:', jobId)
+        try {
+            setIsLoadingTags(true)
+            
+            // Load available tag templates
+            console.log('🔍 JobDetails: Loading tag templates...')
+            const templatesResponse = await tagService.getActiveTagTemplates()
+            console.log('🔍 JobDetails: Loaded', templatesResponse.documents.length, 'tag templates')
+            setTagTemplates(templatesResponse.documents)
+            
+            // Try to load assigned tags for this job (collection might not exist yet)
+            try {
+                console.log('🔍 JobDetails: Loading job tag assignments...')
+                const assignmentsResponse = await tagService.getJobTagAssignments(jobId)
+                console.log('🔍 JobDetails: Loaded', assignmentsResponse.documents.length, 'tag assignments')
+                setAssignedTags(assignmentsResponse.documents)
+            } catch (assignmentError) {
+                console.log('🔍 JobDetails: Job tag assignments collection not found, using empty assignments')
+                setAssignedTags([])
+            }
+            
+            console.log('🔍 JobDetails: Tags loaded successfully')
+        } catch (error) {
+            console.error('🔍 JobDetails: Error loading tags:', error)
+            // Don't show alert for missing collections, just log it
+            if (!error.message?.includes('Collection with the requested ID could not be found')) {
+                Alert.alert('Error', 'Failed to load tags. Please try again.')
+            }
+        } finally {
+            console.log('🔍 JobDetails: Setting isLoadingTags to false')
+            setIsLoadingTags(false)
+        }
+    }, [jobId])
+
+    const isTagAssigned = (tagTemplateId: string) => {
+        return assignedTags.some(assignment => assignment.tagTemplateId === tagTemplateId)
+    }
+
+    const handleTagToggle = async (tagTemplateId: string) => {
+        if (!user?.$id) {
+            Alert.alert('Error', 'User not authenticated')
+            return
+        }
+
+        console.log('🔍 JobDetails: Toggling tag for jobId:', jobId, 'tagTemplateId:', tagTemplateId)
+        console.log('🔍 JobDetails: jobId type:', typeof jobId, 'value:', jobId)
+
+        try {
+            const isAssigned = isTagAssigned(tagTemplateId)
+            console.log('🔍 JobDetails: Tag is currently assigned:', isAssigned)
+            
+            if (isAssigned) {
+                // Remove tag assignment
+                console.log('🔍 JobDetails: Removing tag assignment...')
+                await tagService.removeTagFromJob(jobId, tagTemplateId)
+                setAssignedTags(prev => prev.filter(assignment => assignment.tagTemplateId !== tagTemplateId))
+                console.log('🔍 JobDetails: Tag assignment removed successfully')
+            } else {
+                // Add tag assignment
+                console.log('🔍 JobDetails: Adding tag assignment...')
+                await tagService.assignTagToJob(jobId, tagTemplateId, user.$id)
+                const newAssignment = {
+                    $id: '', // Will be set by the server
+                    jobId,
+                    tagTemplateId,
+                    assignedBy: user.$id,
+                    assignedAt: new Date().toISOString(),
+                    isActive: true,
+                } as JobTagAssignment
+                setAssignedTags(prev => [...prev, newAssignment])
+                console.log('🔍 JobDetails: Tag assignment added successfully')
+            }
+        } catch (error) {
+            console.error('🔍 JobDetails: Error toggling tag:', error)
+            if (error.message?.includes('Collection with the requested ID could not be found')) {
+                Alert.alert(
+                    'Tag Assignment Not Available', 
+                    'Tag assignments are not set up yet. Please create the job_tag_assignments collection in Appwrite to enable this feature.'
+                )
+            } else if (error.message?.includes('Invalid query')) {
+                Alert.alert(
+                    'Query Error', 
+                    `There's an issue with the job ID format. Job ID: "${jobId}" (type: ${typeof jobId}). Please check the collection configuration.`
+                )
+            } else {
+                Alert.alert('Error', `Failed to update tag: ${error.message}`)
+            }
+        }
+    }
 
     const handleStatusChange = async (status: 'current' | 'complete', checked: boolean) => {
         try {
@@ -245,124 +346,94 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                     <IconSymbol name="pencil" color="#007AFF" size={20} />
                 </View>
 
-                {/* Yellow Tag */}
-                <Pressable
-                    style={{
+                {isLoadingTags ? (
+                    <View style={{
                         flexDirection: 'row',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
-                        paddingVertical: 12,
-                        paddingHorizontal: 16,
-                        backgroundColor: Colors.Secondary,
-                        borderRadius: 12,
-                        marginBottom: 12,
-                    }}
-                    onPress={() => setYellowTag(!yellowTag)}
-                >
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <IconSymbol name="circle" color="#FFD700" size={16} />
+                        justifyContent: 'center',
+                        paddingVertical: 20,
+                    }}>
+                        <ActivityIndicator size="small" color={Colors.Primary} />
                         <Text style={{
-                            color: Colors.Text,
-                            fontSize: 16,
-                            marginLeft: 12,
+                            color: Colors.Gray,
+                            fontSize: 14,
+                            marginLeft: 8,
                         }}>
-                            Yellow
+                            Loading tags...
                         </Text>
                     </View>
+                ) : tagTemplates.length === 0 ? (
                     <View style={{
-                        width: 24,
-                        height: 24,
-                        borderWidth: 2,
-                        borderColor: yellowTag ? Colors.Primary : Colors.Gray,
-                        borderRadius: 4,
-                        backgroundColor: yellowTag ? Colors.Primary : 'transparent',
+                        paddingVertical: 20,
                         alignItems: 'center',
-                        justifyContent: 'center',
                     }}>
-                        {yellowTag && (
-                            <IconSymbol name="checkmark" color={Colors.White} size={16} />
-                        )}
-                    </View>
-                </Pressable>
-
-                {/* Blue Tag */}
-                <Pressable
-                    style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        paddingVertical: 12,
-                        paddingHorizontal: 16,
-                        backgroundColor: Colors.Secondary,
-                        borderRadius: 12,
-                        marginBottom: 12,
-                    }}
-                    onPress={() => setBlueTag(!blueTag)}
-                >
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <IconSymbol name="circle" color="#007AFF" size={16} />
                         <Text style={{
-                            color: Colors.Text,
-                            fontSize: 16,
-                            marginLeft: 12,
+                            color: Colors.Gray,
+                            fontSize: 14,
+                            textAlign: 'center',
                         }}>
-                            Blue
+                            No tags available. Contact your administrator to set up tags.
                         </Text>
                     </View>
-                    <View style={{
-                        width: 24,
-                        height: 24,
-                        borderWidth: 2,
-                        borderColor: blueTag ? Colors.Primary : Colors.Gray,
-                        borderRadius: 4,
-                        backgroundColor: blueTag ? Colors.Primary : 'transparent',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                    }}>
-                        {blueTag && (
-                            <IconSymbol name="checkmark" color={Colors.White} size={16} />
-                        )}
-                    </View>
-                </Pressable>
-
-                {/* Red Tag */}
-                <Pressable
-                    style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        paddingVertical: 12,
-                        paddingHorizontal: 16,
-                        backgroundColor: Colors.Secondary,
-                        borderRadius: 12,
-                    }}
-                    onPress={() => setRedTag(!redTag)}
-                >
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <IconSymbol name="circle" color="#FF3B30" size={16} />
-                        <Text style={{
-                            color: Colors.Text,
-                            fontSize: 16,
-                            marginLeft: 12,
-                        }}>
-                            Red
-                        </Text>
-                    </View>
-                    <View style={{
-                        width: 24,
-                        height: 24,
-                        borderWidth: 2,
-                        borderColor: redTag ? Colors.Primary : Colors.Gray,
-                        borderRadius: 4,
-                        backgroundColor: redTag ? Colors.Primary : 'transparent',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                    }}>
-                        {redTag && (
-                            <IconSymbol name="checkmark" color={Colors.White} size={16} />
-                        )}
-                    </View>
-                </Pressable>
+                ) : (
+                    tagTemplates.map((tag, index) => {
+                        const isAssigned = isTagAssigned(tag.$id)
+                        return (
+                            <Pressable
+                                key={tag.$id}
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    paddingVertical: 12,
+                                    paddingHorizontal: 16,
+                                    backgroundColor: Colors.Secondary,
+                                    borderRadius: 12,
+                                    marginBottom: index < tagTemplates.length - 1 ? 12 : 0,
+                                }}
+                                onPress={() => handleTagToggle(tag.$id)}
+                            >
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <IconSymbol 
+                                        name={tag.icon || "circle"} 
+                                        color={tag.color} 
+                                        size={16} 
+                                    />
+                                    <Text style={{
+                                        color: Colors.Text,
+                                        fontSize: 16,
+                                        marginLeft: 12,
+                                    }}>
+                                        {tag.name}
+                                    </Text>
+                                    {tag.description && (
+                                        <Text style={{
+                                            color: Colors.Gray,
+                                            fontSize: 12,
+                                            marginLeft: 8,
+                                        }}>
+                                            ({tag.description})
+                                        </Text>
+                                    )}
+                                </View>
+                                <View style={{
+                                    width: 24,
+                                    height: 24,
+                                    borderWidth: 2,
+                                    borderColor: isAssigned ? Colors.Primary : Colors.Gray,
+                                    borderRadius: 4,
+                                    backgroundColor: isAssigned ? Colors.Primary : 'transparent',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}>
+                                    {isAssigned && (
+                                        <IconSymbol name="checkmark" color={Colors.White} size={16} />
+                                    )}
+                                </View>
+                            </Pressable>
+                        )
+                    })
+                )}
             </View>
 
             {/* Team Members Section */}

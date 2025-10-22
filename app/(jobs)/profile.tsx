@@ -6,6 +6,7 @@ import UserProfile from '@/components/UserProfile';
 import { useAuth } from '@/context/AuthContext';
 import { Colors } from '@/utils/colors';
 import { IconSymbol } from '@/components/IconSymbol';
+import TagTestComponent from '@/components/TagTestComponent';
 
 export default function ProfileScreen() {
   const { user, getGoogleUserData, signOut } = useAuth();
@@ -17,6 +18,9 @@ export default function ProfileScreen() {
   const [storeImagesLocally, setStoreImagesLocally] = useState(false);
   const [fullHDImages, setFullHDImages] = useState(true);
   const [notifications, setNotifications] = useState(true);
+  
+  // Test component state
+  const [showTagTest, setShowTagTest] = useState(false);
 
   useEffect(() => {
     loadGoogleData();
@@ -69,6 +73,29 @@ export default function ProfileScreen() {
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (showTagTest) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen options={{ title: 'Tag Database Test' }} />
+        <TagTestComponent />
+        <Pressable
+          style={{
+            position: 'absolute',
+            top: 50,
+            right: 20,
+            backgroundColor: Colors.Error,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderRadius: 6,
+          }}
+          onPress={() => setShowTagTest(false)}
+        >
+          <Text style={{ color: Colors.White, fontWeight: '600' }}>Close Test</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -258,6 +285,17 @@ export default function ProfileScreen() {
               </View>
               <Text style={styles.versionText}>0.1.22.165</Text>
             </View>
+            
+            <Pressable 
+              style={styles.settingItem}
+              onPress={() => setShowTagTest(true)}
+            >
+              <View style={styles.settingLeft}>
+                <IconSymbol name="tag" color="#22C55E" size={20} />
+                <Text style={styles.settingText}>Test Tag Database</Text>
+              </View>
+              <IconSymbol name="chevron.right" color={Colors.Gray} size={16} />
+            </Pressable>
           </View>
         </View>
 

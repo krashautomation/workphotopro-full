@@ -1,18 +1,19 @@
 import { useAuth } from '@/context/AuthContext';
 import { globalStyles, colors } from '@/styles/globalStyles';
-import { jobChatService } from '@/lib/appwrite/database';
-import { JobChat } from '@/utils/types';
+import { jobChatService, tagService } from '@/lib/appwrite/database';
+import { JobChat, JobChatWithTags } from '@/utils/types';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { useEffect, useState, useCallback } from 'react';
 import Avatar from '@/components/Avatar';
+import { IconSymbol } from '@/components/IconSymbol';
 
 export default function Jobs() {
   const { user, isAuthenticated, getUserProfilePicture } = useAuth();
   const router = useRouter();
   
   // State for job chat management
-  const [jobChats, setJobChats] = useState<JobChat[]>([]);
+  const [jobChats, setJobChats] = useState<JobChatWithTags[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +32,27 @@ export default function Jobs() {
   };
 
   /**
+   * Load tags for a specific job
+   */
+  const loadJobTags = async (jobId: string, allTagTemplates: any[]) => {
+    try {
+      const assignments = await tagService.getJobTagAssignments(jobId);
+      const tagTemplateIds = assignments.documents.map((assignment: any) => assignment.tagTemplateId);
+      
+      if (tagTemplateIds.length > 0) {
+        const assignedTemplates = allTagTemplates.filter((template: any) => 
+          tagTemplateIds.includes(template.$id)
+        );
+        return assignedTemplates;
+      }
+      return [];
+    } catch (error) {
+      console.log('Error loading tags for job:', jobId, error);
+      return [];
+    }
+  };
+
+  /**
    * Fetch job chats from Appwrite database
    */
   const fetchJobs = async () => {
@@ -41,18 +63,29 @@ export default function Jobs() {
         throw new Error('User not authenticated');
       }
 
-      // Load user profile picture and fetch job chats in parallel
+      // Load user profile picture, fetch job chats, and load tag templates in parallel
       await Promise.all([
         loadUserProfilePicture(),
-        jobChatService.listJobChats().then(response => {
+        jobChatService.listJobChats().then(async response => {
           console.log('🔍 Jobs Index: Fetched jobs response:', response);
           console.log('🔍 Jobs Index: Number of jobs:', response.documents.length);
-          console.log('🔍 Jobs Index: Jobs data:', response.documents.map(job => ({ 
-            id: job.$id, 
-            title: job.title, 
-            deletedAt: job.deletedAt 
-          })));
-          setJobChats(response.documents as unknown as JobChat[]);
+          
+          // Load all tag templates once
+          const tagTemplatesResponse = await tagService.getActiveTagTemplates();
+          const allTagTemplates = tagTemplatesResponse.documents;
+          
+          // Load tags for each job
+          const jobsWithTags = await Promise.all(
+            response.documents.map(async (job: any) => {
+              const tags = await loadJobTags(job.$id, allTagTemplates);
+              return {
+                ...job,
+                assignedTags: tags,
+              } as JobChatWithTags;
+            })
+          );
+          
+          setJobChats(jobsWithTags);
         })
       ]);
     } catch (error) {
@@ -193,6 +226,21 @@ export default function Jobs() {
                   <Text style={styles.jobDescription}>{item.description}</Text>
                 )}
                 <View style={styles.jobMeta}>
+                  <View style={styles.tagsContainer}>
+                    {item.assignedTags && item.assignedTags.length > 0 ? (
+                      item.assignedTags.map((tag: any, index: number) => (
+                        <IconSymbol
+                          key={tag.$id || index}
+                          name={tag.icon || "circle"}
+                          color={tag.color}
+                          size={16}
+                          style={styles.tagIcon}
+                        />
+                      ))
+                    ) : (
+                      <View style={styles.noTagsPlaceholder} />
+                    )}
+                  </View>
                   <Text style={styles.jobDate}>
                     {new Date(item.$createdAt).toLocaleDateString()}
                   </Text>
@@ -329,6 +377,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  tagIcon: {
+    marginRight: 2,
+  },
+  noTagsPlaceholder: {
+    width: 16,
+    height: 16,
   },
   jobDate: {
     fontSize: 12,

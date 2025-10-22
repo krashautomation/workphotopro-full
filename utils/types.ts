@@ -47,6 +47,37 @@ export interface Message {
   imageFileId?: string; // Optional Appwrite file ID for deletion
 }
 
+// Tag system types
+export interface TagTemplate {
+  $id: string;
+  name: string;
+  color: string; // Hex color code
+  icon?: string; // Icon name
+  description?: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdBy: string; // User ID who created this template
+  $createdAt: string;
+  $updatedAt: string;
+}
+
+export interface JobTagAssignment {
+  $id: string;
+  jobId: string; // Reference to JobChat
+  tagTemplateId: string; // Reference to TagTemplate
+  assignedBy: string; // User ID who assigned the tag
+  assignedAt: string;
+  isActive: boolean;
+  $createdAt: string;
+  $updatedAt: string;
+}
+
+// Extended JobChat with tags
+export interface JobChatWithTags extends JobChat {
+  assignedTags?: JobTagAssignment[];
+  tagTemplates?: TagTemplate[];
+}
+
 // Common API response types
 export interface ApiResponse<T> {
   data: T;
@@ -58,4 +89,4 @@ export interface PaginatedResponse<T> {
   total: number;
 }
 
-export type { JobChat, Message, User };
+export type { JobChat, Message, User, TagTemplate, JobTagAssignment, JobChatWithTags };

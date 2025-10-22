@@ -1,5 +1,6 @@
 import { databases } from './client';
 import { ID, Query } from 'react-native-appwrite';
+import { TagTemplate, JobTagAssignment, JobChatWithTags } from '@/utils/types';
 
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID || '';
 
@@ -174,5 +175,261 @@ export const messageService = {
 
   async deleteMessage(messageId: string) {
     return databaseService.deleteDocument(this.COLLECTION_ID, messageId);
+  },
+};
+
+// Tag management services
+export const tagService = {
+  /**
+   * Get all active tag templates
+   */
+  async getActiveTagTemplates() {
+    try {
+      return await databases.listDocuments(
+        DATABASE_ID,
+        'tag_templates',
+        [
+          Query.equal('isActive', true),
+          Query.orderAsc('sortOrder')
+        ]
+      );
+    } catch (error) {
+      console.error('Get active tag templates error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create a new tag template
+   */
+  async createTagTemplate(data: Omit<TagTemplate, '$id' | '$createdAt' | '$updatedAt'>) {
+    try {
+      return await databases.createDocument(
+        DATABASE_ID,
+        'tag_templates',
+        ID.unique(),
+        data
+      );
+    } catch (error) {
+      console.error('Create tag template error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update a tag template
+   */
+  async updateTagTemplate(templateId: string, data: Partial<TagTemplate>) {
+    try {
+      return await databases.updateDocument(
+        DATABASE_ID,
+        'tag_templates',
+        templateId,
+        data
+      );
+    } catch (error) {
+      console.error('Update tag template error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete a tag template (soft delete by setting isActive to false)
+   */
+  async deleteTagTemplate(templateId: string) {
+    try {
+      return await databases.updateDocument(
+        DATABASE_ID,
+        'tag_templates',
+        templateId,
+        {
+          isActive: false,
+        }
+      );
+    } catch (error) {
+      console.error('Delete tag template error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get tag assignments for a specific job
+   */
+  async getJobTagAssignments(jobId: string) {
+    try {
+      console.log('🔍 TagService: Getting job tag assignments for jobId:', jobId, 'type:', typeof jobId);
+      console.log('🔍 TagService: Database ID:', DATABASE_ID);
+      console.log('🔍 TagService: Collection: job_tag_assignments');
+      
+      return await databases.listDocuments(
+        DATABASE_ID,
+        'job_tag_assignments',
+        [Query.equal('jobId', jobId)]
+      );
+    } catch (error) {
+      console.error('🔍 TagService: Get job tag assignments error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Assign a tag to a job
+   */
+  async assignTagToJob(jobId: string, tagTemplateId: string, assignedBy: string) {
+    try {
+      // Check if tag is already assigned
+      const existingAssignments = await databases.listDocuments(
+        DATABASE_ID,
+        'job_tag_assignments',
+        [
+          Query.equal('jobId', jobId),
+          Query.equal('tagTemplateId', tagTemplateId)
+        ]
+      );
+
+      if (existingAssignments.documents.length > 0) {
+        throw new Error('Tag is already assigned to this job');
+      }
+
+      return await databases.createDocument(
+        DATABASE_ID,
+        'job_tag_assignments',
+        ID.unique(),
+        {
+          jobId,
+          tagTemplateId,
+          assignedBy,
+          assignedAt: new Date().toISOString(),
+          isActive: true,
+        }
+      );
+    } catch (error) {
+      console.error('Assign tag to job error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Remove a tag assignment from a job
+   */
+  async removeTagFromJob(jobId: string, tagTemplateId: string) {
+    try {
+      // Find the assignment
+      const assignments = await databases.listDocuments(
+        DATABASE_ID,
+        'job_tag_assignments',
+        [
+          Query.equal('jobId', jobId),
+          Query.equal('tagTemplateId', tagTemplateId)
+        ]
+      );
+
+      if (assignments.documents.length === 0) {
+        throw new Error('Tag assignment not found');
+      }
+
+      return await databases.deleteDocument(
+        DATABASE_ID,
+        'job_tag_assignments',
+        assignments.documents[0].$id
+      );
+    } catch (error) {
+      console.error('Remove tag from job error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get job with all assigned tags and their templates
+   */
+  async getJobWithTags(jobId: string): Promise<JobChatWithTags | null> {
+    try {
+      // Get the job
+      const job = await databases.getDocument(DATABASE_ID, 'jobchats', jobId);
+      
+      // Get tag assignments for this job
+      const assignments = await this.getJobTagAssignments(jobId);
+      
+      // Get tag templates for the assignments
+      const tagTemplateIds = assignments.documents.map((assignment: any) => assignment.tagTemplateId);
+      const tagTemplates = tagTemplateIds.length > 0 
+        ? await databases.listDocuments(
+            DATABASE_ID,
+            'tag_templates',
+            [Query.equal('$id', tagTemplateIds)]
+          )
+        : { documents: [] };
+
+      return {
+        ...job,
+        assignedTags: assignments.documents,
+        tagTemplates: tagTemplates.documents,
+      } as JobChatWithTags;
+    } catch (error) {
+      console.error('Get job with tags error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Initialize default tag templates (Yellow, Blue, Red)
+   */
+  async initializeDefaultTags(createdBy: string) {
+    try {
+      // First, check if default tags already exist
+      const existingTags = await this.getActiveTagTemplates();
+      const existingNames = existingTags.documents.map(tag => tag.name.toLowerCase());
+      
+      const defaultTags = [
+        {
+          name: 'Yellow',
+          color: '#FFD700',
+          icon: 'circle',
+          description: 'General tag',
+          isActive: true,
+          sortOrder: 1,
+          createdBy,
+        },
+        {
+          name: 'Blue',
+          color: '#007AFF',
+          icon: 'circle',
+          description: 'Information tag',
+          isActive: true,
+          sortOrder: 2,
+          createdBy,
+        },
+        {
+          name: 'Red',
+          color: '#FF3B30',
+          icon: 'circle',
+          description: 'Urgent tag',
+          isActive: true,
+          sortOrder: 3,
+          createdBy,
+        },
+      ];
+
+      const results = [];
+      for (const tag of defaultTags) {
+        // Only create if it doesn't already exist
+        if (!existingNames.includes(tag.name.toLowerCase())) {
+          try {
+            const result = await this.createTagTemplate(tag);
+            results.push(result);
+            console.log(`Created default tag: ${tag.name}`);
+          } catch (error) {
+            console.warn('Error creating default tag:', tag.name, error);
+          }
+        } else {
+          console.log(`Default tag already exists: ${tag.name}`);
+        }
+      }
+
+      return results;
+    } catch (error) {
+      console.error('Initialize default tags error:', error);
+      throw error;
+    }
   },
 };
