@@ -40,6 +40,9 @@ const MAPPING = {
   // Additional common icons
   "arrow.right.square": "logout",
   "pencil": "edit",
+  // Team and camera icons
+  "person.3": "group",
+  "camera": "camera-alt",
 } as Partial<
   Record<
     import("expo-symbols").SymbolViewProps["name"],

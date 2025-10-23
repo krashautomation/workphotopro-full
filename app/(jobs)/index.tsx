@@ -166,12 +166,6 @@ export default function Jobs() {
         </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity 
-            style={styles.newJobButton}
-            onPress={() => router.push('/(jobs)/new-job')}
-          >
-            <Text style={styles.newJobButtonText}>+</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
             style={styles.profileButton}
             onPress={() => router.push('/(jobs)/profile')}
           >
@@ -256,6 +250,36 @@ export default function Jobs() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
+
+      {/* Bottom Menu */}
+      <View style={styles.bottomMenu}>
+        <TouchableOpacity 
+          style={styles.menuButton}
+          onPress={() => {
+            // TODO: Navigate to team page when implemented
+            console.log('Team button pressed');
+          }}
+        >
+          <IconSymbol
+            name="person.3"
+            size={24}
+            color={colors.textSecondary}
+          />
+          <Text style={styles.menuButtonText}>Team</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.menuButton}
+          onPress={() => router.push('/(jobs)/new-job')}
+        >
+          <IconSymbol
+            name="camera"
+            size={24}
+            color={colors.primary}
+          />
+          <Text style={[styles.menuButtonText, styles.menuButtonTextActive]}>New Job</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -333,6 +357,31 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: 'bold',
   },
+  bottomMenu: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  menuButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    paddingVertical: 8,
+  },
+  menuButtonText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  menuButtonTextActive: {
+    color: colors.primary,
+  },
   errorBanner: {
     backgroundColor: colors.surface,
     padding: 12,
@@ -348,6 +397,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 20,
+    paddingBottom: 100, // Add padding to account for bottom menu
   },
   jobCard: {
     backgroundColor: colors.surface,
