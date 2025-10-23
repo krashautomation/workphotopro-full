@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert, Switch } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Alert, Switch, Linking } from 'react-native';
 import { Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import UserProfile from '@/components/UserProfile';
@@ -64,6 +64,18 @@ export default function ProfileScreen() {
       'Profile editing features coming soon!',
       [{ text: 'OK' }]
     );
+  };
+
+  const handleContactUs = () => {
+    Linking.openURL('https://workphotopro.com/contact');
+  };
+
+  const handlePrivacyPolicy = () => {
+    Linking.openURL('https://workphotopro.com/privacy');
+  };
+
+  const handleTermsConditions = () => {
+    Linking.openURL('https://workphotopro.com/terms-of-service');
   };
 
   if (loading) {
@@ -254,7 +266,7 @@ export default function ProfileScreen() {
         {/* Additional Settings Section */}
         <View style={styles.additionalSettingsSection}>
           <View style={styles.settingsCard}>
-            <Pressable style={styles.settingItem}>
+            <Pressable style={styles.settingItem} onPress={handleContactUs}>
               <View style={styles.settingLeft}>
                 <IconSymbol name="envelope.badge" color="#22C55E" size={20} />
                 <Text style={styles.settingText}>Contact us</Text>
@@ -262,7 +274,7 @@ export default function ProfileScreen() {
               <IconSymbol name="chevron.right" color={Colors.Gray} size={16} />
             </Pressable>
             
-            <Pressable style={styles.settingItem}>
+            <Pressable style={styles.settingItem} onPress={handlePrivacyPolicy}>
               <View style={styles.settingLeft}>
                 <IconSymbol name="shield.checkered" color="#22C55E" size={20} />
                 <Text style={styles.settingText}>Privacy policy</Text>
@@ -270,7 +282,7 @@ export default function ProfileScreen() {
               <IconSymbol name="chevron.right" color={Colors.Gray} size={16} />
             </Pressable>
             
-            <Pressable style={styles.settingItem}>
+            <Pressable style={styles.settingItem} onPress={handleTermsConditions}>
               <View style={styles.settingLeft}>
                 <IconSymbol name="doc.text.magnifyingglass" color="#22C55E" size={20} />
                 <Text style={styles.settingText}>Terms & conditions</Text>

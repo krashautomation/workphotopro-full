@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, Pressable, Alert, ActivityIndicator } from 'react-native'
+import { View, Text, Pressable, Alert, ActivityIndicator, ScrollView } from 'react-native'
 import { IconSymbol } from '@/components/IconSymbol'
 import Avatar from '@/components/Avatar'
 import { globalStyles } from '@/styles/globalStyles'
@@ -220,24 +220,29 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
     }
 
     return (
-        <View style={{ flex: 1, padding: 20 }}>
-            {/* Job Title */}
-            <View style={{ marginBottom: 30 }}>
-                <Text style={{
-                    fontSize: 24,
-                    fontWeight: 'bold',
-                    color: Colors.Text,
-                    marginBottom: 8
-                }}>
-                    {jobChat?.title || `Job ${jobId}`}
-                </Text>
-                <Text style={{
-                    fontSize: 16,
-                    color: Colors.Gray,
-                }}>
-                    Job ID: {jobId}
-                </Text>
-            </View>
+        <View style={{ flex: 1 }}>
+            <ScrollView 
+                style={{ flex: 1 }} 
+                contentContainerStyle={{ padding: 20 }}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* Job Title */}
+                <View style={{ marginBottom: 30 }}>
+                    <Text style={{
+                        fontSize: 24,
+                        fontWeight: 'bold',
+                        color: Colors.Text,
+                        marginBottom: 8
+                    }}>
+                        {jobChat?.title || `Job ${jobId}`}
+                    </Text>
+                    <Text style={{
+                        fontSize: 16,
+                        color: Colors.Gray,
+                    }}>
+                        Job ID: {jobId}
+                    </Text>
+                </View>
 
             {/* Job Status Section */}
             <View style={{ marginBottom: 40 }}>
@@ -492,39 +497,40 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                 </View>
             </View>
 
-            {/* Delete Job Section */}
-            <View style={{ marginTop: 'auto', paddingBottom: 20 }}>
-                <Pressable
-                    style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        paddingVertical: 16,
-                        paddingHorizontal: 20,
-                        backgroundColor: '#FF3B30',
-                        borderRadius: 12,
-                        opacity: isDeleting ? 0.7 : 1,
-                    }}
-                    onPress={handleDeleteJob}
-                    disabled={isDeleting}
-                >
-                    {isDeleting ? (
-                        <ActivityIndicator size="small" color={Colors.White} />
-                    ) : (
-                        <>
-                            <IconSymbol name="trash" color={Colors.White} size={20} />
-                            <Text style={{
-                                color: Colors.White,
-                                fontSize: 16,
-                                fontWeight: '600',
-                                marginLeft: 8,
-                            }}>
-                                Delete Job
-                            </Text>
-                        </>
-                    )}
-                </Pressable>
-            </View>
+                {/* Delete Job Section */}
+                <View style={{ marginTop: 40, paddingBottom: 20 }}>
+                    <Pressable
+                        style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            paddingVertical: 16,
+                            paddingHorizontal: 20,
+                            backgroundColor: '#FF3B30',
+                            borderRadius: 12,
+                            opacity: isDeleting ? 0.7 : 1,
+                        }}
+                        onPress={handleDeleteJob}
+                        disabled={isDeleting}
+                    >
+                        {isDeleting ? (
+                            <ActivityIndicator size="small" color={Colors.White} />
+                        ) : (
+                            <>
+                                <IconSymbol name="trash" color={Colors.White} size={20} />
+                                <Text style={{
+                                    color: Colors.White,
+                                    fontSize: 16,
+                                    fontWeight: '600',
+                                    marginLeft: 8,
+                                }}>
+                                    Delete Job
+                                </Text>
+                            </>
+                        )}
+                    </Pressable>
+                </View>
+            </ScrollView>
         </View>
     )
 }
