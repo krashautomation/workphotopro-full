@@ -54,6 +54,15 @@ export default function JobsLayout() {
           headerTintColor: '#fff',
         }}
       />
+      <Stack.Screen
+        name="team"
+        options={{
+          headerShown: true,
+          title: 'Team',
+          headerStyle: { backgroundColor: '#1a1a1a' },
+          headerTintColor: '#fff',
+        }}
+      />
     </Stack>
   );
 }

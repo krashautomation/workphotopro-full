@@ -255,10 +255,7 @@ export default function Jobs() {
       <View style={styles.bottomMenu}>
         <TouchableOpacity 
           style={styles.menuButton}
-          onPress={() => {
-            // TODO: Navigate to team page when implemented
-            console.log('Team button pressed');
-          }}
+          onPress={() => router.push('/(jobs)/team')}
         >
           <IconSymbol
             name="person.3"
