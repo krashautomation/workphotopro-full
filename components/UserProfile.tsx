@@ -207,7 +207,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   };
 
   const displayName = googleData?.googleName || googleData?.firstName || user?.name || 'User';
-  const userEmail = googleData?.googleEmail || user?.email || '';
 
   return (
     <Pressable 
@@ -243,11 +242,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({
           <Text style={styles.displayName} numberOfLines={1}>
             {displayName}
           </Text>
-          {userEmail && (
-            <Text style={styles.email} numberOfLines={1}>
-              {userEmail}
-            </Text>
-          )}
         </View>
       )}
     </Pressable>
@@ -284,12 +278,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.Text,
     textAlign: 'center',
-  },
-  email: {
-    fontSize: 12,
-    color: Colors.Gray,
-    textAlign: 'center',
-    marginTop: 2,
   },
 });
 

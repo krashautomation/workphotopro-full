@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Alert, Switch, Linking } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import UserProfile from '@/components/UserProfile';
 import { useAuth } from '@/context/AuthContext';
@@ -58,13 +58,6 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleEditProfile = () => {
-    Alert.alert(
-      'Edit Profile',
-      'Profile editing features coming soon!',
-      [{ text: 'OK' }]
-    );
-  };
 
   const handleContactUs = () => {
     Linking.openURL('https://workphotopro.com/contact');
@@ -125,15 +118,26 @@ export default function ProfileScreen() {
             showName={true}
           />
           
-          <Pressable style={styles.editProfileButton} onPress={handleEditProfile}>
-            <IconSymbol name="pencil" color={Colors.White} size={16} />
-            <Text style={styles.editProfileText}>Update Avatar</Text>
-          </Pressable>
+          {/* Joined Date */}
+          <View style={styles.joinedDateContainer}>
+            <Text style={styles.joinedDateText}>
+              Joined {user?.$createdAt ? new Date(user.$createdAt).toLocaleDateString() : 'Not available'}
+            </Text>
+          </View>
         </View>
 
         {/* User Information Section */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          <Pressable onPress={() => {
+            console.log('Edit account button pressed');
+            router.push('/edit-account');
+          }}>
+            <IconSymbol name="pencil" color="#007AFF" size={16} />
+          </Pressable>
+        </View>
+        
         <View style={styles.infoSection}>
-          <Text style={styles.sectionTitle}>Account Information</Text>
           
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Name</Text>
@@ -146,13 +150,6 @@ export default function ProfileScreen() {
             <Text style={styles.infoLabel}>Email</Text>
             <Text style={styles.infoValue}>
               {googleData?.googleEmail || user?.email || 'Not provided'}
-            </Text>
-          </View>
-          
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>Joined</Text>
-            <Text style={styles.infoValue}>
-              {user?.$createdAt ? new Date(user.$createdAt).toLocaleDateString() : 'Not available'}
             </Text>
           </View>
           
@@ -176,21 +173,14 @@ export default function ProfileScreen() {
               <Text style={styles.infoValue}>{googleData.locale}</Text>
             </View>
           )}
-          
-          {googleData?.googleDataUpdated && (
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Last Updated</Text>
-              <Text style={styles.infoValue}>
-                {new Date(googleData.googleDataUpdated).toLocaleDateString()}
-              </Text>
-            </View>
-          )}
         </View>
 
 
         {/* Settings Section */}
         <View style={styles.settingsSection}>
-          <Text style={styles.sectionTitle}>Settings</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Settings</Text>
+          </View>
           
           <View style={styles.settingsCard}>
             <Pressable style={styles.settingItem}>
@@ -345,22 +335,21 @@ const styles = StyleSheet.create({
   },
   profileSection: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
   },
-  editProfileButton: {
+  joinedDateContainer: {
+    marginTop: 8,
+  },
+  joinedDateText: {
+    fontSize: 14,
+    color: Colors.Gray,
+    textAlign: 'center',
+  },
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.Primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  editProfileText: {
-    color: Colors.White,
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   infoSection: {
     backgroundColor: Colors.Secondary,
@@ -372,7 +361,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: Colors.Text,
-    marginBottom: 16,
   },
   infoItem: {
     marginBottom: 12,
@@ -397,6 +385,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.Secondary,
     borderRadius: 12,
     padding: 16,
+    marginBottom: 20,
   },
   settingItem: {
     flexDirection: 'row',
