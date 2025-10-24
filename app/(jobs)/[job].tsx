@@ -493,6 +493,16 @@ const getMessages = async () => {
             <Stack.Screen 
                 options={{
                     headerTitle: jobChat?.title || 'Job Chat',
+                    headerRight: () => (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginRight: 16 }}>
+                            <TouchableOpacity style={{ padding: 4 }}>
+                                <IconSymbol name="location" color="#fff" size={20} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={{ padding: 4 }}>
+                                <IconSymbol name="square.and.arrow.up" color="#fff" size={20} />
+                            </TouchableOpacity>
+                        </View>
+                    ),
                     headerStyle: { backgroundColor: '#1a1a1a' },
                     headerTintColor: '#fff',
                 }} 

@@ -43,6 +43,10 @@ const MAPPING = {
   // Team and camera icons
   "person.3": "group",
   "camera": "camera-alt",
+  // Map and share icons
+  "location": "place",
+  "mappin": "place",
+  "square.and.arrow.up": "share",
 } as Partial<
   Record<
     import("expo-symbols").SymbolViewProps["name"],
