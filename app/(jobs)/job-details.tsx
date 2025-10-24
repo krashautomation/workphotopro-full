@@ -1,5 +1,6 @@
 import React from 'react'
 import { View, Text, Pressable, Alert, ActivityIndicator, ScrollView } from 'react-native'
+import { useRouter } from 'expo-router'
 import { IconSymbol } from '@/components/IconSymbol'
 import Avatar from '@/components/Avatar'
 import { globalStyles } from '@/styles/globalStyles'
@@ -18,6 +19,7 @@ interface JobDetailsProps {
 
 export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdate }: JobDetailsProps) {
     const { user } = useAuth()
+    const router = useRouter()
     const [isCurrent, setIsCurrent] = React.useState(jobChat?.status === 'current' || jobChat?.status === undefined || false)
     const [isComplete, setIsComplete] = React.useState(jobChat?.status === 'complete' || false)
     const [isDeleting, setIsDeleting] = React.useState(false)
@@ -79,6 +81,10 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
 
     const isTagAssigned = (tagTemplateId: string) => {
         return assignedTags.some(assignment => assignment.tagTemplateId === tagTemplateId)
+    }
+
+    const handleEditTags = () => {
+        router.push('/(jobs)/edit-tags')
     }
 
     const handleTagToggle = async (tagTemplateId: string) => {
@@ -228,19 +234,34 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
             >
                 {/* Job Title */}
                 <View style={{ marginBottom: 30 }}>
-                    <Text style={{
-                        fontSize: 24,
-                        fontWeight: 'bold',
-                        color: Colors.Text,
+                    <View style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
                         marginBottom: 8
                     }}>
-                        {jobChat?.title || `Job ${jobId}`}
-                    </Text>
+                        <Text style={{
+                            fontSize: 18,
+                            fontWeight: '600',
+                            color: Colors.Text,
+                        }}>
+                            Title
+                        </Text>
+                        <Pressable onPress={() => router.push({
+                            pathname: '/(jobs)/edit-job-title',
+                            params: { 
+                                jobId: jobId,
+                                currentTitle: jobChat?.title || `Job ${jobId}`
+                            }
+                        })}>
+                            <IconSymbol name="pencil" color="#007AFF" size={20} />
+                        </Pressable>
+                    </View>
                     <Text style={{
                         fontSize: 16,
                         color: Colors.Gray,
                     }}>
-                        Job ID: {jobId}
+                        {jobChat?.title || `Job ${jobId}`}
                     </Text>
                 </View>
 
@@ -348,7 +369,9 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                     }}>
                         Tags
                     </Text>
-                    <IconSymbol name="pencil" color="#007AFF" size={20} />
+                    <Pressable onPress={handleEditTags}>
+                        <IconSymbol name="pencil" color="#007AFF" size={20} />
+                    </Pressable>
                 </View>
 
                 {isLoadingTags ? (
@@ -456,7 +479,9 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                     }}>
                         Team Members
                     </Text>
-                    <IconSymbol name="pencil" color="#007AFF" size={20} />
+                    <Pressable onPress={() => router.push('/(jobs)/team')}>
+                        <IconSymbol name="pencil" color="#007AFF" size={20} />
+                    </Pressable>
                 </View>
 
                 {/* Job Creator */}
@@ -498,7 +523,7 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
             </View>
 
                 {/* Delete Job Section */}
-                <View style={{ marginTop: 40, paddingBottom: 20 }}>
+                <View style={{ marginTop: 20, paddingBottom: 20 }}>
                     <Pressable
                         style={{
                             flexDirection: 'row',

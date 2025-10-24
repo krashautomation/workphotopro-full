@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import UserProfile from '@/components/UserProfile';
 import { useAuth } from '@/context/AuthContext';
@@ -28,8 +28,14 @@ export default function TeamScreen() {
   };
 
   const handleAddMembers = () => {
-    // Placeholder for add members functionality
-    console.log('Add members pressed');
+    router.push('/invite');
+  };
+
+  const handleManageMember = (memberId: string, memberName: string) => {
+    router.push({
+      pathname: '/manage-member',
+      params: { memberId, memberName }
+    });
   };
 
   if (loading) {
@@ -60,7 +66,10 @@ export default function TeamScreen() {
         <View style={styles.membersSection}>
           <Text style={styles.sectionTitle}>Team Members</Text>
           
-          <View style={styles.memberCard}>
+          <Pressable 
+            style={styles.memberCard}
+            onPress={() => handleManageMember('current-user', displayName)}
+          >
             <View style={styles.memberInfo}>
               <UserProfile 
                 size={60} 
@@ -73,7 +82,7 @@ export default function TeamScreen() {
               </View>
             </View>
             <IconSymbol name="chevron.right" color={Colors.Gray} size={16} />
-          </View>
+          </Pressable>
         </View>
 
         {/* Add Members Button */}

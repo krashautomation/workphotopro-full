@@ -63,6 +63,24 @@ export default function JobsLayout() {
           headerTintColor: '#fff',
         }}
       />
+      <Stack.Screen
+        name="edit-tags"
+        options={{
+          headerShown: true,
+          title: 'Edit Tags',
+          headerStyle: { backgroundColor: '#1a1a1a' },
+          headerTintColor: '#fff',
+        }}
+      />
+      <Stack.Screen
+        name="edit-tag"
+        options={{
+          headerShown: true,
+          title: 'Edit Tag',
+          headerStyle: { backgroundColor: '#1a1a1a' },
+          headerTintColor: '#fff',
+        }}
+      />
     </Stack>
   );
 }
