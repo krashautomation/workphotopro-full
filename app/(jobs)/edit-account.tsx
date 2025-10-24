@@ -6,9 +6,10 @@ import { useAuth } from '@/context/AuthContext';
 import { Colors } from '@/utils/colors';
 import { IconSymbol } from '@/components/IconSymbol';
 import Input from '@/components/Input';
+import { account } from '@/lib/appwrite/client';
 
 export default function EditAccountScreen() {
-  const { user, getGoogleUserData } = useAuth();
+  const { user, getGoogleUserData, refreshUser } = useAuth();
   const [googleData, setGoogleData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,10 +46,23 @@ export default function EditAccountScreen() {
     try {
       setSaving(true);
       
-      // For now, just show a message that this feature is coming soon
+      // Update user preferences with the new name
+      await account.updatePrefs({
+        displayName: name, // User's preferred display name
+        firstName: firstName,
+        lastName: lastName,
+        nameUpdatedAt: new Date().toISOString(),
+        // Keep original Google data intact
+        googleName: googleData?.googleName,
+        googleEmail: googleData?.googleEmail,
+      });
+      
+      // Refresh user data in context
+      await refreshUser();
+      
       Alert.alert(
-        'Coming Soon',
-        'Account editing functionality will be available in a future update.',
+        'Success',
+        'Account updated successfully!',
         [
           {
             text: 'OK',
@@ -153,7 +167,7 @@ export default function EditAccountScreen() {
             <View style={styles.infoCard}>
               <IconSymbol name="info.circle" color="#007AFF" size={20} />
               <Text style={styles.infoText}>
-                Some information may be managed by your Google account and cannot be changed here.
+                You can update your display name here. Your Google account information will remain unchanged and your login will continue to work normally.
               </Text>
             </View>
           </View>

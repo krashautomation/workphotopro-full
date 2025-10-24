@@ -9,7 +9,7 @@ import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
 
 export default function Jobs() {
-  const { user, isAuthenticated, getUserProfilePicture } = useAuth();
+  const { user, isAuthenticated, getUserProfilePicture, getGoogleUserData } = useAuth();
   const router = useRouter();
   
   // State for job chat management
@@ -18,6 +18,7 @@ export default function Jobs() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userProfilePicture, setUserProfilePicture] = useState<string | null>(null);
+  const [googleData, setGoogleData] = useState<any>(null);
 
   /**
    * Load user profile picture
@@ -29,6 +30,25 @@ export default function Jobs() {
     } catch (error) {
       console.error('Error loading profile picture:', error);
     }
+  };
+
+  /**
+   * Load Google user data
+   */
+  const loadGoogleUserData = async () => {
+    try {
+      const data = await getGoogleUserData();
+      setGoogleData(data);
+    } catch (error) {
+      console.error('Error loading Google user data:', error);
+    }
+  };
+
+  /**
+   * Get display name with proper fallback logic
+   */
+  const getDisplayName = () => {
+    return googleData?.displayName || googleData?.googleName || googleData?.firstName || user?.name || 'User';
   };
 
   /**
@@ -63,9 +83,10 @@ export default function Jobs() {
         throw new Error('User not authenticated');
       }
 
-      // Load user profile picture, fetch job chats, and load tag templates in parallel
+      // Load user profile picture, Google user data, fetch job chats, and load tag templates in parallel
       await Promise.all([
         loadUserProfilePicture(),
+        loadGoogleUserData(),
         jobChatService.listJobChats().then(async response => {
           console.log('🔍 Jobs Index: Fetched jobs response:', response);
           console.log('🔍 Jobs Index: Number of jobs:', response.documents.length);
@@ -161,7 +182,7 @@ export default function Jobs() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.welcomeText}>{user?.name || 'User'}</Text>
+          <Text style={styles.welcomeText}>{getDisplayName()}</Text>
           <Text style={styles.subtitle}>Your Jobs</Text>
         </View>
         <View style={styles.headerButtons}>
@@ -170,7 +191,7 @@ export default function Jobs() {
             onPress={() => router.push('/(jobs)/profile')}
           >
             <Avatar
-              name={user?.name || 'User'}
+              name={getDisplayName()}
               imageUrl={userProfilePicture || undefined}
               size={32}
               style={styles.profileAvatar}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Alert, Switch, Linking } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import UserProfile from '@/components/UserProfile';
 import { useAuth } from '@/context/AuthContext';
@@ -25,6 +25,13 @@ export default function ProfileScreen() {
   useEffect(() => {
     loadGoogleData();
   }, []);
+
+  // Refresh data when screen comes into focus (e.g., returning from edit account)
+  useFocusEffect(
+    React.useCallback(() => {
+      loadGoogleData();
+    }, [])
+  );
 
   const loadGoogleData = async () => {
     try {
@@ -142,7 +149,7 @@ export default function ProfileScreen() {
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Name</Text>
             <Text style={styles.infoValue}>
-              {googleData?.googleName || googleData?.firstName || user?.name || 'Not provided'}
+              {googleData?.displayName || googleData?.googleName || googleData?.firstName || user?.name || 'Not provided'}
             </Text>
           </View>
           

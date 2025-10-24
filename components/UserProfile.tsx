@@ -206,7 +206,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
     }
   };
 
-  const displayName = googleData?.googleName || googleData?.firstName || user?.name || 'User';
+  const displayName = googleData?.displayName || googleData?.googleName || googleData?.firstName || user?.name || 'User';
 
   return (
     <Pressable 
