@@ -45,6 +45,16 @@ export interface Message {
   jobId: string; // Reference to JobChat
   imageUrl?: string; // Optional image URL
   imageFileId?: string; // Optional Appwrite file ID for deletion
+  locationData?: LocationData; // Optional location data
+  messageType?: 'text' | 'image' | 'location'; // Message type
+}
+
+// Location data for messages
+export interface LocationData {
+  latitude: number;
+  longitude: number;
+  address?: string;
+  timestamp: string;
 }
 
 // Tag system types

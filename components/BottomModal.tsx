@@ -4,6 +4,7 @@ import {
     Dimensions,
     Modal,
     StyleSheet,
+    Text,
     TouchableWithoutFeedback,
     View,
 } from 'react-native';
@@ -20,29 +21,39 @@ export default function BottomModal({ visible, onClose, content }: BottomModalPr
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   useEffect(() => {
-    Animated.timing(translateY, {
-      toValue: visible ? 0 : SCREEN_HEIGHT,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
+    if (visible) {
+      // Start animation from off-screen
+      translateY.setValue(SCREEN_HEIGHT);
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      // Animate out
+      Animated.timing(translateY, {
+        toValue: SCREEN_HEIGHT,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
   }, [visible]);
 
   return (
     <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback>
-            <Animated.View
-              style={[
-                styles.container,
-                { transform: [{ translateY }] },
-              ]}
-            >
+      <View style={styles.overlay}>
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={{ flex: 1 }} />
+        </TouchableWithoutFeedback>
+        <Animated.View
+          style={[
+            styles.container,
+            { transform: [{ translateY }] },
+          ]}
+        >
               {content}
-            </Animated.View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
+        </Animated.View>
+      </View>
     </Modal>
   );
 }
@@ -57,8 +68,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    minHeight: '50%',
     maxHeight: '90%',
-    padding: 5,
+    padding: 20,
     shadowColor: '#000',
     shadowOpacity: 0.2,
     shadowOffset: { width: 0, height: -2 },

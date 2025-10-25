@@ -1,21 +1,23 @@
 import BottomModal from '@/components/BottomModal'
 import { IconSymbol } from '@/components/IconSymbol'
 import Avatar from '@/components/Avatar'
+import ShareLocation from '@/components/share-location'
 import { globalStyles } from '@/styles/globalStyles'
 import { appwriteConfig, client, db, ID, storage } from '@/utils/appwrite'
 import { Colors } from '@/utils/colors'
 import { JobChats } from '@/utils/test-data'
-import { JobChat, Message } from '@/utils/types'
+import { JobChat, Message, LocationData } from '@/utils/types'
 import { useAuth } from '@/context/AuthContext'
 import { LegendList } from '@legendapp/list'
 import { useHeaderHeight } from '@react-navigation/elements'
 import * as ImagePicker from 'expo-image-picker'
 import { Stack, useLocalSearchParams, useFocusEffect, useRouter } from 'expo-router'
 import * as React from 'react'
-import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { Query } from 'react-native-appwrite'
 import ImageViewing from 'react-native-image-viewing'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { StatusBar } from 'expo-status-bar'
 import JobDetails from './job-details'
 
 
@@ -57,6 +59,7 @@ export default function Job() {
     const [fullScreenImage, setFullScreenImage] = React.useState<string | null>(null);
     const [isImageViewVisible, setIsImageViewVisible] = React.useState(false);
     const [isRefreshing, setIsRefreshing] = React.useState(false);
+    const [showShareLocation, setShowShareLocation] = React.useState(false);
 
 
     React.useEffect(() => {
@@ -109,23 +112,44 @@ export default function Job() {
     React.useEffect(() => {
         if (!jobId) return;
         
+        // Disable real-time subscriptions temporarily to prevent WebSocket errors
+        console.log('🔍 Real-time subscription: Disabled to prevent WebSocket errors');
+        return;
+        
         const channel = `databases.${appwriteConfig.db}.collections.${appwriteConfig.col.messages}.documents`;
         console.log('🔍 Real-time subscription: Setting up subscription for channel:', channel);
         
-        const unsubscribe = client.subscribe(channel, (event) => {
-            console.log('🔍 Real-time subscription: Received event:', event);
-            console.log('🔍 Real-time subscription: Event type:', event.events);
-            console.log('🔍 Real-time subscription: Event payload:', event.payload);
-            
-            // Only refresh if the event is related to our job
-            if (event.payload && (event.payload as any).jobId === jobId) {
-                console.log('🔍 Real-time subscription: Event is for our job, refreshing messages');
-                getMessages();
-            }
-        });
+        let unsubscribe: (() => void) | null = null;
+        
+        try {
+            unsubscribe = client.subscribe(channel, (event) => {
+                try {
+                    console.log('🔍 Real-time subscription: Received event:', event);
+                    console.log('🔍 Real-time subscription: Event type:', event.events);
+                    console.log('🔍 Real-time subscription: Event payload:', event.payload);
+                    
+                    // Only refresh if the event is related to our job
+                    if (event.payload && (event.payload as any).jobId === jobId) {
+                        console.log('🔍 Real-time subscription: Event is for our job, refreshing messages');
+                        getMessages();
+                    }
+                } catch (error) {
+                    console.error('🔍 Real-time subscription: Error handling event:', error);
+                }
+            });
+        } catch (error) {
+            console.error('🔍 Real-time subscription: Error setting up subscription:', error);
+        }
+        
         return () => {
-            console.log('🔍 Real-time subscription: Unsubscribing from channel:', channel);
-            unsubscribe();
+            try {
+                if (unsubscribe) {
+                    console.log('🔍 Real-time subscription: Unsubscribing from channel:', channel);
+                    unsubscribe();
+                }
+            } catch (error) {
+                console.error('🔍 Real-time subscription: Error unsubscribing:', error);
+            }
         };
     }, [jobId]);
 
@@ -444,6 +468,54 @@ const getMessages = async () => {
         setMessageToDelete(null);
     };
 
+    const postLocationToChat = async (locationData: LocationData) => {
+        try {
+            console.log('🔍 postLocationToChat: Posting location to chat...');
+            
+            // Get user's profile picture from Google OAuth or stored preferences
+            const userProfilePicture = await getUserProfilePicture();
+            console.log('🔍 postLocationToChat: User profile picture:', userProfilePicture);
+
+            const message: any = {
+                content: `📍 Location shared: ${locationData.address || 'Current location'}`,
+                senderId: user?.$id,
+                senderName: user?.name,
+                senderPhoto: userProfilePicture || '',
+                jobId: jobId,
+                locationData: locationData,
+                messageType: 'location',
+            };
+
+            console.log('🔍 postLocationToChat: Creating location message:', message);
+
+            const createdMessage = await db.createDocument(
+                appwriteConfig.db, 
+                appwriteConfig.col.messages, 
+                ID.unique(), 
+                message
+            );
+
+            console.log('🔍 postLocationToChat: Location message created successfully:', createdMessage);
+
+            // Refresh messages to show the new location message
+            await getMessages();
+
+            // Update job chat timestamp
+            await db.updateDocument(
+                appwriteConfig.db, 
+                appwriteConfig.col.jobchat, 
+                jobId as string,
+                {
+                    $updatedAt: new Date().toISOString(),
+                }
+            );
+
+        } catch (error) {
+            console.error('🔍 postLocationToChat: Error posting location:', error);
+            throw error; // Re-throw to let the ShareLocation component handle the error
+        }
+    };
+
     const handleRefresh = async () => {
         console.log('🔍 handleRefresh: Starting pull-to-refresh');
         setIsRefreshing(true);
@@ -490,12 +562,19 @@ const getMessages = async () => {
 
     return (
         <>
+            <StatusBar style="light" backgroundColor="#1a1a1a" translucent={false} />
             <Stack.Screen 
                 options={{
                     headerTitle: jobChat?.title || 'Job Chat',
                     headerRight: () => (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginRight: 16 }}>
-                            <TouchableOpacity style={{ padding: 4 }}>
+                            <TouchableOpacity 
+                                style={{ padding: 4 }}
+                                onPress={() => {
+                                    console.log('🔍 Location icon clicked, setting showShareLocation to true');
+                                    setShowShareLocation(true);
+                                }}
+                            >
                                 <IconSymbol name="location" color="#fff" size={20} />
                             </TouchableOpacity>
                             <TouchableOpacity style={{ padding: 4 }}>
@@ -503,7 +582,12 @@ const getMessages = async () => {
                             </TouchableOpacity>
                         </View>
                     ),
-                    headerStyle: { backgroundColor: '#1a1a1a' },
+                    headerStyle: { 
+                        backgroundColor: '#1a1a1a',
+                    },
+                    headerTitleStyle: {
+                        color: '#fff',
+                    },
                     headerTintColor: '#fff',
                 }} 
             />
@@ -629,6 +713,41 @@ const getMessages = async () => {
                                                         }}
                                                         resizeMode="cover"
                                                     />
+                                                </TouchableOpacity>
+                                            )}
+
+                                            {/* Location Message */}
+                                            {item.messageType === 'location' && item.locationData && (
+                                                <TouchableOpacity 
+                                                    onPress={() => {
+                                                        // Open location in maps app
+                                                        const mapUrl = `https://www.google.com/maps/search/?api=1&query=${item.locationData?.latitude},${item.locationData?.longitude}`;
+                                                        Linking.openURL(mapUrl);
+                                                    }}
+                                                    style={{
+                                                        backgroundColor: Colors.Secondary,
+                                                        padding: 12,
+                                                        borderRadius: 8,
+                                                        marginBottom: 8,
+                                                        borderWidth: 1,
+                                                        borderColor: Colors.Primary,
+                                                    }}
+                                                >
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                                        <IconSymbol name="location" color={Colors.Primary} size={20} />
+                                                        <Text style={{ color: Colors.Primary, fontWeight: '600', marginLeft: 8 }}>
+                                                            Location Shared
+                                                        </Text>
+                                                    </View>
+                                                    <Text style={{ color: Colors.Text, fontSize: 14, marginBottom: 4 }}>
+                                                        {item.locationData.address || 'Current location'}
+                                                    </Text>
+                                                    <Text style={{ color: Colors.Gray, fontSize: 12 }}>
+                                                        {item.locationData.latitude.toFixed(6)}, {item.locationData.longitude.toFixed(6)}
+                                                    </Text>
+                                                    <Text style={{ color: Colors.Primary, fontSize: 12, marginTop: 4 }}>
+                                                        Tap to open in Maps
+                                                    </Text>
                                                 </TouchableOpacity>
                                             )}
                                             
@@ -875,6 +994,16 @@ const getMessages = async () => {
                         </Pressable>
                     </View>
                 )}
+            />
+
+            {/* Share Location Modal */}
+            <ShareLocation
+                visible={showShareLocation}
+                onClose={() => {
+                    console.log('🔍 ShareLocation onClose called');
+                    setShowShareLocation(false);
+                }}
+                onPostLocation={postLocationToChat}
             />
             </>
     )
