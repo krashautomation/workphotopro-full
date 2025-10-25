@@ -1,4 +1,5 @@
 import { useAuth } from '@/context/AuthContext';
+import { useOrganization } from '@/context/OrganizationContext';
 import { globalStyles, colors } from '@/styles/globalStyles';
 import { jobChatService, tagService } from '@/lib/appwrite/database';
 import { JobChat, JobChatWithTags } from '@/utils/types';
@@ -7,9 +8,12 @@ import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, 
 import { useEffect, useState, useCallback } from 'react';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
+import OrganizationSelector from '@/components/OrganizationSelector';
+import TeamSelector from '@/components/TeamSelector';
 
 export default function Jobs() {
   const { user, isAuthenticated, getUserProfilePicture, getGoogleUserData } = useAuth();
+  const { currentOrganization, currentTeam, loading: orgLoading } = useOrganization();
   const router = useRouter();
   
   // State for job chat management
@@ -83,11 +87,18 @@ export default function Jobs() {
         throw new Error('User not authenticated');
       }
 
+      if (!currentTeam?.$id) {
+        console.log('No team selected, skipping job fetch');
+        setJobChats([]);
+        setLoading(false);
+        return;
+      }
+
       // Load user profile picture, Google user data, fetch job chats, and load tag templates in parallel
       await Promise.all([
         loadUserProfilePicture(),
         loadGoogleUserData(),
-        jobChatService.listJobChats().then(async response => {
+        jobChatService.listJobChats(currentTeam.$id, currentOrganization?.$id).then(async response => {
           console.log('🔍 Jobs Index: Fetched jobs response:', response);
           console.log('🔍 Jobs Index: Number of jobs:', response.documents.length);
           
@@ -131,31 +142,31 @@ export default function Jobs() {
     }
   };
 
-  // Fetch jobs when component mounts or user changes
+  // Fetch jobs when component mounts or user/team changes
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && user && currentTeam) {
       fetchJobs();
     } else {
       setLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, currentTeam]);
 
   // Auto-refresh jobs when screen comes into focus (e.g., returning from job detail)
   useFocusEffect(
     useCallback(() => {
       console.log('🔍 Jobs Index: Screen focused, refreshing jobs list');
-      if (isAuthenticated && user) {
+      if (isAuthenticated && user && currentTeam) {
         fetchJobs();
       }
-    }, [isAuthenticated, user])
+    }, [isAuthenticated, user, currentTeam])
   );
 
   // Show loading state
-  if (loading) {
+  if (loading || orgLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Loading jobs...</Text>
+        <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
   }
@@ -179,25 +190,33 @@ export default function Jobs() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.welcomeText}>{getDisplayName()}</Text>
-          <Text style={styles.subtitle}>Your Jobs</Text>
+      {/* Header Card */}
+      <View style={styles.headerCard}>
+        <View style={styles.headerCardContent}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.welcomeText}>{getDisplayName()}</Text>
+            <Text style={styles.subtitle}>Welcome back!</Text>
+          </View>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity 
+              style={styles.profileButton}
+              onPress={() => router.push('/(jobs)/profile')}
+            >
+              <Avatar
+                name={getDisplayName()}
+                imageUrl={userProfilePicture || undefined}
+                size={32}
+                style={styles.profileAvatar}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity 
-            style={styles.profileButton}
-            onPress={() => router.push('/(jobs)/profile')}
-          >
-            <Avatar
-              name={getDisplayName()}
-              imageUrl={userProfilePicture || undefined}
-              size={32}
-              style={styles.profileAvatar}
-            />
-          </TouchableOpacity>
-        </View>
+      </View>
+
+      {/* Organization and Team Selectors */}
+      <View style={styles.selectorsContainer}>
+        <OrganizationSelector />
+        <TeamSelector />
       </View>
 
       {/* Error Banner */}
@@ -319,6 +338,23 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
   },
+  headerCard: {
+    margin: 20,
+    marginBottom: 0,
+  },
+  selectorsContainer: {
+    margin: 20,
+    marginTop: 16,
+    gap: 12,
+  },
+  headerCardContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -421,8 +457,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     padding: 16,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

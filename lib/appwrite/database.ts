@@ -77,25 +77,43 @@ export const databaseService = {
   },
 };
 
-// Simple JobChat service (matching old working version)
+// Multi-tenant JobChat service
 export const jobChatService = {
-  COLLECTION_ID: 'jobchat', // Using old collection name
+  COLLECTION_ID: 'jobchats', // Updated collection name
 
-  async createJobChat(data: any) {
-    return databaseService.createDocument(this.COLLECTION_ID, data);
+  async createJobChat(data: any, teamId: string, orgId: string) {
+    const jobData = {
+      ...data,
+      teamId,
+      orgId,
+      status: 'active',
+      createdBy: data.createdBy || data.userId,
+      createdByName: data.createdByName || data.userName,
+    };
+    return databaseService.createDocument(this.COLLECTION_ID, jobData);
   },
 
   async getJobChat(jobChatId: string) {
     return databaseService.getDocument(this.COLLECTION_ID, jobChatId);
   },
 
-  async listJobChats() {
-    // Get all jobs and filter out soft-deleted ones in the application
-    // This approach handles both cases: jobs without deletedAt field and jobs with deletedAt = null
-    const response = await databaseService.listDocuments(this.COLLECTION_ID, [
+  async listJobChats(teamId?: string, orgId?: string) {
+    const queries = [
       Query.limit(100),
       Query.orderDesc('$createdAt') // Order by creation date to get latest jobs first
-    ]);
+    ];
+
+    // Filter by team if provided
+    if (teamId) {
+      queries.push(Query.equal('teamId', teamId));
+    }
+
+    // Filter by organization if provided
+    if (orgId) {
+      queries.push(Query.equal('orgId', orgId));
+    }
+
+    const response = await databaseService.listDocuments(this.COLLECTION_ID, queries);
     
     console.log('🔍 Database Service: Raw jobs response:', response.documents.length, 'jobs');
     
@@ -147,25 +165,39 @@ export const jobChatService = {
   },
 };
 
-// Simple Message service (matching old working version)
+// Multi-tenant Message service
 export const messageService = {
   COLLECTION_ID: 'messages',
 
-  async createMessage(data: any) {
-    return databaseService.createDocument(this.COLLECTION_ID, data);
+  async createMessage(data: any, teamId: string, orgId: string) {
+    const messageData = {
+      ...data,
+      userId: data.senderId || data.userId,
+      teamId,
+      orgId,
+    };
+    return databaseService.createDocument(this.COLLECTION_ID, messageData);
   },
 
   async getMessage(messageId: string) {
     return databaseService.getDocument(this.COLLECTION_ID, messageId);
   },
 
-  async listMessages(jobId: string) {
-    // Use jobId instead of jobChatId to match old version
+  async listMessages(jobId: string, teamId?: string, orgId?: string) {
     const queries = [
       Query.equal('jobId', jobId),
       Query.orderAsc('$createdAt'),
       Query.limit(100)
     ];
+
+    // Add team and org filters if provided
+    if (teamId) {
+      queries.push(Query.equal('teamId', teamId));
+    }
+    if (orgId) {
+      queries.push(Query.equal('orgId', orgId));
+    }
+
     return databaseService.listDocuments(this.COLLECTION_ID, queries);
   },
 

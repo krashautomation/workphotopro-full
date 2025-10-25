@@ -8,17 +8,90 @@ interface User {
     imageUrl: string;
 }
 
-// JobChat types (matching old working version)
+// Multi-tenant Organization types
+export interface Organization {
+  $id: string; // Appwrite document ID
+  orgName: string;
+  ownerId: string; // References Appwrite Users
+  description?: string;
+  isActive: boolean;
+  settings?: string; // JSON string for organization settings
+  $createdAt: string;
+  $updatedAt: string;
+  $permissions: string[];
+  $databaseId: string;
+  $collectionId: string;
+}
+
+// Team types (Appwrite Teams + our custom data)
+export interface Team {
+  $id: string; // Appwrite Teams ID
+  name: string; // Appwrite Teams name
+  $createdAt: string;
+  $updatedAt: string;
+  $permissions: string[];
+  // Custom team data from our database
+  teamData?: TeamData;
+}
+
+export interface TeamData {
+  $id: string; // Our database document ID
+  teamName: string;
+  orgId: string; // References Organizations
+  description?: string;
+  isActive: boolean;
+  settings?: string; // JSON string for team settings
+  $createdAt: string;
+  $updatedAt: string;
+  $permissions: string[];
+  $databaseId: string;
+  $collectionId: string;
+}
+
+// Membership types
+export interface Membership {
+  $id: string; // Appwrite Teams membership ID
+  teamId: string; // Appwrite Teams ID
+  userId: string; // Appwrite Users ID
+  userName: string;
+  userEmail: string;
+  roles: string[]; // Array of roles
+  invited: string; // ISO date string
+  joined: string; // ISO date string
+  confirm: boolean;
+  // Custom membership data from our database
+  membershipData?: MembershipData;
+}
+
+export interface MembershipData {
+  $id: string; // Our database document ID
+  userId: string; // References Appwrite Users
+  teamId: string; // References Teams
+  role: string; // e.g., "owner", "admin", "member"
+  invitedBy: string; // User who invited this member
+  joinedAt: string; // ISO date string
+  isActive: boolean;
+  $createdAt: string;
+  $updatedAt: string;
+  $permissions: string[];
+  $databaseId: string;
+  $collectionId: string;
+}
+
+// JobChat types (updated for multi-tenancy)
 export interface JobChat {
   id: string; // For backwards compatibility
   $id: string; // Appwrite document ID
   title: string;
   description: string;
   isPrivate: boolean | null;
-  status?: 'current' | 'complete'; // Job status
+  status?: 'active' | 'completed' | 'archived'; // Updated job status
   createdBy?: string; // Creator's user ID
   createdByName?: string; // Creator's display name
   deletedAt?: string; // Soft delete timestamp (ISO string)
+  // Multi-tenant fields
+  teamId: string; // References Teams
+  orgId: string; // References Organizations
   $sequence: number;
   $createdAt: string;
   $updatedAt: string;
@@ -29,7 +102,7 @@ export interface JobChat {
   updatedAt?: string; // For backwards compatibility
 }
 
-// Message types (matching old working version)
+// Message types (updated for multi-tenancy)
 export interface Message {
   $id: string;
   $createdAt: string;
@@ -43,6 +116,10 @@ export interface Message {
   senderName: string;
   senderPhoto: string;
   jobId: string; // Reference to JobChat
+  // Multi-tenant fields
+  userId: string; // User who posted the message
+  teamId: string; // References Teams
+  orgId: string; // References Organizations
   imageUrl?: string; // Optional image URL
   imageFileId?: string; // Optional Appwrite file ID for deletion
   locationData?: LocationData; // Optional location data
@@ -88,6 +165,26 @@ export interface JobChatWithTags extends JobChat {
   tagTemplates?: TagTemplate[];
 }
 
+// Multi-tenant context types
+export interface OrganizationContextType {
+  currentOrganization: Organization | null;
+  currentTeam: Team | null;
+  userOrganizations: Organization[];
+  userTeams: Team[];
+  loading: boolean;
+  switchOrganization: (orgId: string) => Promise<void>;
+  switchTeam: (teamId: string) => Promise<void>;
+  createOrganization: (name: string, description?: string) => Promise<Organization>;
+  createTeam: (name: string, description?: string) => Promise<Team>;
+  inviteToTeam: (teamId: string, email: string, roles: string[]) => Promise<void>;
+  updateMembershipRole: (teamId: string, membershipId: string, roles: string[]) => Promise<void>;
+  removeFromTeam: (teamId: string, membershipId: string) => Promise<void>;
+}
+
+// Role types
+export type TeamRole = 'owner' | 'admin' | 'member';
+export type OrganizationRole = 'owner' | 'admin' | 'member';
+
 // Common API response types
 export interface ApiResponse<T> {
   data: T;
@@ -99,4 +196,20 @@ export interface PaginatedResponse<T> {
   total: number;
 }
 
-export type { JobChat, Message, User, TagTemplate, JobTagAssignment, JobChatWithTags };
+// Export all types
+export type { 
+  JobChat, 
+  Message, 
+  User, 
+  TagTemplate, 
+  JobTagAssignment, 
+  JobChatWithTags,
+  Organization,
+  Team,
+  TeamData,
+  Membership,
+  MembershipData,
+  OrganizationContextType,
+  TeamRole,
+  OrganizationRole
+};
