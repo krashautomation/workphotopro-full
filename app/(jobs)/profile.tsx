@@ -189,6 +189,9 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Organization</Text>
           <Pressable onPress={() => {
             console.log('Edit organization button pressed');
+            console.log('Current organization before navigation:', currentOrganization);
+            console.log('Organization name:', currentOrganization?.orgName);
+            console.log('Organization description:', currentOrganization?.description);
             router.push('/(jobs)/edit-organization');
           }}>
             <IconSymbol name="pencil" color="#007AFF" size={16} />

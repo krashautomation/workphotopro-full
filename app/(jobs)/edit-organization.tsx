@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,7 +11,7 @@ import { organizationService } from '@/lib/appwrite/teams';
 
 export default function EditOrganizationScreen() {
   const { user } = useAuth();
-  const { currentOrganization, createOrganization } = useOrganization();
+  const { currentOrganization, createOrganization, loadUserData } = useOrganization();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
@@ -20,17 +20,14 @@ export default function EditOrganizationScreen() {
   const [description, setDescription] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  useEffect(() => {
-    loadOrganizationData();
-  }, []);
-
-  const loadOrganizationData = async () => {
+  const loadOrganizationData = useCallback(async () => {
     try {
       setLoading(true);
       
       if (currentOrganization) {
         // Editing existing organization
-        setOrgName(currentOrganization.name || '');
+        console.log('Loading organization:', currentOrganization.orgName);
+        setOrgName(currentOrganization.orgName || '');
         setDescription(currentOrganization.description || '');
         setIsCreating(false);
       } else {
@@ -44,7 +41,12 @@ export default function EditOrganizationScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentOrganization]);
+
+  useEffect(() => {
+    console.log('useEffect triggered, currentOrganization:', currentOrganization?.orgName);
+    loadOrganizationData();
+  }, [currentOrganization, loadOrganizationData]);
 
   const handleSave = async () => {
     try {
@@ -80,6 +82,9 @@ export default function EditOrganizationScreen() {
           orgName: orgName.trim(),
           description: description.trim()
         });
+        
+        // Refresh the organization data in context
+        await loadUserData();
         
         Alert.alert(
           'Success',
@@ -165,18 +170,6 @@ export default function EditOrganizationScreen() {
             </View>
           </View>
 
-          <View style={styles.infoSection}>
-            <View style={styles.infoCard}>
-              <IconSymbol name="info.circle" color="#007AFF" size={20} />
-              <Text style={styles.infoText}>
-                {isCreating 
-                  ? 'You are creating a new organization. This will be your default workspace where you can create and manage teams.'
-                  : 'You can update your organization information here. Changes will be reflected across all team members.'
-                }
-              </Text>
-            </View>
-          </View>
-
           {/* Save Button */}
           <View style={styles.saveButtonContainer}>
             <Pressable 
@@ -252,23 +245,6 @@ const styles = StyleSheet.create({
   textArea: {
     height: 80,
     textAlignVertical: 'top',
-  },
-  infoSection: {
-    marginBottom: 20,
-  },
-  infoCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#E3F2FD',
-    borderRadius: 8,
-    padding: 12,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#1976D2',
-    marginLeft: 8,
-    flex: 1,
-    lineHeight: 20,
   },
   saveButtonContainer: {
     marginTop: 20,

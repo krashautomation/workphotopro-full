@@ -74,10 +74,17 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           console.error('Failed to create default workspace for existing user:', error);
         }
       } else {
-        // Set default organization and team if none selected
-        if (!currentOrganization) {
-          setCurrentOrganization(orgs[0]);
-        }
+        // Use functional update to get the current state
+        setCurrentOrganization(prevOrg => {
+          if (prevOrg) {
+            // Update the current organization with fresh data
+            const updatedOrg = orgs.find(org => org.$id === prevOrg.$id);
+            return updatedOrg || orgs[0];
+          } else {
+            // Set default organization if none selected
+            return orgs[0];
+          }
+        });
         
         if (teams.length > 0 && !currentTeam) {
           setCurrentTeam(teams[0]);
