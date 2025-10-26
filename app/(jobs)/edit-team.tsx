@@ -1,0 +1,301 @@
+import { useAuth } from '@/context/AuthContext';
+import { useOrganization } from '@/context/OrganizationContext';
+import { globalStyles, colors } from '@/styles/globalStyles';
+import { useRouter } from 'expo-router';
+import { Text, View, TouchableOpacity, StyleSheet, Switch, ScrollView } from 'react-native';
+import { useState, useEffect } from 'react';
+
+import { IconSymbol } from '@/components/IconSymbol';
+
+export default function EditTeam() {
+  const { user, isAuthenticated } = useAuth();
+  const { currentTeam } = useOrganization();
+  const router = useRouter();
+  
+  const [imageWatermarksEnabled, setImageWatermarksEnabled] = useState(true);
+
+  // Show sign in prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <View style={globalStyles.centeredContainer}>
+        <Text style={globalStyles.body}>Please sign in to view team settings</Text>
+      </View>
+    );
+  }
+
+  // Show message if no team is selected
+  if (!currentTeam) {
+    return (
+      <View style={globalStyles.centeredContainer}>
+        <Text style={globalStyles.body}>No team selected</Text>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const teamName = currentTeam.name || 'Unnamed Team';
+  const teamDescription = currentTeam.teamData?.description || 'No description';
+  const teamEmail = currentTeam.teamData?.email || 'No email';
+  const teamPhone = currentTeam.teamData?.phone || 'No phone number';
+  const teamWebsite = currentTeam.teamData?.website || 'No website';
+  const teamAddress = currentTeam.teamData?.address || 'No address';
+
+  const handleEditTeam = () => {
+    // TODO: Navigate to team editing form
+    console.log('Edit team pressed');
+  };
+
+  const handleDeleteTeam = () => {
+    if (!currentTeam) return;
+    
+    const teamName = currentTeam.name || 'Team';
+    
+    router.push({
+      pathname: '/(jobs)/delete-team',
+      params: { teamId: currentTeam.$id, teamName },
+    });
+  };
+
+  const handleTrashedJobs = () => {
+    // TODO: Navigate to trashed jobs
+    console.log('Trashed jobs pressed');
+  };
+
+  return (
+    <ScrollView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <IconSymbol
+            name="chevron.left"
+            size={24}
+            color={colors.textSecondary}
+          />
+        </TouchableOpacity>
+        <Text style={styles.title}>Settings</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      {/* Team Details Section */}
+      <View style={styles.teamDetailsSection}>
+        {/* Team Image */}
+        <View style={styles.teamImageContainer}>
+          <IconSymbol
+            name="photo"
+            size={48}
+            color={colors.textSecondary}
+          />
+        </View>
+
+        {/* Team Email */}
+        <Text style={styles.teamEmail}>{teamEmail}</Text>
+
+        {/* Contact Information */}
+        <View style={styles.contactInfo}>
+          <View style={styles.contactItem}>
+            <IconSymbol
+              name="phone"
+              size={16}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.contactText}>{teamPhone}</Text>
+          </View>
+          
+          <View style={styles.contactItem}>
+            <IconSymbol
+              name="link"
+              size={16}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.contactText}>{teamWebsite}</Text>
+          </View>
+          
+          <View style={styles.contactItem}>
+            <IconSymbol
+              name="location"
+              size={16}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.contactText}>{teamAddress}</Text>
+          </View>
+        </View>
+
+        {/* Description */}
+        <Text style={styles.description}>{teamDescription}</Text>
+      </View>
+
+      {/* Settings Section */}
+      <View style={styles.settingsSection}>
+        {/* Image Watermarks */}
+        <View style={styles.settingItem}>
+          <View style={styles.settingLeft}>
+            <IconSymbol
+              name="photo"
+              size={20}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.settingText}>Image Watermarks</Text>
+          </View>
+          <Switch
+            value={imageWatermarksEnabled}
+            onValueChange={setImageWatermarksEnabled}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor={imageWatermarksEnabled ? colors.text : colors.textSecondary}
+          />
+        </View>
+
+        {/* Edit Team */}
+        <TouchableOpacity style={styles.settingItem} onPress={handleEditTeam}>
+          <View style={styles.settingLeft}>
+            <IconSymbol
+              name="pencil"
+              size={20}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.settingText}>Edit Team</Text>
+          </View>
+          <IconSymbol
+            name="chevron.right"
+            size={16}
+            color={colors.textSecondary}
+          />
+        </TouchableOpacity>
+
+        {/* Delete Team */}
+        <TouchableOpacity style={styles.settingItem} onPress={handleDeleteTeam}>
+          <View style={styles.settingLeft}>
+            <IconSymbol
+              name="trash"
+              size={20}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.settingText}>Delete Team</Text>
+          </View>
+          <IconSymbol
+            name="chevron.right"
+            size={16}
+            color={colors.textSecondary}
+          />
+        </TouchableOpacity>
+
+        {/* Trashed Jobs */}
+        <TouchableOpacity style={styles.settingItem} onPress={handleTrashedJobs}>
+          <View style={styles.settingLeft}>
+            <IconSymbol
+              name="trash"
+              size={20}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.settingText}>Trashed Jobs</Text>
+          </View>
+          <IconSymbol
+            name="chevron.right"
+            size={16}
+            color={colors.textSecondary}
+          />
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  headerSpacer: {
+    width: 36,
+  },
+  teamDetailsSection: {
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  teamImageContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  teamEmail: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  contactInfo: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  contactText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  description: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  settingsSection: {
+    padding: 20,
+  },
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  settingText: {
+    fontSize: 16,
+    color: colors.text,
+  },
+});

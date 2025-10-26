@@ -327,7 +327,7 @@ export default function Teams() {
             <IconSymbol
               name="trash"
               size={20}
-              color="#fff"
+              color="#ef4444"
             />
             <Text style={styles.deleteTeamButtonText}>Delete Team</Text>
           </TouchableOpacity>
@@ -339,9 +339,35 @@ export default function Teams() {
           <IconSymbol
             name="plus"
             size={20}
-            color={colors.text}
+            color={colors.primary}
           />
           <Text style={styles.createButtonText}>Create Team</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.premiumButton}
+          onPress={() => {
+            router.push('/(jobs)/get-premium');
+          }}
+        >
+          <IconSymbol
+            name="creditcard"
+            size={20}
+            color="#FFD700"
+          />
+          <Text style={styles.premiumButtonText}>Get Premium</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.settingsButton}
+          onPress={() => {
+            router.push('/(jobs)/edit-team');
+          }}
+        >
+          <IconSymbol
+            name="gearshape"
+            size={20}
+            color={colors.textSecondary}
+          />
+          <Text style={styles.settingsButtonText}>Team Settings</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -415,7 +441,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 20,
-    paddingBottom: 160, // Add padding to account for bottom buttons
+    paddingBottom: 240, // Add padding to account for bottom buttons (increased for new buttons)
   },
   teamCard: {
     backgroundColor: colors.surface,
@@ -529,7 +555,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   deleteTeamButton: {
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 16,
     flexDirection: 'row',
@@ -537,24 +563,62 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#ef4444',
   },
   deleteTeamButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: '#ef4444',
   },
   createButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
   },
   createButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.primary,
+  },
+  premiumButton: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#FFD700',
+  },
+  premiumButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFD700',
+  },
+  settingsButton: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: colors.textSecondary,
+  },
+  settingsButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
 });

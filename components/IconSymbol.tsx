@@ -47,6 +47,11 @@ const MAPPING = {
   "location": "place",
   "mappin": "place",
   "square.and.arrow.up": "share",
+  // Payment icons
+  "creditcard": "credit-card",
+  // Contact and settings icons
+  "phone": "phone",
+  "link": "link",
 } as Partial<
   Record<
     import("expo-symbols").SymbolViewProps["name"],
