@@ -5,7 +5,7 @@ import { jobChatService, tagService } from '@/lib/appwrite/database';
 import { JobChat, JobChatWithTags } from '@/utils/types';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
-import { useEffect, useState, useCallback, useLayoutEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
 
@@ -197,12 +197,11 @@ export default function Jobs() {
       >
         <View style={styles.headerCardContent}>
           <View style={styles.headerLeft}>
-            <Text style={styles.welcomeText}>{getDisplayName()}</Text>
             <Text style={styles.subtitle}>
-              Organization: {currentOrganization?.orgName || 'No Organization'}
+              <Text style={styles.boldText}>Organization:</Text> {currentOrganization?.orgName || 'No Organization'}
             </Text>
             <Text style={styles.subtitle}>
-              Team: {currentTeam?.name || 'No Team'}
+              <Text style={styles.boldText}>Team:</Text> {currentTeam?.name || 'No Team'}
             </Text>
           </View>
           <View style={styles.headerButtons}>
@@ -336,13 +335,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   headerCard: {
-    margin: 20,
-    marginBottom: 0,
+    marginHorizontal: 0,
+    marginTop: 0,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: colors.primary,
   },
   headerCardContent: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 0,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
@@ -367,6 +371,11 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: colors.textSecondary,
+  },
+  boldText: {
+    fontWeight: 'bold',
+    color: '#ffffff',
+    opacity: 0.7,
   },
   headerButtons: {
     flexDirection: 'row',
@@ -456,7 +465,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   listContent: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 8,
     paddingBottom: 100, // Add padding to account for bottom menu
   },
   jobCard: {

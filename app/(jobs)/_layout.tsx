@@ -57,7 +57,7 @@ export default function JobsLayout() {
         name="index"
         options={{
           headerShown: true,
-          title: 'Jobs',
+          title: 'Jobs list',
           headerStyle: { backgroundColor: '#1a1a1a' },
           headerTintColor: '#fff',
           headerRight: () => <HeaderRight />,
