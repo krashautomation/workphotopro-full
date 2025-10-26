@@ -16,6 +16,20 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   /**
+   * Refresh the current team data
+   */
+  const refreshCurrentTeam = async () => {
+    if (!currentTeam?.$id) return;
+    
+    try {
+      const updatedTeam = await teamService.getTeam(currentTeam.$id);
+      setCurrentTeam(updatedTeam);
+    } catch (error) {
+      console.error('Error refreshing current team:', error);
+    }
+  };
+
+  /**
    * Load user's organizations and teams
    */
   const loadUserData = async () => {
@@ -325,6 +339,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     userTeams,
     loading,
     loadUserData,
+    refreshCurrentTeam,
     switchOrganization,
     switchTeam: switchTeamDirect,
     createOrganization,

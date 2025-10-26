@@ -1,301 +1,406 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, Alert, KeyboardAvoidingView, Platform, TouchableOpacity, Image } from 'react-native';
+import { Stack, router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
-import { globalStyles, colors } from '@/styles/globalStyles';
-import { useRouter } from 'expo-router';
-import { Text, View, TouchableOpacity, StyleSheet, Switch, ScrollView } from 'react-native';
-import { useState, useEffect } from 'react';
-
+import { teamService } from '@/lib/appwrite/teams';
+import { Colors } from '@/utils/colors';
 import { IconSymbol } from '@/components/IconSymbol';
+import Input from '@/components/Input';
 
-export default function EditTeam() {
-  const { user, isAuthenticated } = useAuth();
-  const { currentTeam } = useOrganization();
-  const router = useRouter();
+export default function EditTeamScreen() {
+  const { user } = useAuth();
+  const { currentTeam, refreshCurrentTeam } = useOrganization();
+  const [saving, setSaving] = useState(false);
   
-  const [imageWatermarksEnabled, setImageWatermarksEnabled] = useState(true);
+  // Form state
+  const [teamName, setTeamName] = useState('');
+  const [email, setEmail] = useState('');
+  const [website, setWebsite] = useState('');
+  const [address, setAddress] = useState('');
+  const [phone, setPhone] = useState('');
+  const [description, setDescription] = useState('');
+  const [teamPhotoUrl, setTeamPhotoUrl] = useState('');
 
-  // Show sign in prompt if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <View style={globalStyles.centeredContainer}>
-        <Text style={globalStyles.body}>Please sign in to view team settings</Text>
-      </View>
-    );
-  }
+  // Load current team data
+  useEffect(() => {
+    if (currentTeam) {
+      setTeamName(currentTeam.name || '');
+      setEmail(currentTeam.teamData?.email || '');
+      setWebsite(currentTeam.teamData?.website || '');
+      setAddress(currentTeam.teamData?.address || '');
+      setPhone(currentTeam.teamData?.phone || '');
+      setDescription(currentTeam.teamData?.description || '');
+      setTeamPhotoUrl(currentTeam.teamData?.teamPhotoUrl || '');
+    }
+  }, [currentTeam]);
 
-  // Show message if no team is selected
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      
+      if (!teamName.trim()) {
+        Alert.alert('Error', 'Team name is required');
+        setSaving(false);
+        return;
+      }
+
+      if (!currentTeam) {
+        Alert.alert('Error', 'No team selected');
+        setSaving(false);
+        return;
+      }
+
+      // Update team using the team service
+      await teamService.updateTeamDetails(currentTeam.$id, {
+        name: teamName.trim(),
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        website: website.trim() || undefined,
+        address: address.trim() || undefined,
+        description: description.trim() || undefined,
+        teamPhotoUrl: teamPhotoUrl || undefined,
+      });
+
+      // Refresh the current team data in the context
+      await refreshCurrentTeam();
+
+      Alert.alert(
+        'Success',
+        'Team updated successfully!',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              router.back();
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error updating team:', error);
+      Alert.alert('Error', 'Failed to update team. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePhotoUpload = () => {
+    // TODO: Implement photo upload
+    Alert.alert('Info', 'Photo upload functionality will be implemented soon.');
+  };
+
   if (!currentTeam) {
     return (
-      <View style={globalStyles.centeredContainer}>
-        <Text style={globalStyles.body}>No team selected</Text>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen options={{ title: 'Edit Team' }} />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.errorText}>No team selected</Text>
+          <Text style={styles.errorSubtext}>
+            Please select a team to edit.
+          </Text>
+          <Pressable 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  const teamName = currentTeam.name || 'Unnamed Team';
-  const teamDescription = currentTeam.teamData?.description || 'No description';
-  const teamEmail = currentTeam.teamData?.email || 'No email';
-  const teamPhone = currentTeam.teamData?.phone || 'No phone number';
-  const teamWebsite = currentTeam.teamData?.website || 'No website';
-  const teamAddress = currentTeam.teamData?.address || 'No address';
-
-  const handleEditTeam = () => {
-    // TODO: Navigate to team editing form
-    console.log('Edit team pressed');
-  };
-
-  const handleDeleteTeam = () => {
-    if (!currentTeam) return;
-    
-    const teamName = currentTeam.name || 'Team';
-    
-    router.push({
-      pathname: '/(jobs)/delete-team',
-      params: { teamId: currentTeam.$id, teamName },
-    });
-  };
-
-  const handleTrashedJobs = () => {
-    // TODO: Navigate to trashed jobs
-    console.log('Trashed jobs pressed');
-  };
-
   return (
-    <ScrollView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <IconSymbol
-            name="chevron.left"
-            size={24}
-            color={colors.textSecondary}
-          />
-        </TouchableOpacity>
-        <Text style={styles.title}>Settings</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      {/* Team Details Section */}
-      <View style={styles.teamDetailsSection}>
-        {/* Team Image */}
-        <View style={styles.teamImageContainer}>
-          <IconSymbol
-            name="photo"
-            size={48}
-            color={colors.textSecondary}
-          />
-        </View>
-
-        {/* Team Email */}
-        <Text style={styles.teamEmail}>{teamEmail}</Text>
-
-        {/* Contact Information */}
-        <View style={styles.contactInfo}>
-          <View style={styles.contactItem}>
-            <IconSymbol
-              name="phone"
-              size={16}
-              color={colors.textSecondary}
-            />
-            <Text style={styles.contactText}>{teamPhone}</Text>
+    <SafeAreaView style={styles.container}>
+      <Stack.Screen options={{ title: 'Edit Team' }} />
+      
+      <KeyboardAvoidingView 
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+          {/* Team Photo Section */}
+          <View style={styles.photoSection}>
+            <Text style={styles.sectionTitle}>Team Photo</Text>
+            <View style={styles.photoContainer}>
+              {teamPhotoUrl ? (
+                <Image 
+                  source={{ uri: teamPhotoUrl }} 
+                  style={styles.teamPhoto}
+                />
+              ) : (
+                <View style={styles.photoPlaceholder}>
+                  <IconSymbol name="photo" size={48} color={Colors.Gray} />
+                  <Text style={styles.photoPlaceholderText}>No photo</Text>
+                </View>
+              )}
+              <TouchableOpacity 
+                style={styles.photoButton}
+                onPress={handlePhotoUpload}
+              >
+                <IconSymbol name="camera" size={20} color={Colors.White} />
+                <Text style={styles.photoButtonText}>
+                  {teamPhotoUrl ? 'Change Photo' : 'Add Photo'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          
-          <View style={styles.contactItem}>
-            <IconSymbol
-              name="link"
-              size={16}
-              color={colors.textSecondary}
-            />
-            <Text style={styles.contactText}>{teamWebsite}</Text>
-          </View>
-          
-          <View style={styles.contactItem}>
-            <IconSymbol
-              name="location"
-              size={16}
-              color={colors.textSecondary}
-            />
-            <Text style={styles.contactText}>{teamAddress}</Text>
-          </View>
-        </View>
 
-        {/* Description */}
-        <Text style={styles.description}>{teamDescription}</Text>
-      </View>
+          {/* Team Information Section */}
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>Team Information</Text>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Team Name *</Text>
+              <Input
+                value={teamName}
+                onChangeText={setTeamName}
+                placeholder="Enter team name"
+                style={styles.input}
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <Input
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Enter team email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                style={styles.input}
+              />
+            </View>
 
-      {/* Settings Section */}
-      <View style={styles.settingsSection}>
-        {/* Image Watermarks */}
-        <View style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <IconSymbol
-              name="photo"
-              size={20}
-              color={colors.textSecondary}
-            />
-            <Text style={styles.settingText}>Image Watermarks</Text>
-          </View>
-          <Switch
-            value={imageWatermarksEnabled}
-            onValueChange={setImageWatermarksEnabled}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor={imageWatermarksEnabled ? colors.text : colors.textSecondary}
-          />
-        </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Phone</Text>
+              <Input
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Enter team phone number"
+                keyboardType="phone-pad"
+                style={styles.input}
+              />
+            </View>
 
-        {/* Edit Team */}
-        <TouchableOpacity style={styles.settingItem} onPress={handleEditTeam}>
-          <View style={styles.settingLeft}>
-            <IconSymbol
-              name="pencil"
-              size={20}
-              color={colors.textSecondary}
-            />
-            <Text style={styles.settingText}>Edit Team</Text>
-          </View>
-          <IconSymbol
-            name="chevron.right"
-            size={16}
-            color={colors.textSecondary}
-          />
-        </TouchableOpacity>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Website</Text>
+              <Input
+                value={website}
+                onChangeText={setWebsite}
+                placeholder="https://example.com"
+                keyboardType="url"
+                autoCapitalize="none"
+                style={styles.input}
+              />
+            </View>
 
-        {/* Delete Team */}
-        <TouchableOpacity style={styles.settingItem} onPress={handleDeleteTeam}>
-          <View style={styles.settingLeft}>
-            <IconSymbol
-              name="trash"
-              size={20}
-              color={colors.textSecondary}
-            />
-            <Text style={styles.settingText}>Delete Team</Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Address</Text>
+              <Input
+                value={address}
+                onChangeText={setAddress}
+                placeholder="Enter team address"
+                multiline={true}
+                numberOfLines={2}
+                style={[styles.input, styles.textArea]}
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Description</Text>
+              <Input
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Enter team description"
+                multiline={true}
+                numberOfLines={4}
+                style={[styles.input, styles.textArea]}
+              />
+            </View>
           </View>
-          <IconSymbol
-            name="chevron.right"
-            size={16}
-            color={colors.textSecondary}
-          />
-        </TouchableOpacity>
 
-        {/* Trashed Jobs */}
-        <TouchableOpacity style={styles.settingItem} onPress={handleTrashedJobs}>
-          <View style={styles.settingLeft}>
-            <IconSymbol
-              name="trash"
-              size={20}
-              color={colors.textSecondary}
-            />
-            <Text style={styles.settingText}>Trashed Jobs</Text>
+          {/* Info Section */}
+          <View style={styles.infoSection}>
+            <View style={styles.infoCard}>
+              <IconSymbol name="info.circle" color="#007AFF" size={20} />
+              <Text style={styles.infoText}>
+                You can update your team information here. Fields marked with * are required.
+              </Text>
+            </View>
           </View>
-          <IconSymbol
-            name="chevron.right"
-            size={16}
-            color={colors.textSecondary}
-          />
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+
+          {/* Save Button */}
+          <View style={styles.saveButtonContainer}>
+            <Pressable 
+              style={[styles.saveButton, saving && styles.saveButtonDisabled]} 
+              onPress={handleSave}
+              disabled={saving}
+            >
+              <Text style={styles.saveButtonText}>
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: Colors.Background,
   },
-  header: {
-    flexDirection: 'row',
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'space-between',
     padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+  },
+  errorText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.Text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: Colors.Gray,
+    textAlign: 'center',
+    marginBottom: 24,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: Colors.Gray,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  headerSpacer: {
-    width: 36,
-  },
-  teamDetailsSection: {
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  teamImageContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  teamEmail: {
+  backButtonText: {
+    color: Colors.White,
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
-    marginBottom: 16,
-    textAlign: 'center',
   },
-  contactInfo: {
-    alignItems: 'center',
-    marginBottom: 16,
+  keyboardView: {
+    flex: 1,
   },
-  contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+  scrollView: {
+    flex: 1,
   },
-  contactText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  description: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  settingsSection: {
+  contentContainer: {
     padding: 20,
   },
-  settingItem: {
+  photoSection: {
+    marginBottom: 20,
+  },
+  formSection: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.Text,
+    marginBottom: 16,
+  },
+  photoContainer: {
+    alignItems: 'center',
+  },
+  photoPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: Colors.Background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: Colors.Gray + '30',
+  },
+  teamPhoto: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 16,
+  },
+  photoPlaceholderText: {
+    fontSize: 12,
+    color: Colors.Gray,
+    marginTop: 8,
+  },
+  photoButton: {
+    backgroundColor: '#007AFF',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    gap: 8,
   },
-  settingLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  settingText: {
+  photoButtonText: {
+    color: Colors.White,
     fontSize: 16,
-    color: colors.text,
+    fontWeight: '600',
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.Text,
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: Colors.Background,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: Colors.Text,
+    borderWidth: 1,
+    borderColor: Colors.Gray + '60',
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  infoSection: {
+    marginBottom: 20,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#E3F2FD',
+    borderRadius: 8,
+    padding: 12,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#1976D2',
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 20,
+  },
+  saveButtonContainer: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  saveButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    backgroundColor: Colors.Gray,
+  },
+  saveButtonText: {
+    color: Colors.White,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

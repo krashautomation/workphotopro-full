@@ -359,7 +359,7 @@ export default function Teams() {
         <TouchableOpacity 
           style={styles.settingsButton}
           onPress={() => {
-            router.push('/(jobs)/edit-team');
+            router.push('/(jobs)/team-settings');
           }}
         >
           <IconSymbol

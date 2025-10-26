@@ -39,6 +39,11 @@ export interface TeamData {
   teamName: string;
   orgId: string; // References Organizations
   description?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  phone?: string;
+  teamPhotoUrl?: string;
   isActive: boolean;
   settings?: string; // JSON string for team settings
   $createdAt: string;
@@ -172,6 +177,7 @@ export interface OrganizationContextType {
   userTeams: Team[];
   loading: boolean;
   loadUserData: () => Promise<void>;
+  refreshCurrentTeam: () => Promise<void>;
   switchOrganization: (orgId: string) => Promise<void>;
   switchTeam: (teamId: string) => Promise<void>;
   createOrganization: (name: string, description?: string) => Promise<Organization>;

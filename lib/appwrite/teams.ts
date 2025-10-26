@@ -356,6 +356,59 @@ export const teamService = {
   },
 
   /**
+   * Update team details (all fields)
+   */
+  async updateTeamDetails(teamId: string, updates: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    website?: string;
+    address?: string;
+    description?: string;
+    teamPhotoUrl?: string;
+  }) {
+    try {
+      // First, get the Appwrite team to ensure it exists
+      const appwriteTeam = await teams.get(teamId);
+      
+      // Find the team in our database by matching the current Appwrite team name
+      // We need to find it by name before updating, because we need the database document ID
+      const teamDataQuery = await databaseService.listDocuments('teams', [
+        Query.equal('teamName', appwriteTeam.name)
+      ]);
+      
+      if (!teamDataQuery.documents || teamDataQuery.documents.length === 0) {
+        throw new Error('Team data not found in database');
+      }
+      
+      const teamDataDoc = teamDataQuery.documents[0];
+      
+      // Update Appwrite team name if provided and different
+      if (updates.name && updates.name !== appwriteTeam.name) {
+        await teams.updateName(teamId, updates.name);
+      }
+      
+      // Prepare update data for database
+      const updateData: any = {};
+      if (updates.name) updateData.teamName = updates.name;
+      if (updates.email !== undefined) updateData.email = updates.email;
+      if (updates.phone !== undefined) updateData.phone = updates.phone;
+      if (updates.website !== undefined) updateData.website = updates.website;
+      if (updates.address !== undefined) updateData.address = updates.address;
+      if (updates.description !== undefined) updateData.description = updates.description;
+      if (updates.teamPhotoUrl !== undefined) updateData.teamPhotoUrl = updates.teamPhotoUrl;
+
+      // Update our custom team data in database using the document ID
+      await databaseService.updateDocument('teams', teamDataDoc.$id, updateData);
+
+      return { success: true };
+    } catch (error) {
+      console.error('Update team details error:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Delete a team (both Appwrite and our database)
    */
   async deleteTeam(teamId: string) {

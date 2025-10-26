@@ -135,6 +135,15 @@ export default function JobsLayout() {
         }}
       />
       <Stack.Screen
+        name="edit-team"
+        options={{
+          headerShown: true,
+          title: 'Edit Team',
+          headerStyle: { backgroundColor: '#1a1a1a' },
+          headerTintColor: '#fff',
+        }}
+      />
+      <Stack.Screen
         name="invite"
         options={{
           headerShown: true,
