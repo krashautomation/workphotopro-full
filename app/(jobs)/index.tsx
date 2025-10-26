@@ -5,7 +5,7 @@ import { jobChatService, tagService } from '@/lib/appwrite/database';
 import { JobChat, JobChatWithTags } from '@/utils/types';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useLayoutEffect } from 'react';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
 
@@ -159,6 +159,8 @@ export default function Jobs() {
     }, [isAuthenticated, user, currentTeam])
   );
 
+
+
   // Show loading state
   if (loading || orgLoading) {
     return (
@@ -204,20 +206,6 @@ export default function Jobs() {
             </Text>
           </View>
           <View style={styles.headerButtons}>
-            <TouchableOpacity 
-              style={styles.profileButton}
-              onPress={(e) => {
-                e.stopPropagation();
-                router.push('/(jobs)/profile');
-              }}
-            >
-              <Avatar
-                name={getDisplayName()}
-                imageUrl={userProfilePicture || undefined}
-                size={32}
-                style={styles.profileAvatar}
-              />
-            </TouchableOpacity>
             <IconSymbol
               name="chevron.right"
               size={20}

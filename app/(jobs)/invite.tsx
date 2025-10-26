@@ -30,13 +30,21 @@ export default function InviteScreen() {
     try {
       setLoading(true);
 
-      // Generate invite link - deep link format
-      const deepLink = `workphotopro://team-invite?teamId=${currentTeam.$id}`;
-      setInviteLink(deepLink);
+      // Generate invite link - use HTTPS for production
+      // This will work in browsers and automatically open the app if installed
+      const teamId = currentTeam.$id;
+      const inviteUrl = `https://web.workphotopro.com/invite/${teamId}`;
+      setInviteLink(inviteUrl);
 
-      // Fetch member count
-      const memberships = await teamService.listMemberships(currentTeam.$id);
-      setMemberCount(memberships.memberships.length);
+      // Fetch member count - wrap in try/catch to handle Appwrite errors gracefully
+      try {
+        const memberships = await teamService.listMemberships(currentTeam.$id);
+        setMemberCount(memberships.memberships.length);
+      } catch (membershipError) {
+        console.warn('Could not fetch memberships, using default count:', membershipError);
+        // If we can't fetch memberships, default to 1 (just the owner)
+        setMemberCount(1);
+      }
 
     } catch (error) {
       console.error('Error loading team data:', error);
@@ -155,7 +163,10 @@ export default function InviteScreen() {
           </Text>
           
           <Text style={styles.noteText}>
-            Share this link with your teammates. They'll need a WorkPhotoPro account to join.
+            📱 For now, copy this link and paste it into a text message or email. The person will need to open the link while using Expo Go to join your team.
+          </Text>
+          <Text style={[styles.noteText, { marginTop: 8, fontSize: 12, opacity: 0.7 }]}>
+            Note: Deep links require the app to be installed. For production, we'll use HTTPS links that work in any browser.
           </Text>
         </View>
 

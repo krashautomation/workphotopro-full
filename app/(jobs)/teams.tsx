@@ -17,7 +17,7 @@ import { Team } from '@/utils/types';
 
 export default function Teams() {
   const { user, isAuthenticated } = useAuth();
-  const { userOrganizations, userTeams, loadUserData, switchTeam } = useOrganization();
+  const { userOrganizations, userTeams, loadUserData, switchTeam, currentTeam } = useOrganization();
   const router = useRouter();
   
   const [activeTab, setActiveTab] = useState<'memberships' | 'myTeams'>('memberships');
@@ -118,6 +118,20 @@ export default function Teams() {
    */
   const handleCreateTeam = () => {
     router.push('/(jobs)/new-team');
+  };
+
+  /**
+   * Handle delete team
+   */
+  const handleDeleteTeam = () => {
+    if (!currentTeam) return;
+    
+    const teamName = currentTeam.name || 'Team';
+    
+    router.push({
+      pathname: '/(jobs)/delete-team',
+      params: { teamId: currentTeam.$id, teamName },
+    });
   };
 
   /**
@@ -254,18 +268,27 @@ export default function Teams() {
             const teamName = item.name || item.teamData?.teamName || 'Unnamed Team';
             const description = item.teamData?.description || item.description || '';
             const isActive = item.teamData?.isActive !== false;
+            const isCurrentTeam = currentTeam?.$id === item.$id;
             
             return (
               <TouchableOpacity 
                 style={[
                   styles.teamCard,
-                  isActive ? styles.activeCard : styles.inactiveCard
+                  isActive ? styles.activeCard : styles.inactiveCard,
+                  isCurrentTeam && styles.currentTeamCard
                 ]}
                 onPress={() => handleTeamSelect(item)}
               >
                 <View style={styles.cardContent}>
                   <View style={styles.cardHeader}>
-                    <Text style={styles.teamName}>{teamName}</Text>
+                    <View style={styles.teamNameContainer}>
+                      <Text style={styles.teamName}>{teamName}</Text>
+                      {isCurrentTeam && (
+                        <View style={styles.currentTeamBadge}>
+                          <Text style={styles.currentTeamBadgeText}>Active</Text>
+                        </View>
+                      )}
+                    </View>
                     <View style={styles.statusIndicator}>
                       <IconSymbol
                         name={isActive ? "checkmark.circle.fill" : "pause.circle.fill"}
@@ -294,8 +317,21 @@ export default function Teams() {
         />
       )}
 
-      {/* Create Team Button */}
+      {/* Bottom Buttons */}
       <View style={styles.bottomContainer}>
+        {activeTab === 'myTeams' && currentTeam && (
+          <TouchableOpacity 
+            style={styles.deleteTeamButton}
+            onPress={handleDeleteTeam}
+          >
+            <IconSymbol
+              name="trash"
+              size={20}
+              color="#fff"
+            />
+            <Text style={styles.deleteTeamButtonText}>Delete Team</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity 
           style={styles.createButton}
           onPress={handleCreateTeam}
@@ -379,7 +415,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 20,
-    paddingBottom: 100, // Add padding to account for bottom button
+    paddingBottom: 160, // Add padding to account for bottom buttons
   },
   teamCard: {
     backgroundColor: colors.surface,
@@ -392,6 +428,11 @@ const styles = StyleSheet.create({
   inactiveCard: {
     opacity: 0.6,
   },
+  currentTeamCard: {
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
   cardContent: {
     flex: 1,
   },
@@ -401,11 +442,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
+  teamNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
   teamName: {
     fontSize: 18,
     fontWeight: '600',
     color: colors.text,
-    flex: 1,
+  },
+  currentTeamBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  currentTeamBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
   },
   statusIndicator: {
     marginLeft: 8,
@@ -470,6 +527,21 @@ const styles = StyleSheet.create({
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+  },
+  deleteTeamButton: {
+    backgroundColor: '#ef4444',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  deleteTeamButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
   createButton: {
     backgroundColor: colors.primary,

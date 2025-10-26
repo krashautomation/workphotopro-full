@@ -35,17 +35,7 @@ export default function TeamScreen() {
 
       // Load team members if team is selected
       if (currentTeam?.$id) {
-        console.log('🔍 Loading members for team:', currentTeam.$id);
         const memberships = await teamService.listMemberships(currentTeam.$id);
-        console.log('🔍 Memberships response:', memberships);
-        console.log('🔍 Number of members:', memberships.memberships.length);
-        console.log('🔍 Members:', memberships.memberships.map(m => ({
-          id: m.$id,
-          userId: m.userId,
-          userName: m.userName,
-          roles: m.roles,
-          membershipData: m.membershipData
-        })));
         setMembers(memberships.memberships);
       }
 
@@ -86,13 +76,23 @@ export default function TeamScreen() {
   const currentUserInMembers = members.find(m => m.userId === user?.$id);
   
   // If current user is not in members list but we have a team, add them as owner
+  // Also, if they're in members list but userName is empty, replace it with displayName
   const displayMembers = currentUserInMembers 
-    ? members 
+    ? members.map(m => {
+        // If this is the current user and their userName is empty, use displayName
+        if (m.userId === user?.$id && !m.userName) {
+          return {
+            ...m,
+            userName: displayName
+          };
+        }
+        return m;
+      })
     : user && currentTeam 
       ? [
           {
             userId: user.$id,
-            userName: displayName,
+            userName: displayName, // Use actual display name
             roles: ['owner'],
             membershipData: { role: 'owner' },
             $id: 'current-user'

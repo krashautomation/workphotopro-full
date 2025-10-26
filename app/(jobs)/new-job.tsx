@@ -3,7 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { jobChatService } from '@/lib/appwrite/database';
 import { Colors } from '@/utils/colors';
-import { Image } from 'expo-image';
+import { Image } from 'react-native';
 import { router, Stack } from 'expo-router';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View, Alert } from 'react-native';
@@ -52,9 +52,13 @@ return (
   <Stack.Screen />
       
     <View style={{ padding: 16, gap: 16 }}>
-
       
-      <Image source={require('@/assets/images/photopus-icon-glow.png')} style={{ width: 150, height: 150 }} />
+
+      <Image 
+        source={require('@/assets/images/photopus-icon-glow.png')} 
+        style={{ width: 150, height: 150, alignSelf: 'center', marginBottom: 20 }} 
+        resizeMode="contain"
+      />
            <Text style={styles.subtitle}>Create a new job that can be assigned to team members for monitoring and collaboration using photos, video, comments and more.</Text>
         
         <Input

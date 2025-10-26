@@ -240,6 +240,53 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /**
+   * Create default organization and team for new users
+   */
+  const createDefaultWorkspace = async (userId: string, userName: string, userEmail: string) => {
+    try {
+      console.log('🏢 Creating default workspace for user:', userId);
+      
+      // Check if user already has organizations (avoid duplicates)
+      const existingOrgs = await organizationService.listUserOrganizations(userId);
+      if (existingOrgs.documents.length > 0) {
+        console.log('🏢 User already has organizations, skipping workspace creation');
+        return;
+      }
+
+      // Create organization with placeholder data
+      const orgName = `${userName}'s Organization`;
+      const orgDescription = `Welcome to ${userName}'s workspace!`;
+      
+      const organization = await organizationService.createOrganization(
+        orgName,
+        orgDescription,
+        userId
+      );
+      
+      console.log('🏢 Created organization:', organization.$id);
+
+      // Create default team
+      const teamName = `${userName} Team`;
+      const teamDescription = `Your personal team in ${orgName}`;
+      
+      const team = await teamService.createTeam(
+        teamName,
+        organization.$id,
+        teamDescription,
+        ['owner'], // User is the owner of their default team
+        userId // Pass userId to create membership
+      );
+      
+      console.log('🏢 Created team:', team.$id);
+      
+      return { organization, team };
+    } catch (error) {
+      console.error('🏢 Error creating default workspace:', error);
+      throw error;
+    }
+  };
+
   // Load data when user changes
   useEffect(() => {
     if (isAuthenticated && user) {
