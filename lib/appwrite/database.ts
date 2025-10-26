@@ -79,7 +79,7 @@ export const databaseService = {
 
 // Multi-tenant JobChat service
 export const jobChatService = {
-  COLLECTION_ID: 'jobchats', // Updated collection name
+  COLLECTION_ID: 'jobchat', // Collection name in Appwrite
 
   async createJobChat(data: any, teamId: string, orgId: string) {
     const jobData = {
@@ -172,7 +172,7 @@ export const messageService = {
   async createMessage(data: any, teamId: string, orgId: string) {
     const messageData = {
       ...data,
-      userId: data.senderId || data.userId,
+      // Keep existing senderId field - no need to add userId
       teamId,
       orgId,
     };
@@ -377,7 +377,7 @@ export const tagService = {
   async getJobWithTags(jobId: string): Promise<JobChatWithTags | null> {
     try {
       // Get the job
-      const job = await databases.getDocument(DATABASE_ID, 'jobchats', jobId);
+      const job = await databases.getDocument(DATABASE_ID, 'jobchat', jobId);
       
       // Get tag assignments for this job
       const assignments = await this.getJobTagAssignments(jobId);

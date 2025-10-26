@@ -33,17 +33,41 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       setUserOrganizations(orgs);
 
       // Load user's teams (where they are member)
-      const teamsResponse = await teamService.listTeams();
+      const teamsResponse = await teamService.listTeams(user.$id);
       const teams = teamsResponse.teams;
       setUserTeams(teams);
 
-      // Set default organization and team if none selected
-      if (orgs.length > 0 && !currentOrganization) {
-        setCurrentOrganization(orgs[0]);
-      }
-      
-      if (teams.length > 0 && !currentTeam) {
-        setCurrentTeam(teams[0]);
+      // If user has no organizations, create a default one
+      if (orgs.length === 0) {
+        console.log('🏢 No organizations found, creating default workspace for existing user');
+        try {
+          const { organization, team } = await createDefaultWorkspace(
+            user.$id, 
+            user.name || 'User', 
+            user.email
+          );
+          
+          if (organization) {
+            setUserOrganizations([organization]);
+            setCurrentOrganization(organization);
+          }
+          
+          if (team) {
+            setUserTeams([team]);
+            setCurrentTeam(team);
+          }
+        } catch (error) {
+          console.error('Failed to create default workspace for existing user:', error);
+        }
+      } else {
+        // Set default organization and team if none selected
+        if (!currentOrganization) {
+          setCurrentOrganization(orgs[0]);
+        }
+        
+        if (teams.length > 0 && !currentTeam) {
+          setCurrentTeam(teams[0]);
+        }
       }
 
     } catch (error) {
@@ -82,7 +106,23 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
    */
   const switchTeam = async (teamId: string) => {
     try {
-      const team = await teamService.getTeam(teamId);
+      // Find the team in the current userTeams list by Appwrite ID
+      let team = userTeams.find(t => t.$id === teamId);
+      
+      if (!team) {
+        // Reload data and get fresh teams
+        const orgsResponse = await organizationService.listUserOrganizations(user.$id);
+        const teamsResponse = await teamService.listTeams(user.$id);
+        const teams = teamsResponse.teams;
+        setUserTeams(teams);
+        
+        // Try to find the team in the fresh data
+        team = teams.find(t => t.$id === teamId);
+        if (!team) {
+          throw new Error('Team not found');
+        }
+      }
+      
       setCurrentTeam(team);
     } catch (error) {
       console.error('Error switching team:', error);
@@ -124,18 +164,25 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       if (!currentOrganization?.$id) {
         throw new Error('No organization selected');
       }
-
-      const team = await teamService.createTeam(name, currentOrganization.$id, description);
-      
-      // Add to user's teams
-      setUserTeams(prev => [...prev, team]);
-      
-      // Set as current team if it's the first one
-      if (userTeams.length === 0) {
-        setCurrentTeam(team);
+      if (!user?.$id) {
+        throw new Error('User not authenticated');
       }
 
-      return team;
+      // Create the team
+      await teamService.createTeam(name, currentOrganization.$id, description, ['owner'], user.$id);
+      
+      // Reload user data to get the complete team info with membership role
+      await loadUserData();
+      
+      // Get the newly created team from the updated userTeams
+      const updatedTeams = await teamService.listTeams(user.$id);
+      const newTeam = updatedTeams.teams.find(t => t.name === name);
+      
+      if (newTeam) {
+        setCurrentTeam(newTeam);
+      }
+
+      return newTeam;
     } catch (error) {
       console.error('Error creating team:', error);
       throw error;
@@ -207,14 +254,32 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated, user]);
 
+  /**
+   * Switch to a different team (accepts team object or teamId)
+   */
+  const switchTeamDirect = async (teamOrId: Team | string) => {
+    if (typeof teamOrId === 'string') {
+      // If it's a string, use the existing switchTeam logic
+      const team = userTeams.find(t => t.$id === teamOrId);
+      if (!team) {
+        throw new Error('Team not found');
+      }
+      setCurrentTeam(team);
+    } else {
+      // If it's a team object, use it directly
+      setCurrentTeam(teamOrId);
+    }
+  };
+
   const value: OrganizationContextType = {
     currentOrganization,
     currentTeam,
     userOrganizations,
     userTeams,
     loading,
+    loadUserData,
     switchOrganization,
-    switchTeam,
+    switchTeam: switchTeamDirect,
     createOrganization,
     createTeam,
     inviteToTeam,

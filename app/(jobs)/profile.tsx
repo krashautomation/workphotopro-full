@@ -4,12 +4,14 @@ import { Stack, router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import UserProfile from '@/components/UserProfile';
 import { useAuth } from '@/context/AuthContext';
+import { useOrganization } from '@/context/OrganizationContext';
 import { Colors } from '@/utils/colors';
 import { IconSymbol } from '@/components/IconSymbol';
 import TagTestComponent from '@/components/TagTestComponent';
 
 export default function ProfileScreen() {
   const { user, getGoogleUserData, signOut } = useAuth();
+  const { currentOrganization } = useOrganization();
   const [googleData, setGoogleData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
@@ -182,6 +184,32 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        {/* Organization Section */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Organization</Text>
+          <Pressable onPress={() => {
+            console.log('Edit organization button pressed');
+            router.push('/(jobs)/edit-organization');
+          }}>
+            <IconSymbol name="pencil" color="#007AFF" size={16} />
+          </Pressable>
+        </View>
+        
+        <View style={styles.infoSection}>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Organization</Text>
+            <Text style={styles.infoValue}>
+              {currentOrganization?.orgName || 'No Organization'}
+            </Text>
+          </View>
+          
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Description</Text>
+            <Text style={styles.infoValue}>
+              {currentOrganization?.description || 'No description available'}
+            </Text>
+          </View>
+        </View>
 
         {/* Settings Section */}
         <View style={styles.settingsSection}>
@@ -232,7 +260,7 @@ export default function ProfileScreen() {
             <Pressable style={styles.settingItem}>
               <View style={styles.settingLeft}>
                 <IconSymbol name="archivebox.fill" color="#22C55E" size={20} />
-                <Text style={styles.settingText}>Archived work groups</Text>
+                <Text style={styles.settingText}>Archived teams</Text>
               </View>
               <IconSymbol name="chevron.right" color={Colors.Gray} size={16} />
             </Pressable>

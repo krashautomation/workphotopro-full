@@ -8,8 +8,6 @@ import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, 
 import { useEffect, useState, useCallback } from 'react';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
-import OrganizationSelector from '@/components/OrganizationSelector';
-import TeamSelector from '@/components/TeamSelector';
 
 export default function Jobs() {
   const { user, isAuthenticated, getUserProfilePicture, getGoogleUserData } = useAuth();
@@ -191,16 +189,27 @@ export default function Jobs() {
   return (
     <View style={styles.container}>
       {/* Header Card */}
-      <View style={styles.headerCard}>
+      <TouchableOpacity 
+        style={styles.headerCard}
+        onPress={() => router.push('/(jobs)/teams')}
+      >
         <View style={styles.headerCardContent}>
           <View style={styles.headerLeft}>
             <Text style={styles.welcomeText}>{getDisplayName()}</Text>
-            <Text style={styles.subtitle}>Welcome back!</Text>
+            <Text style={styles.subtitle}>
+              Organization: {currentOrganization?.orgName || 'No Organization'}
+            </Text>
+            <Text style={styles.subtitle}>
+              Team: {currentTeam?.name || 'No Team'}
+            </Text>
           </View>
           <View style={styles.headerButtons}>
             <TouchableOpacity 
               style={styles.profileButton}
-              onPress={() => router.push('/(jobs)/profile')}
+              onPress={(e) => {
+                e.stopPropagation();
+                router.push('/(jobs)/profile');
+              }}
             >
               <Avatar
                 name={getDisplayName()}
@@ -209,15 +218,15 @@ export default function Jobs() {
                 style={styles.profileAvatar}
               />
             </TouchableOpacity>
+            <IconSymbol
+              name="chevron.right"
+              size={20}
+              color={colors.textSecondary}
+            />
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
 
-      {/* Organization and Team Selectors */}
-      <View style={styles.selectorsContainer}>
-        <OrganizationSelector />
-        <TeamSelector />
-      </View>
 
       {/* Error Banner */}
       {error && (
@@ -342,11 +351,6 @@ const styles = StyleSheet.create({
     margin: 20,
     marginBottom: 0,
   },
-  selectorsContainer: {
-    margin: 20,
-    marginTop: 16,
-    gap: 12,
-  },
   headerCardContent: {
     backgroundColor: colors.surface,
     borderRadius: 12,
@@ -397,6 +401,20 @@ const styles = StyleSheet.create({
   },
   profileAvatar: {
     // No additional styles needed - Avatar component handles its own styling
+  },
+  infoContainer: {
+    marginTop: 12,
+    gap: 6,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
   newJobButton: {
     width: 36,

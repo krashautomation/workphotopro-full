@@ -81,6 +81,33 @@ export default function JobsLayout() {
           headerTintColor: '#fff',
         }}
       />
+      <Stack.Screen
+        name="edit-organization"
+        options={{
+          headerShown: true,
+          title: 'Edit Organization',
+          headerStyle: { backgroundColor: '#1a1a1a' },
+          headerTintColor: '#fff',
+        }}
+      />
+      <Stack.Screen
+        name="new-team"
+        options={{
+          headerShown: true,
+          title: 'Create Team',
+          headerStyle: { backgroundColor: '#1a1a1a' },
+          headerTintColor: '#fff',
+        }}
+      />
+      <Stack.Screen
+        name="invite"
+        options={{
+          headerShown: true,
+          title: 'Invite to Team',
+          headerStyle: { backgroundColor: '#1a1a1a' },
+          headerTintColor: '#fff',
+        }}
+      />
     </Stack>
   );
 }

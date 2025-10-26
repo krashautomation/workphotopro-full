@@ -69,13 +69,18 @@ This guide will help you create the necessary Appwrite database collections for 
 
 ### 4. JobChats Collection (Update Existing)
 
-**Collection ID:** `jobchats` (already exists, needs updates)
+**Collection ID:** `jobchat` (already exists, needs attribute updates)
+
+**Current Attributes (Keep These):**
+- `title` (String) - Job title
+- `description` (String) - Job description
+- `createdBy` (String) - User who created the job
+- `createdByName` (String) - Name of the user who created the job
+- `status` (String) - Job status
 
 **New Attributes to Add:**
-- `teamId` (String, 36 chars, required) - References Teams
-- `orgId` (String, 36 chars, required) - References Organizations
-- `createdBy` (String, 36 chars, required) - User who created the job
-- `status` (String, 20 chars, default: "active") - "active", "completed", "archived"
+- `teamId` (String, 36 chars, required) - References Teams - **ADD THIS**
+- `orgId` (String, 36 chars, required) - References Organizations - **ADD THIS**
 
 **Updated Permissions:**
 - Create: `Role.team(teamId)` (team members can create jobs)
@@ -87,14 +92,25 @@ This guide will help you create the necessary Appwrite database collections for 
 - `teamId` (key: `teamId`, type: `key`, attributes: `teamId`)
 - `orgId` (key: `orgId`, type: `key`, attributes: `orgId`)
 
+**Setup Instructions:**
+1. Go to Appwrite Console → Databases → Your Database → `jobchat` collection
+2. Click "Add Attribute"
+3. Add `teamId` as String (required)
+4. Add `orgId` as String (required)
+5. Create the two new indexes for `teamId` and `orgId`
+
 ### 5. Messages Collection (Update Existing)
 
 **Collection ID:** `messages` (already exists, needs updates)
 
 **New Attributes to Add:**
-- `userId` (String, 36 chars, required) - User who posted the message
 - `teamId` (String, 36 chars, required) - References Teams
 - `orgId` (String, 36 chars, required) - References Organizations
+
+**Keep Existing Attributes:**
+- `senderId` (String, 36 chars, required) - User who posted the message ✅
+- `senderName` (String, 128 chars, required) - Display name
+- `senderPhoto` (String, 500 chars, optional) - Profile picture URL
 
 **Updated Permissions:**
 - Create: `Role.team(teamId)` (team members can post messages)
@@ -105,7 +121,7 @@ This guide will help you create the necessary Appwrite database collections for 
 **New Indexes:**
 - `teamId` (key: `teamId`, type: `key`, attributes: `teamId`)
 - `orgId` (key: `orgId`, type: `key`, attributes: `orgId`)
-- `userId` (key: `userId`, type: `key`, attributes: `userId`)
+- `senderId` (key: `senderId`, type: `key`, attributes: `senderId`)
 
 ## Setup Instructions
 

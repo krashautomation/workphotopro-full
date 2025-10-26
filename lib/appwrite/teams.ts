@@ -84,7 +84,7 @@ export const teamService = {
   /**
    * Create a new team (both Appwrite Teams and our database)
    */
-  async createTeam(name: string, orgId: string, description?: string, roles?: string[]) {
+  async createTeam(name: string, orgId: string, description?: string, roles?: string[], userId?: string) {
     try {
       // Create Appwrite Team
       const appwriteTeam = await teams.create(ID.unique(), name, roles);
@@ -99,6 +99,25 @@ export const teamService = {
       };
 
       const teamDoc = await databaseService.createDocument('teams', teamData);
+      
+      // Create membership for the creator as owner
+      if (userId) {
+        try {
+          const membershipData = {
+            userId: userId,
+            teamId: appwriteTeam.$id,
+            role: 'owner',
+            invitedBy: userId,
+            joinedAt: new Date().toISOString(),
+            isActive: true
+          };
+
+          await databaseService.createDocument('memberships', membershipData);
+        } catch (membershipError) {
+          console.error('Could not create membership record:', membershipError);
+          // Don't fail team creation if membership creation fails
+        }
+      }
       
       return {
         ...appwriteTeam,
@@ -115,6 +134,7 @@ export const teamService = {
    */
   async getTeam(teamId: string) {
     try {
+      // Try to get from Appwrite first
       const appwriteTeam = await teams.get(teamId);
       
       // Get our custom team data
@@ -127,7 +147,33 @@ export const teamService = {
         teamData: teamData.documents[0] || null
       };
     } catch (error) {
-      console.error('Get team error:', error);
+      // If Appwrite lookup fails, try to construct from database
+      console.warn('Could not fetch from Appwrite, trying database...', error);
+      
+      // Search for team by ID in memberships
+      const memberships = await databaseService.listDocuments('memberships', [
+        Query.equal('teamId', teamId)
+      ]);
+      
+      if (memberships.documents && memberships.documents.length > 0) {
+        // Found membership, but we need to find the team name
+        // Since we don't have it, we need to search all teams
+        const allTeams = await teams.list();
+        const matchingTeam = allTeams.teams.find(t => t.$id === teamId);
+        
+        if (matchingTeam) {
+          const teamData = await databaseService.listDocuments('teams', [
+            Query.equal('teamName', matchingTeam.name)
+          ]);
+          
+          return {
+            ...matchingTeam,
+            teamData: teamData.documents[0] || null
+          };
+        }
+      }
+      
+      console.error('Get team error: Team not found', error);
       throw error;
     }
   },
@@ -135,34 +181,60 @@ export const teamService = {
   /**
    * List all teams the current user is a member of
    */
-  async listTeams() {
+  async listTeams(userId?: string) {
     try {
       const appwriteTeams = await teams.list();
       
-      // Get our custom team data for each team
+      // Get our custom team data and membership info for each team
       const teamsWithData = await Promise.all(
         appwriteTeams.teams.map(async (team) => {
           try {
+            // Get team data from our database
             const teamData = await databaseService.listDocuments('teams', [
               Query.equal('teamName', team.name)
             ]);
+            
+            // Only return teams that exist in our database
+            if (!teamData.documents || teamData.documents.length === 0) {
+              return null; // Skip teams not in our database
+            }
+            
+            // Get membership info to check user's role (from our database)
+            let membershipRole = null;
+            if (userId) {
+              try {
+                const memberships = await databaseService.listDocuments('memberships', [
+                  Query.equal('userId', userId),
+                  Query.equal('teamId', team.$id),
+                  Query.equal('isActive', true)
+                ]);
+                
+                if (memberships.documents && memberships.documents.length > 0) {
+                  membershipRole = memberships.documents[0].role || null;
+                }
+              } catch (error) {
+                console.warn('Could not fetch membership data for team:', team.name);
+              }
+            }
+            
             return {
               ...team,
-              teamData: teamData.documents[0] || null
+              teamData: teamData.documents[0] || null,
+              membershipRole: membershipRole || null
             };
           } catch (error) {
             console.warn('Could not fetch team data for:', team.name);
-            return {
-              ...team,
-              teamData: null
-            };
+            return null; // Skip teams with errors
           }
         })
       );
 
+      // Filter out null values (teams not in our database or with errors)
+      const validTeams = teamsWithData.filter(team => team !== null);
+
       return {
-        ...appwriteTeams,
-        teams: teamsWithData
+        teams: validTeams,
+        total: validTeams.length
       };
     } catch (error) {
       console.error('List teams error:', error);

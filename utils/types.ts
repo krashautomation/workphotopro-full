@@ -112,12 +112,11 @@ export interface Message {
   $databaseId: string;
   $sequence: number;
   content: string;
-  senderId: string;
+  senderId: string; // User who posted the message (kept existing field)
   senderName: string;
   senderPhoto: string;
   jobId: string; // Reference to JobChat
   // Multi-tenant fields
-  userId: string; // User who posted the message
   teamId: string; // References Teams
   orgId: string; // References Organizations
   imageUrl?: string; // Optional image URL
@@ -172,6 +171,7 @@ export interface OrganizationContextType {
   userOrganizations: Organization[];
   userTeams: Team[];
   loading: boolean;
+  loadUserData: () => Promise<void>;
   switchOrganization: (orgId: string) => Promise<void>;
   switchTeam: (teamId: string) => Promise<void>;
   createOrganization: (name: string, description?: string) => Promise<Organization>;

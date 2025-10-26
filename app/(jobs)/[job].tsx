@@ -8,6 +8,7 @@ import { Colors } from '@/utils/colors'
 import { JobChats } from '@/utils/test-data'
 import { JobChat, Message, LocationData } from '@/utils/types'
 import { useAuth } from '@/context/AuthContext'
+import { useOrganization } from '@/context/OrganizationContext'
 import { LegendList } from '@legendapp/list'
 import { useHeaderHeight } from '@react-navigation/elements'
 import * as ImagePicker from 'expo-image-picker'
@@ -24,6 +25,7 @@ import JobDetails from './job-details'
 export default function Job() {
     const { job: jobId } = useLocalSearchParams()
     const { user, getUserProfilePicture } = useAuth();
+    const { currentTeam, currentOrganization } = useOrganization();
     const insets = useSafeAreaInsets();
     const router = useRouter();
 
@@ -337,6 +339,16 @@ const getMessages = async () => {
        
        if(messageContent.trim() === '' && !selectedImage) return;
        
+       // Check if we have required team and organization data
+       if (!currentTeam?.$id || !currentOrganization?.$id) {
+           console.error('🔍 sendMessage: Missing team or organization data:', {
+               teamId: currentTeam?.$id,
+               orgId: currentOrganization?.$id
+           });
+           Alert.alert('Error', 'Please select a team and organization before sending messages.');
+           return;
+       }
+       
         try {
         console.log('🔍 sendMessage: Starting to send message...');
         console.log('🔍 sendMessage: Current messages count before sending:', messages.length);
@@ -373,6 +385,8 @@ const getMessages = async () => {
         senderName: user?.name,
         senderPhoto: userProfilePicture || '', // Use user's profile picture from preferences
         jobId: jobId,
+        teamId: currentTeam?.$id, // Add teamId from current team
+        orgId: currentOrganization?.$id, // Add orgId from current organization
        };
 
        // Add image fields only if image was uploaded
@@ -472,6 +486,15 @@ const getMessages = async () => {
         try {
             console.log('🔍 postLocationToChat: Posting location to chat...');
             
+            // Check if we have required team and organization data
+            if (!currentTeam?.$id || !currentOrganization?.$id) {
+                console.error('🔍 postLocationToChat: Missing team or organization data:', {
+                    teamId: currentTeam?.$id,
+                    orgId: currentOrganization?.$id
+                });
+                throw new Error('Please select a team and organization before sharing location.');
+            }
+            
             // Get user's profile picture from Google OAuth or stored preferences
             const userProfilePicture = await getUserProfilePicture();
             console.log('🔍 postLocationToChat: User profile picture:', userProfilePicture);
@@ -482,6 +505,8 @@ const getMessages = async () => {
                 senderName: user?.name,
                 senderPhoto: userProfilePicture || '',
                 jobId: jobId,
+                teamId: currentTeam?.$id, // Add teamId from current team
+                orgId: currentOrganization?.$id, // Add orgId from current organization
                 locationData: locationData,
                 messageType: 'location',
             };
