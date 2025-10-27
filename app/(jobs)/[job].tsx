@@ -936,7 +936,7 @@ const getMessages = async () => {
                                 >
                                     <IconSymbol 
                                         name="face" 
-                                        color={isUploading ? Colors.Gray : Colors.Primary}
+                                        color={isUploading ? Colors.Gray : '#4A9EFF'}
                                         size={24}
                                     />
                                 </Pressable>
@@ -954,7 +954,7 @@ const getMessages = async () => {
                                 >
                                     <IconSymbol 
                                         name="photo" 
-                                        color={isUploading ? Colors.Gray : Colors.Primary}
+                                        color={isUploading ? Colors.Gray : '#4A9EFF'}
                                         size={24}
                                     />
                                 </Pressable>
@@ -985,11 +985,11 @@ const getMessages = async () => {
                                     onPress={sendMessage}
                                 >
                                     {isUploading ? (
-                                        <ActivityIndicator size="small" color={Colors.Primary} />
+                                        <ActivityIndicator size="small" color="#4A9EFF" />
                                     ) : (
                                         <IconSymbol 
                                         name="paperplane" 
-                                        color={(messageContent || selectedImage) ? Colors.Primary : Colors.Gray}
+                                        color={(messageContent || selectedImage) ? '#4A9EFF' : Colors.Gray}
                                         />
                                     )}
                                 </Pressable>
@@ -1047,15 +1047,15 @@ const getMessages = async () => {
                                         height: 48,
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        backgroundColor: Colors.Primary + '20',
+                                        backgroundColor: '#4A9EFF' + '20',
                                         borderRadius: 24,
                                         borderWidth: 2,
-                                        borderColor: isUploading ? Colors.Gray : Colors.Primary,
+                                        borderColor: isUploading ? Colors.Gray : '#4A9EFF',
                                     }}
                                 >
                                     <IconSymbol 
                                         name="camera" 
-                                        color={isUploading ? Colors.Gray : Colors.Primary}
+                                        color={isUploading ? Colors.Gray : '#4A9EFF'}
                                         size={28}
                                     />
                                 </Pressable>
