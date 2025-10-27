@@ -377,7 +377,7 @@ export const tagService = {
   async getJobWithTags(jobId: string): Promise<JobChatWithTags | null> {
     try {
       // Get the job
-      const job = await databases.getDocument(DATABASE_ID, 'jobchat', jobId);
+      const job = await databases.getDocument(DATABASE_ID, 'jobchat', jobId) as any;
       
       // Get tag assignments for this job
       const assignments = await this.getJobTagAssignments(jobId);

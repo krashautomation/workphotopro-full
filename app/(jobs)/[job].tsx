@@ -62,6 +62,7 @@ export default function Job() {
     const [isImageViewVisible, setIsImageViewVisible] = React.useState(false);
     const [isRefreshing, setIsRefreshing] = React.useState(false);
     const [showShareLocation, setShowShareLocation] = React.useState(false);
+    const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
 
 
     React.useEffect(() => {
@@ -482,6 +483,22 @@ const getMessages = async () => {
         setMessageToDelete(null);
     };
 
+    // Helper function to check if message is mostly emojis
+    const isEmojiMessage = (text: string): boolean => {
+        const trimmedText = text.trim();
+        
+        // Must be short message (1-10 chars)
+        if (trimmedText.length === 0 || trimmedText.length > 10) {
+            return false;
+        }
+        
+        // Check if it contains regular text characters
+        // If no letters or numbers, assume it's emoji
+        const hasLettersOrNumbers = /[a-zA-Z0-9]/.test(trimmedText);
+        
+        return !hasLettersOrNumbers;
+    };
+
     const postLocationToChat = async (locationData: LocationData) => {
         try {
             console.log('🔍 postLocationToChat: Posting location to chat...');
@@ -781,6 +798,9 @@ const getMessages = async () => {
                                                     color: Colors.Text,
                                                     fontStyle: item.content === 'Message deleted by user' ? 'italic' : 'normal',
                                                     opacity: item.content === 'Message deleted by user' ? 0.6 : 1,
+                                                    fontSize: isEmojiMessage(item.content) ? 48 : 14,
+                                                    textAlign: isEmojiMessage(item.content) ? 'center' : 'left',
+                                                    lineHeight: isEmojiMessage(item.content) ? 56 : undefined,
                                                 }}>
                                                     {item.content}
                                                 </Text>
@@ -862,6 +882,24 @@ const getMessages = async () => {
                                 borderColor: Colors.Gray,
                                 borderRadius: 8,
                             }}>
+                                {/* Emoji Picker Button */}
+                                <Pressable 
+                                    onPress={() => setShowEmojiPicker(!showEmojiPicker)}
+                                    disabled={isUploading}
+                                    style={{
+                                        width: 32,
+                                        height: 32,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    <IconSymbol 
+                                        name="face" 
+                                        color={isUploading ? Colors.Gray : Colors.Primary}
+                                        size={24}
+                                    />
+                                </Pressable>
+
                                 {/* Image Picker Button */}
                                 <Pressable 
                                     onPress={pickImage}
@@ -915,6 +953,40 @@ const getMessages = async () => {
                                     )}
                                 </Pressable>
                             </View>
+
+                            {/* Emoji Picker */}
+                            {showEmojiPicker && (
+                                <View style={{
+                                    flexDirection: 'row',
+                                    gap: 8,
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 12,
+                                    borderWidth: 1,
+                                    borderColor: Colors.Gray,
+                                    borderRadius: 8,
+                                    marginTop: 8,
+                                    backgroundColor: Colors.Secondary,
+                                }}>
+                                    {['👍', '❤️', '😂', '😮', '🔥'].map((emoji) => (
+                                        <Pressable
+                                            key={emoji}
+                                            onPress={() => {
+                                                setMessageContent(emoji);
+                                                setShowEmojiPicker(false);
+                                            }}
+                                            style={{
+                                                padding: 12,
+                                                backgroundColor: Colors.Primary + '20',
+                                                borderRadius: 8,
+                                                borderWidth: 1,
+                                                borderColor: Colors.Primary,
+                                            }}
+                                        >
+                                            <Text style={{ fontSize: 24 }}>{emoji}</Text>
+                                        </Pressable>
+                                    ))}
+                                </View>
+                            )}
                         </View>
                     </KeyboardAvoidingView>
                 ) : (
