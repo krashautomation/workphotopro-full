@@ -20,6 +20,7 @@ import ImageViewing from 'react-native-image-viewing'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import JobDetails from './job-details'
+import * as SecureStore from 'expo-secure-store'
 
 
 export default function Job() {
@@ -74,10 +75,46 @@ export default function Job() {
         }, 1000);
     }, []);
 
+    // Handle captured image from camera page
+    React.useEffect(() => {
+        const checkCapturedImage = async () => {
+            try {
+                const capturedImageUri = await SecureStore.getItemAsync('capturedImageUri')
+                if (capturedImageUri) {
+                    console.log('🔍 Received captured image URI:', capturedImageUri)
+                    setSelectedImage(capturedImageUri)
+                    // Clear the stored image URI
+                    await SecureStore.deleteItemAsync('capturedImageUri')
+                }
+            } catch (error) {
+                console.error('Error retrieving captured image:', error)
+            }
+        }
+        checkCapturedImage()
+    }, []) // Run once on mount and when screen comes into focus
+
     // Auto-refresh when returning to the screen
     useFocusEffect(
         React.useCallback(() => {
             console.log('🔍 useFocusEffect: Screen focused, refreshing messages');
+            
+            // Check for captured image from camera
+            const checkCapturedImage = async () => {
+                try {
+                    const capturedImageUri = await SecureStore.getItemAsync('capturedImageUri')
+                    if (capturedImageUri) {
+                        console.log('🔍 Received captured image URI from camera:', capturedImageUri)
+                        setSelectedImage(capturedImageUri)
+                        // Clear the stored image URI
+                        await SecureStore.deleteItemAsync('capturedImageUri')
+                    }
+                } catch (error) {
+                    console.error('Error retrieving captured image:', error)
+                }
+            }
+            checkCapturedImage()
+            
+            // Refresh messages
             const refreshMessages = async () => {
                 await getMessages();
                 // Scroll to bottom after refresh
@@ -283,6 +320,10 @@ const getMessages = async () => {
             console.error('Error picking image:', error);
             Alert.alert('Error', 'Failed to pick image. Please try again.');
         }
+    };
+
+    const pickCamera = () => {
+        router.push(`/(jobs)/camera?jobId=${jobId}`);
     };
 
     const uploadImage = async (imageUri: string): Promise<{ fileId: string; fileUrl: string } | null> => {
@@ -987,6 +1028,38 @@ const getMessages = async () => {
                                     ))}
                                 </View>
                             )}
+
+                            {/* Camera Menu Row */}
+                            <View
+                                style={{
+                                    flexDirection: 'row',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    paddingVertical: 8,
+                                    marginTop: 4,
+                                }}
+                            >
+                                <Pressable
+                                    onPress={pickCamera}
+                                    disabled={isUploading}
+                                    style={{
+                                        width: 48,
+                                        height: 48,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        backgroundColor: Colors.Primary + '20',
+                                        borderRadius: 24,
+                                        borderWidth: 2,
+                                        borderColor: isUploading ? Colors.Gray : Colors.Primary,
+                                    }}
+                                >
+                                    <IconSymbol 
+                                        name="camera" 
+                                        color={isUploading ? Colors.Gray : Colors.Primary}
+                                        size={28}
+                                    />
+                                </Pressable>
+                            </View>
                         </View>
                     </KeyboardAvoidingView>
                 ) : (
