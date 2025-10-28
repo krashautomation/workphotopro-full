@@ -8,6 +8,17 @@ interface User {
     imageUrl: string;
 }
 
+// User preferences for watermark and timestamp
+export interface UserPreferences {
+  $id?: string;
+  userId: string; // References Appwrite Users
+  watermarkEnabled: boolean;
+  timestampEnabled: boolean;
+  timestampFormat?: 'short' | 'long';
+  $createdAt?: string;
+  $updatedAt?: string;
+}
+
 // Multi-tenant Organization types
 export interface Organization {
   $id: string; // Appwrite document ID

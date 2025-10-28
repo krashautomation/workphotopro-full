@@ -7,16 +7,43 @@ import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } fr
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import * as SecureStore from 'expo-secure-store'
+import { WatermarkedPhoto } from '@/components/WatermarkedPhoto'
+import { getDefaultWatermarkPreferences, WatermarkOptions } from '@/utils/watermark'
+import { useAuth } from '@/context/AuthContext'
+import { userPreferencesService } from '@/lib/appwrite/database'
 
 export default function CameraPage() {
     const { jobId } = useLocalSearchParams()
+    const { user } = useAuth()
     const [facing, setFacing] = React.useState<CameraType>('back')
     const [permission, requestPermission] = useCameraPermissions()
     const [isCapturing, setIsCapturing] = React.useState(false)
     const [capturedPhoto, setCapturedPhoto] = React.useState<string | null>(null)
+    const [watermarkOptions, setWatermarkOptions] = React.useState<WatermarkOptions>(getDefaultWatermarkPreferences())
     const cameraRef = React.useRef<any>(null)
     const insets = useSafeAreaInsets()
     const router = useRouter()
+
+    // Load user preferences on mount
+    React.useEffect(() => {
+        const loadPreferences = async () => {
+            if (user?.$id) {
+                try {
+                    const prefs = await userPreferencesService.getUserPreferences(user.$id)
+                    if (prefs) {
+                        setWatermarkOptions({
+                            watermarkEnabled: prefs.watermarkEnabled,
+                            timestampEnabled: prefs.timestampEnabled,
+                            timestampFormat: prefs.timestampFormat || 'short',
+                        })
+                    }
+                } catch (error) {
+                    console.error('Error loading user preferences:', error)
+                }
+            }
+        }
+        loadPreferences()
+    }, [user])
 
     const toggleCameraFacing = () => {
         setFacing(current => (current === 'back' ? 'front' : 'back'))
@@ -41,11 +68,14 @@ export default function CameraPage() {
         }
     }
 
-    const handleDone = async () => {
-        if (capturedPhoto) {
+    const handleDone = async (processedImageUri?: string) => {
+        const imageToSave = processedImageUri || capturedPhoto;
+        
+        if (imageToSave) {
             try {
                 // Store the captured image URI in secure store
-                await SecureStore.setItemAsync('capturedImageUri', capturedPhoto)
+                await SecureStore.setItemAsync('capturedImageUri', imageToSave)
+                console.log('✅ Saved image:', imageToSave)
                 // Navigate back to job page
                 router.back()
             } catch (error) {
@@ -155,7 +185,7 @@ export default function CameraPage() {
 
                                 {/* Done button - faded until photo is taken */}
                                 <Pressable 
-                                    onPress={handleDone} 
+                                    onPress={() => handleDone()} 
                                     style={[styles.doneButton, !capturedPhoto && styles.doneButtonDisabled]}
                                     disabled={!capturedPhoto || isCapturing}
                                 >
@@ -168,37 +198,15 @@ export default function CameraPage() {
                 ) : (
                     /* Show preview when photo is captured */
                     <View style={styles.previewContainer}>
-                        <Image 
-                            source={{ uri: capturedPhoto }} 
-                            style={styles.previewImage}
-                            resizeMode="contain"
-                        />
-
-                        {/* Footer with controls */}
-                        <View style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
-                            {/* Cancel button */}
-                            <Pressable 
-                                onPress={handleCancel} 
-                                style={styles.cancelButton}
-                                disabled={isCapturing}
-                            >
-                                <IconSymbol name="xmark" color={Colors.White} size={24} />
-                                <Text style={styles.buttonText}>Cancel</Text>
-                            </Pressable>
-
-                            {/* Spacer */}
-                            <View style={styles.spacer} />
-
-                            {/* Done button */}
-                            <Pressable 
-                                onPress={handleDone} 
-                                style={styles.doneButton}
-                                disabled={isCapturing}
-                            >
-                                <IconSymbol name="checkmark" color={Colors.White} size={24} />
-                                <Text style={styles.buttonText}>Done</Text>
-                            </Pressable>
-                        </View>
+                        {capturedPhoto && (
+                            <WatermarkedPhoto 
+                                imageUri={capturedPhoto} 
+                                options={watermarkOptions} 
+                                onDone={handleDone} 
+                                onCancel={handleCancel} 
+                                isCapturing={isCapturing}
+                            />
+                        )}
                     </View>
                 )}
             </View>

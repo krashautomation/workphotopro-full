@@ -1,6 +1,6 @@
 import { databases } from './client';
 import { ID, Query } from 'react-native-appwrite';
-import { TagTemplate, JobTagAssignment, JobChatWithTags } from '@/utils/types';
+import { TagTemplate, JobTagAssignment, JobChatWithTags, UserPreferences } from '@/utils/types';
 
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID || '';
 
@@ -462,6 +462,94 @@ export const tagService = {
     } catch (error) {
       console.error('Initialize default tags error:', error);
       throw error;
+    }
+  },
+};
+
+// User preferences service for watermark and timestamp settings
+export const userPreferencesService = {
+  COLLECTION_ID: 'user_preferences',
+
+  async getUserPreferences(userId: string): Promise<UserPreferences | null> {
+    try {
+      const result = await databases.listDocuments(
+        DATABASE_ID,
+        this.COLLECTION_ID,
+        [Query.equal('userId', userId)]
+      );
+
+      if (result.documents.length > 0) {
+        return result.documents[0] as any as UserPreferences;
+      }
+
+      // Return default preferences if none exist
+      return {
+        userId,
+        watermarkEnabled: true,
+        timestampEnabled: true,
+        timestampFormat: 'short',
+      };
+    } catch (error: any) {
+      console.warn('Collection not found or not accessible. Returning default preferences.', error.message);
+      // Return defaults on error (collection doesn't exist yet)
+      return {
+        userId,
+        watermarkEnabled: true,
+        timestampEnabled: true,
+        timestampFormat: 'short',
+      };
+    }
+  },
+
+  async createUserPreferences(userId: string, preferences: Partial<UserPreferences>): Promise<UserPreferences | null> {
+    try {
+      const defaultPreferences: Omit<UserPreferences, '$id' | '$createdAt' | '$updatedAt'> = {
+        userId,
+        watermarkEnabled: true,
+        timestampEnabled: true,
+        timestampFormat: 'short',
+      };
+
+      const userPreferences = {
+        ...defaultPreferences,
+        ...preferences,
+      };
+
+      return await databaseService.createDocument(this.COLLECTION_ID, userPreferences) as any;
+    } catch (error: any) {
+      console.warn('Cannot create user preferences. Collection may not exist.', error.message);
+      // Return null or defaults if collection doesn't exist
+      return {
+        userId,
+        watermarkEnabled: true,
+        timestampEnabled: true,
+        timestampFormat: 'short',
+      };
+    }
+  },
+
+  async updateUserPreferences(userId: string, preferences: Partial<UserPreferences>): Promise<UserPreferences | null> {
+    try {
+      const existing = await this.getUserPreferences(userId);
+      
+      if (existing && existing.$id) {
+        return await databaseService.updateDocument(
+          this.COLLECTION_ID,
+          existing.$id,
+          preferences
+        ) as any as UserPreferences;
+      } else {
+        return await this.createUserPreferences(userId, preferences);
+      }
+    } catch (error: any) {
+      console.warn('Cannot update user preferences.', error.message);
+      // Return defaults on error
+      return {
+        userId,
+        watermarkEnabled: true,
+        timestampEnabled: true,
+        timestampFormat: 'short',
+      };
     }
   },
 };
