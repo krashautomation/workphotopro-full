@@ -1,6 +1,6 @@
 import { databases } from './client';
 import { ID, Query } from 'react-native-appwrite';
-import { TagTemplate, JobTagAssignment, JobChatWithTags } from '@/utils/types';
+import { TagTemplate, JobTagAssignment, JobChatWithTags, UserPreferences } from '@/utils/types';
 
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID || '';
 
@@ -77,25 +77,43 @@ export const databaseService = {
   },
 };
 
-// Simple JobChat service (matching old working version)
+// Multi-tenant JobChat service
 export const jobChatService = {
-  COLLECTION_ID: 'jobchat', // Using old collection name
+  COLLECTION_ID: 'jobchat', // Collection name in Appwrite
 
-  async createJobChat(data: any) {
-    return databaseService.createDocument(this.COLLECTION_ID, data);
+  async createJobChat(data: any, teamId: string, orgId: string) {
+    const jobData = {
+      ...data,
+      teamId,
+      orgId,
+      status: 'active',
+      createdBy: data.createdBy || data.userId,
+      createdByName: data.createdByName || data.userName,
+    };
+    return databaseService.createDocument(this.COLLECTION_ID, jobData);
   },
 
   async getJobChat(jobChatId: string) {
     return databaseService.getDocument(this.COLLECTION_ID, jobChatId);
   },
 
-  async listJobChats() {
-    // Get all jobs and filter out soft-deleted ones in the application
-    // This approach handles both cases: jobs without deletedAt field and jobs with deletedAt = null
-    const response = await databaseService.listDocuments(this.COLLECTION_ID, [
+  async listJobChats(teamId?: string, orgId?: string) {
+    const queries = [
       Query.limit(100),
       Query.orderDesc('$createdAt') // Order by creation date to get latest jobs first
-    ]);
+    ];
+
+    // Filter by team if provided
+    if (teamId) {
+      queries.push(Query.equal('teamId', teamId));
+    }
+
+    // Filter by organization if provided
+    if (orgId) {
+      queries.push(Query.equal('orgId', orgId));
+    }
+
+    const response = await databaseService.listDocuments(this.COLLECTION_ID, queries);
     
     console.log('🔍 Database Service: Raw jobs response:', response.documents.length, 'jobs');
     
@@ -147,25 +165,39 @@ export const jobChatService = {
   },
 };
 
-// Simple Message service (matching old working version)
+// Multi-tenant Message service
 export const messageService = {
   COLLECTION_ID: 'messages',
 
-  async createMessage(data: any) {
-    return databaseService.createDocument(this.COLLECTION_ID, data);
+  async createMessage(data: any, teamId: string, orgId: string) {
+    const messageData = {
+      ...data,
+      // Keep existing senderId field - no need to add userId
+      teamId,
+      orgId,
+    };
+    return databaseService.createDocument(this.COLLECTION_ID, messageData);
   },
 
   async getMessage(messageId: string) {
     return databaseService.getDocument(this.COLLECTION_ID, messageId);
   },
 
-  async listMessages(jobId: string) {
-    // Use jobId instead of jobChatId to match old version
+  async listMessages(jobId: string, teamId?: string, orgId?: string) {
     const queries = [
       Query.equal('jobId', jobId),
       Query.orderAsc('$createdAt'),
       Query.limit(100)
     ];
+
+    // Add team and org filters if provided
+    if (teamId) {
+      queries.push(Query.equal('teamId', teamId));
+    }
+    if (orgId) {
+      queries.push(Query.equal('orgId', orgId));
+    }
+
     return databaseService.listDocuments(this.COLLECTION_ID, queries);
   },
 
@@ -345,7 +377,7 @@ export const tagService = {
   async getJobWithTags(jobId: string): Promise<JobChatWithTags | null> {
     try {
       // Get the job
-      const job = await databases.getDocument(DATABASE_ID, 'jobchats', jobId);
+      const job = await databases.getDocument(DATABASE_ID, 'jobchat', jobId) as any;
       
       // Get tag assignments for this job
       const assignments = await this.getJobTagAssignments(jobId);
@@ -430,6 +462,94 @@ export const tagService = {
     } catch (error) {
       console.error('Initialize default tags error:', error);
       throw error;
+    }
+  },
+};
+
+// User preferences service for watermark and timestamp settings
+export const userPreferencesService = {
+  COLLECTION_ID: 'user_preferences',
+
+  async getUserPreferences(userId: string): Promise<UserPreferences | null> {
+    try {
+      const result = await databases.listDocuments(
+        DATABASE_ID,
+        this.COLLECTION_ID,
+        [Query.equal('userId', userId)]
+      );
+
+      if (result.documents.length > 0) {
+        return result.documents[0] as any as UserPreferences;
+      }
+
+      // Return default preferences if none exist
+      return {
+        userId,
+        watermarkEnabled: true,
+        timestampEnabled: true,
+        timestampFormat: 'short',
+      };
+    } catch (error: any) {
+      console.warn('Collection not found or not accessible. Returning default preferences.', error.message);
+      // Return defaults on error (collection doesn't exist yet)
+      return {
+        userId,
+        watermarkEnabled: true,
+        timestampEnabled: true,
+        timestampFormat: 'short',
+      };
+    }
+  },
+
+  async createUserPreferences(userId: string, preferences: Partial<UserPreferences>): Promise<UserPreferences | null> {
+    try {
+      const defaultPreferences: Omit<UserPreferences, '$id' | '$createdAt' | '$updatedAt'> = {
+        userId,
+        watermarkEnabled: true,
+        timestampEnabled: true,
+        timestampFormat: 'short',
+      };
+
+      const userPreferences = {
+        ...defaultPreferences,
+        ...preferences,
+      };
+
+      return await databaseService.createDocument(this.COLLECTION_ID, userPreferences) as any;
+    } catch (error: any) {
+      console.warn('Cannot create user preferences. Collection may not exist.', error.message);
+      // Return null or defaults if collection doesn't exist
+      return {
+        userId,
+        watermarkEnabled: true,
+        timestampEnabled: true,
+        timestampFormat: 'short',
+      };
+    }
+  },
+
+  async updateUserPreferences(userId: string, preferences: Partial<UserPreferences>): Promise<UserPreferences | null> {
+    try {
+      const existing = await this.getUserPreferences(userId);
+      
+      if (existing && existing.$id) {
+        return await databaseService.updateDocument(
+          this.COLLECTION_ID,
+          existing.$id,
+          preferences
+        ) as any as UserPreferences;
+      } else {
+        return await this.createUserPreferences(userId, preferences);
+      }
+    } catch (error: any) {
+      console.warn('Cannot update user preferences.', error.message);
+      // Return defaults on error
+      return {
+        userId,
+        watermarkEnabled: true,
+        timestampEnabled: true,
+        timestampFormat: 'short',
+      };
     }
   },
 };

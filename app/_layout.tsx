@@ -1,12 +1,15 @@
 import { AuthProvider } from '@/context/AuthContext';
+import { OrganizationProvider } from '@/context/OrganizationContext';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
-import { Slot } from 'expo-router';
+import { Slot, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Linking } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
-export default function RootLayout() {
+function RootLayoutNav() {
+  const router = useRouter();
+
   useEffect(() => {
     // Complete any pending OAuth sessions
     WebBrowser.maybeCompleteAuthSession();
@@ -14,29 +17,43 @@ export default function RootLayout() {
     // Handle deep links when app is already running
     const handleUrl = (event: { url: string }) => {
       console.log('🔗 Deep link received:', event.url);
-      console.log('🔗 Deep link type:', typeof event.url);
-      console.log('🔗 Deep link length:', event.url.length);
+      
+      try {
+        const url = new URL(event.url);
+        
+        // Check if this is an HTTPS invite link (web.workphotopro.com/invite/{teamId})
+        if (url.hostname === 'web.workphotopro.com' && url.pathname.startsWith('/invite/')) {
+          const teamId = url.pathname.split('/invite/')[1];
+          if (teamId) {
+            console.log('🔗 HTTPS invite link detected! Team ID:', teamId);
+            router.push({
+              pathname: '/(auth)/accept-invite',
+              params: { teamId }
+            });
+            return;
+          }
+        }
+        
+        // Check if this is a deep link invite (workphotopro://team-invite?teamId=...)
+        if (url.pathname.includes('team-invite') || url.searchParams.get('teamId')) {
+          const teamId = url.searchParams.get('teamId');
+          if (teamId) {
+            console.log('🔗 Deep link invite detected! Team ID:', teamId);
+            router.push({
+              pathname: '/(auth)/accept-invite',
+              params: { teamId }
+            });
+            return;
+          }
+        }
+      } catch (parseError) {
+        console.error('🔗 Error parsing URL:', parseError);
+      }
       
       // Check if this is an OAuth redirect
       if (event.url.includes('appwrite-callback-68e9d42100365e14f358')) {
         console.log('🔗 OAuth redirect detected!');
-        console.log('🔗 OAuth URL:', event.url);
-        
-        // Parse the OAuth parameters
-        try {
-          const url = new URL(event.url);
-          const secret = url.searchParams.get('secret');
-          const userId = url.searchParams.get('userId');
-          const error = url.searchParams.get('error');
-          
-          console.log('🔗 OAuth parameters:', {
-            secret: secret ? '***' : 'null',
-            userId: userId,
-            error: error || 'null'
-          });
-        } catch (parseError) {
-          console.error('🔗 Error parsing OAuth URL:', parseError);
-        }
+        // OAuth handling logic stays the same
       }
     };
 
@@ -47,6 +64,8 @@ export default function RootLayout() {
     Linking.getInitialURL().then((url) => {
       if (url) {
         console.log('🔗 Initial deep link:', url);
+        // Handle the deep link
+        handleUrl({ url });
       }
     });
 
@@ -55,12 +74,18 @@ export default function RootLayout() {
     };
   }, []);
 
+  return <Slot />;
+}
+
+export default function RootLayout() {
   return (
     <AuthProvider>
-      <ThemeProvider value={DarkTheme}>
-        <StatusBar style="light" />
-        <Slot />
-      </ThemeProvider>
+      <OrganizationProvider>
+        <ThemeProvider value={DarkTheme}>
+          <StatusBar style="light" />
+          <RootLayoutNav />
+        </ThemeProvider>
+      </OrganizationProvider>
     </AuthProvider>
   );
 }

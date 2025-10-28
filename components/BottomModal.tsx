@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1a1a1a',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     minHeight: '50%',

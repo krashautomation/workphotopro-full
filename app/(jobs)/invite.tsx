@@ -1,24 +1,70 @@
-import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert, Share } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Pressable, StyleSheet, Alert, Share, ActivityIndicator, ScrollView } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/utils/colors';
 import { IconSymbol } from '@/components/IconSymbol';
 import QRCode from 'react-native-qrcode-svg';
+import { useAuth } from '@/context/AuthContext';
+import { useOrganization } from '@/context/OrganizationContext';
+import { teamService } from '@/lib/appwrite/teams';
 
 export default function InviteScreen() {
-  const [inviteLink] = useState('https://links.workphotos.com/ZnmNNi2t4Wb');
-  const [teamName] = useState('Gardening Team');
-  const [currentMembers] = useState(1);
-  const [maxMembers] = useState(3);
+  const { user } = useAuth();
+  const { currentTeam, currentOrganization } = useOrganization();
+  
+  const [inviteLink, setInviteLink] = useState<string>('');
+  const [memberCount, setMemberCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    loadTeamData();
+  }, [currentTeam]);
+
+  const loadTeamData = async () => {
+    if (!currentTeam?.$id || !user?.$id) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Generate invite link - use HTTPS for production
+      // This will work in browsers and automatically open the app if installed
+      const teamId = currentTeam.$id;
+      const inviteUrl = `https://web.workphotopro.com/invite/${teamId}`;
+      setInviteLink(inviteUrl);
+
+      // Fetch member count - wrap in try/catch to handle Appwrite errors gracefully
+      try {
+        const memberships = await teamService.listMemberships(currentTeam.$id);
+        setMemberCount(memberships.memberships.length);
+      } catch (membershipError) {
+        console.warn('Could not fetch memberships, using default count:', membershipError);
+        // If we can't fetch memberships, default to 1 (just the owner)
+        setMemberCount(1);
+      }
+
+    } catch (error) {
+      console.error('Error loading team data:', error);
+      Alert.alert('Error', 'Failed to load team information');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleShareLink = async () => {
+    if (!inviteLink) {
+      Alert.alert('Error', 'Invite link not available');
+      return;
+    }
+
     try {
       await Share.share({
-        message: `Join my team "${teamName}" on WorkPhotos: ${inviteLink}`,
+        message: `Join my team "${currentTeam?.name || 'team'}" on WorkPhotoPro: ${inviteLink}`,
         url: inviteLink,
-        title: `Join ${teamName} on WorkPhotos`,
+        title: `Join ${currentTeam?.name || 'team'} on WorkPhotoPro`,
       });
     } catch (error) {
       console.error('Error sharing link:', error);
@@ -26,17 +72,53 @@ export default function InviteScreen() {
     }
   };
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen 
+          options={{ 
+            title: 'Invite to Team',
+            headerBackTitle: '',
+            headerBackVisible: true,
+          }} 
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.Primary} />
+          <Text style={styles.loadingText}>Loading team information...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!currentTeam) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen 
+          options={{ 
+            title: 'Invite to Team',
+            headerBackTitle: '',
+            headerBackVisible: true,
+          }} 
+        />
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No team selected</Text>
+          <Text style={styles.emptySubtext}>Please select a team first</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen 
         options={{ 
-          title: 'Invite',
+          title: 'Invite to Team',
           headerBackTitle: '',
           headerBackVisible: true,
         }} 
       />
       
-      <View style={styles.content}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         {/* Team Information Section */}
         <View style={styles.teamInfoSection}>
           <View style={styles.teamIconContainer}>
@@ -46,17 +128,20 @@ export default function InviteScreen() {
                   <View key={index} style={styles.teamIconDot} />
                 ))}
               </View>
-              <Text style={styles.teamIconText}>Team 2</Text>
+              <Text style={styles.teamIconText}>Team</Text>
             </View>
           </View>
           
           <View style={styles.teamDetails}>
-            <Text style={styles.teamName}>{teamName}</Text>
+            <Text style={styles.teamName}>{currentTeam.name}</Text>
             <View style={styles.capacityBar}>
               <Text style={styles.capacityText}>
-                Team capacity: <Text style={styles.capacityNumbers}>{currentMembers}</Text> of <Text style={styles.capacityNumbers}>{maxMembers}</Text> members
+                Team members: <Text style={styles.capacityNumbers}>{memberCount}</Text>
               </Text>
             </View>
+            {currentOrganization && (
+              <Text style={styles.orgName}>{currentOrganization.orgName}</Text>
+            )}
           </View>
         </View>
 
@@ -74,11 +159,14 @@ export default function InviteScreen() {
           </View>
           
           <Text style={styles.qrInstructions}>
-            Scan the QR code to add teammates in person
+            Scan the QR code to join the team
           </Text>
           
           <Text style={styles.noteText}>
-            Note: This will not log-in a person. They will need a WorkPhotos account before scanning.
+            📱 For now, copy this link and paste it into a text message or email. The person will need to open the link while using Expo Go to join your team.
+          </Text>
+          <Text style={[styles.noteText, { marginTop: 8, fontSize: 12, opacity: 0.7 }]}>
+            Note: Deep links require the app to be installed. For production, we'll use HTTPS links that work in any browser.
           </Text>
         </View>
 
@@ -95,10 +183,10 @@ export default function InviteScreen() {
         {/* Permissions Information */}
         <View style={styles.permissionsSection}>
           <Text style={styles.permissionsText}>
-            Teammates can view, create and update jobs in this workspace.
+            New members will be able to view, create and update jobs in this workspace. Only owners can delete jobs or manage team members.
           </Text>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -106,10 +194,41 @@ export default function InviteScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.White,
+    backgroundColor: Colors.Background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: Colors.Gray,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.Text,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: Colors.Gray,
+    textAlign: 'center',
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     padding: 20,
   },
   teamInfoSection: {
@@ -123,7 +242,7 @@ const styles = StyleSheet.create({
   teamIcon: {
     width: 60,
     height: 60,
-    backgroundColor: Colors.Purple,
+    backgroundColor: Colors.Primary,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
@@ -153,8 +272,13 @@ const styles = StyleSheet.create({
   teamName: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.Black,
+    color: Colors.Text,
     marginBottom: 8,
+  },
+  orgName: {
+    fontSize: 14,
+    color: Colors.Gray,
+    marginTop: 4,
   },
   capacityBar: {
     backgroundColor: '#E3F2FD',
@@ -175,10 +299,11 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   inviteLink: {
-    fontSize: 16,
-    color: Colors.Black,
+    fontSize: 14,
+    color: Colors.Text,
     marginBottom: 20,
     textAlign: 'center',
+    paddingHorizontal: 16,
   },
   qrCodeContainer: {
     marginBottom: 16,
@@ -196,15 +321,17 @@ const styles = StyleSheet.create({
   },
   qrInstructions: {
     fontSize: 16,
-    color: Colors.Black,
+    fontWeight: '500',
+    color: Colors.Text,
     textAlign: 'center',
     marginBottom: 12,
   },
   noteText: {
     fontSize: 14,
-    color: Colors.Black,
+    color: Colors.Gray,
     textAlign: 'center',
     lineHeight: 20,
+    paddingHorizontal: 16,
   },
   shareSection: {
     alignItems: 'center',
@@ -212,14 +339,14 @@ const styles = StyleSheet.create({
   },
   orText: {
     fontSize: 16,
-    color: Colors.Black,
+    color: Colors.Gray,
     marginBottom: 16,
   },
   shareButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1976D2',
+    backgroundColor: Colors.Primary,
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
@@ -233,11 +360,12 @@ const styles = StyleSheet.create({
   },
   permissionsSection: {
     alignItems: 'center',
+    paddingHorizontal: 16,
   },
   permissionsText: {
-    fontSize: 14,
-    color: Colors.Black,
+    fontSize: 13,
+    color: Colors.Gray,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 18,
   },
 });

@@ -8,6 +8,7 @@ import { Colors } from '@/utils/colors'
 import { JobChats } from '@/utils/test-data'
 import { JobChat, Message, LocationData } from '@/utils/types'
 import { useAuth } from '@/context/AuthContext'
+import { useOrganization } from '@/context/OrganizationContext'
 import { LegendList } from '@legendapp/list'
 import { useHeaderHeight } from '@react-navigation/elements'
 import * as ImagePicker from 'expo-image-picker'
@@ -19,11 +20,13 @@ import ImageViewing from 'react-native-image-viewing'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import JobDetails from './job-details'
+import * as SecureStore from 'expo-secure-store'
 
 
 export default function Job() {
     const { job: jobId } = useLocalSearchParams()
     const { user, getUserProfilePicture } = useAuth();
+    const { currentTeam, currentOrganization } = useOrganization();
     const insets = useSafeAreaInsets();
     const router = useRouter();
 
@@ -60,6 +63,7 @@ export default function Job() {
     const [isImageViewVisible, setIsImageViewVisible] = React.useState(false);
     const [isRefreshing, setIsRefreshing] = React.useState(false);
     const [showShareLocation, setShowShareLocation] = React.useState(false);
+    const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
 
 
     React.useEffect(() => {
@@ -71,10 +75,46 @@ export default function Job() {
         }, 1000);
     }, []);
 
+    // Handle captured image from camera page
+    React.useEffect(() => {
+        const checkCapturedImage = async () => {
+            try {
+                const capturedImageUri = await SecureStore.getItemAsync('capturedImageUri')
+                if (capturedImageUri) {
+                    console.log('🔍 Received captured image URI:', capturedImageUri)
+                    setSelectedImage(capturedImageUri)
+                    // Clear the stored image URI
+                    await SecureStore.deleteItemAsync('capturedImageUri')
+                }
+            } catch (error) {
+                console.error('Error retrieving captured image:', error)
+            }
+        }
+        checkCapturedImage()
+    }, []) // Run once on mount and when screen comes into focus
+
     // Auto-refresh when returning to the screen
     useFocusEffect(
         React.useCallback(() => {
             console.log('🔍 useFocusEffect: Screen focused, refreshing messages');
+            
+            // Check for captured image from camera
+            const checkCapturedImage = async () => {
+                try {
+                    const capturedImageUri = await SecureStore.getItemAsync('capturedImageUri')
+                    if (capturedImageUri) {
+                        console.log('🔍 Received captured image URI from camera:', capturedImageUri)
+                        setSelectedImage(capturedImageUri)
+                        // Clear the stored image URI
+                        await SecureStore.deleteItemAsync('capturedImageUri')
+                    }
+                } catch (error) {
+                    console.error('Error retrieving captured image:', error)
+                }
+            }
+            checkCapturedImage()
+            
+            // Refresh messages
             const refreshMessages = async () => {
                 await getMessages();
                 // Scroll to bottom after refresh
@@ -282,6 +322,10 @@ const getMessages = async () => {
         }
     };
 
+    const pickCamera = () => {
+        router.push(`/(jobs)/camera?jobId=${jobId}`);
+    };
+
     const uploadImage = async (imageUri: string): Promise<{ fileId: string; fileUrl: string } | null> => {
         try {
             if (!appwriteConfig.bucket) {
@@ -337,6 +381,16 @@ const getMessages = async () => {
        
        if(messageContent.trim() === '' && !selectedImage) return;
        
+       // Check if we have required team and organization data
+       if (!currentTeam?.$id || !currentOrganization?.$id) {
+           console.error('🔍 sendMessage: Missing team or organization data:', {
+               teamId: currentTeam?.$id,
+               orgId: currentOrganization?.$id
+           });
+           Alert.alert('Error', 'Please select a team and organization before sending messages.');
+           return;
+       }
+       
         try {
         console.log('🔍 sendMessage: Starting to send message...');
         console.log('🔍 sendMessage: Current messages count before sending:', messages.length);
@@ -373,6 +427,8 @@ const getMessages = async () => {
         senderName: user?.name,
         senderPhoto: userProfilePicture || '', // Use user's profile picture from preferences
         jobId: jobId,
+        teamId: currentTeam?.$id, // Add teamId from current team
+        orgId: currentOrganization?.$id, // Add orgId from current organization
        };
 
        // Add image fields only if image was uploaded
@@ -468,9 +524,34 @@ const getMessages = async () => {
         setMessageToDelete(null);
     };
 
+    // Helper function to check if message is mostly emojis
+    const isEmojiMessage = (text: string): boolean => {
+        const trimmedText = text.trim();
+        
+        // Must be short message (1-10 chars)
+        if (trimmedText.length === 0 || trimmedText.length > 10) {
+            return false;
+        }
+        
+        // Check if it contains regular text characters
+        // If no letters or numbers, assume it's emoji
+        const hasLettersOrNumbers = /[a-zA-Z0-9]/.test(trimmedText);
+        
+        return !hasLettersOrNumbers;
+    };
+
     const postLocationToChat = async (locationData: LocationData) => {
         try {
             console.log('🔍 postLocationToChat: Posting location to chat...');
+            
+            // Check if we have required team and organization data
+            if (!currentTeam?.$id || !currentOrganization?.$id) {
+                console.error('🔍 postLocationToChat: Missing team or organization data:', {
+                    teamId: currentTeam?.$id,
+                    orgId: currentOrganization?.$id
+                });
+                throw new Error('Please select a team and organization before sharing location.');
+            }
             
             // Get user's profile picture from Google OAuth or stored preferences
             const userProfilePicture = await getUserProfilePicture();
@@ -482,6 +563,8 @@ const getMessages = async () => {
                 senderName: user?.name,
                 senderPhoto: userProfilePicture || '',
                 jobId: jobId,
+                teamId: currentTeam?.$id, // Add teamId from current team
+                orgId: currentOrganization?.$id, // Add orgId from current organization
                 locationData: locationData,
                 messageType: 'location',
             };
@@ -756,6 +839,9 @@ const getMessages = async () => {
                                                     color: Colors.Text,
                                                     fontStyle: item.content === 'Message deleted by user' ? 'italic' : 'normal',
                                                     opacity: item.content === 'Message deleted by user' ? 0.6 : 1,
+                                                    fontSize: isEmojiMessage(item.content) ? 48 : 14,
+                                                    textAlign: isEmojiMessage(item.content) ? 'center' : 'left',
+                                                    lineHeight: isEmojiMessage(item.content) ? 56 : undefined,
                                                 }}>
                                                     {item.content}
                                                 </Text>
@@ -837,6 +923,24 @@ const getMessages = async () => {
                                 borderColor: Colors.Gray,
                                 borderRadius: 8,
                             }}>
+                                {/* Emoji Picker Button */}
+                                <Pressable 
+                                    onPress={() => setShowEmojiPicker(!showEmojiPicker)}
+                                    disabled={isUploading}
+                                    style={{
+                                        width: 32,
+                                        height: 32,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    <IconSymbol 
+                                        name="face" 
+                                        color={isUploading ? Colors.Gray : '#4A9EFF'}
+                                        size={24}
+                                    />
+                                </Pressable>
+
                                 {/* Image Picker Button */}
                                 <Pressable 
                                     onPress={pickImage}
@@ -850,7 +954,7 @@ const getMessages = async () => {
                                 >
                                     <IconSymbol 
                                         name="photo" 
-                                        color={isUploading ? Colors.Gray : Colors.Primary}
+                                        color={isUploading ? Colors.Gray : '#4A9EFF'}
                                         size={24}
                                     />
                                 </Pressable>
@@ -881,13 +985,79 @@ const getMessages = async () => {
                                     onPress={sendMessage}
                                 >
                                     {isUploading ? (
-                                        <ActivityIndicator size="small" color={Colors.Primary} />
+                                        <ActivityIndicator size="small" color="#4A9EFF" />
                                     ) : (
                                         <IconSymbol 
                                         name="paperplane" 
-                                        color={(messageContent || selectedImage) ? Colors.Primary : Colors.Gray}
+                                        color={(messageContent || selectedImage) ? '#4A9EFF' : Colors.Gray}
                                         />
                                     )}
+                                </Pressable>
+                            </View>
+
+                            {/* Emoji Picker */}
+                            {showEmojiPicker && (
+                                <View style={{
+                                    flexDirection: 'row',
+                                    gap: 8,
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 12,
+                                    borderWidth: 1,
+                                    borderColor: Colors.Gray,
+                                    borderRadius: 8,
+                                    marginTop: 8,
+                                    backgroundColor: Colors.Secondary,
+                                }}>
+                                    {['👍', '❤️', '😂', '😮', '🔥'].map((emoji) => (
+                                        <Pressable
+                                            key={emoji}
+                                            onPress={() => {
+                                                setMessageContent(emoji);
+                                                setShowEmojiPicker(false);
+                                            }}
+                                            style={{
+                                                padding: 12,
+                                                backgroundColor: Colors.Primary + '20',
+                                                borderRadius: 8,
+                                                borderWidth: 1,
+                                                borderColor: Colors.Primary,
+                                            }}
+                                        >
+                                            <Text style={{ fontSize: 24 }}>{emoji}</Text>
+                                        </Pressable>
+                                    ))}
+                                </View>
+                            )}
+
+                            {/* Camera Menu Row */}
+                            <View
+                                style={{
+                                    flexDirection: 'row',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    paddingVertical: 8,
+                                    marginTop: 4,
+                                }}
+                            >
+                                <Pressable
+                                    onPress={pickCamera}
+                                    disabled={isUploading}
+                                    style={{
+                                        width: 48,
+                                        height: 48,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        backgroundColor: '#4A9EFF' + '20',
+                                        borderRadius: 24,
+                                        borderWidth: 2,
+                                        borderColor: isUploading ? Colors.Gray : '#4A9EFF',
+                                    }}
+                                >
+                                    <IconSymbol 
+                                        name="camera" 
+                                        color={isUploading ? Colors.Gray : '#4A9EFF'}
+                                        size={28}
+                                    />
                                 </Pressable>
                             </View>
                         </View>

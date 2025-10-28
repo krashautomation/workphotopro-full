@@ -5,7 +5,7 @@
     "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "appwrite-callback-68e9d42100365e14f358",
+    "scheme": "workphotopro",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash-icon.png",
@@ -14,14 +14,50 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.workphotopro.app"
+      "bundleIdentifier": "com.workphotopro.app",
+      "associatedDomains": [
+        "applinks:web.workphotopro.com",
+        "applinks:workphotopro.app"
+      ]
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.workphotopro.app"
+      "package": "com.workphotopro.app",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "https",
+              "host": "web.workphotopro.com",
+              "pathPrefix": "/invite"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "workphotopro",
+              "host": "team-invite"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "appwrite-callback-68e9d42100365e14f358"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",

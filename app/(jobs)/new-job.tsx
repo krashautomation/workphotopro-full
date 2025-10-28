@@ -1,32 +1,47 @@
 import Input from '@/components/Input';
 import { useAuth } from '@/context/AuthContext';
-import { appwriteConfig, db, ID } from '@/utils/appwrite';
+import { useOrganization } from '@/context/OrganizationContext';
+import { jobChatService } from '@/lib/appwrite/database';
 import { Colors } from '@/utils/colors';
-import { Image } from 'expo-image';
+import { Image } from 'react-native';
 import { router, Stack } from 'expo-router';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, Alert } from 'react-native';
 
 export default function NewJob() {
   const { user } = useAuth();
+  const { currentTeam, currentOrganization } = useOrganization();
   const [jobName, setJobName] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [isLoading, setIsLoading ] = useState(false);
 
 const handleCreateRoom = async () => {
   try {
+    // Check if user has selected a team
+    if (!currentTeam?.$id) {
+      Alert.alert('No Team Selected', 'Please select a team before creating a job.');
+      return;
+    }
+
+    if (!currentOrganization?.$id) {
+      Alert.alert('No Organization Selected', 'Please select an organization before creating a job.');
+      return;
+    }
+
     setIsLoading(true);
-    await db.createDocument(appwriteConfig.db, appwriteConfig.col.jobchat, 
-      ID.unique(), {
+    
+    // Use jobChatService which properly handles teamId and orgId
+    await jobChatService.createJobChat({
       title: jobName,
       description: jobDescription,
-      status: 'current', // Default status for new jobs
       createdBy: user?.$id || 'unknown',
       createdByName: user?.name || 'Unknown User',
-    });
+    }, currentTeam.$id, currentOrganization.$id);
+    
     router.back();
   } catch (error) {
-    console.log(error);
+    console.error('Error creating job:', error);
+    Alert.alert('Error', 'Failed to create job. Please try again.');
   } finally {
     setIsLoading(false);
   }
@@ -37,9 +52,13 @@ return (
   <Stack.Screen />
       
     <View style={{ padding: 16, gap: 16 }}>
-
       
-      <Image source={require('@/assets/images/photopus-icon-glow.png')} style={{ width: 150, height: 150 }} />
+
+      <Image 
+        source={require('@/assets/images/photopus-icon-glow.png')} 
+        style={{ width: 150, height: 150, alignSelf: 'center', marginBottom: 20 }} 
+        resizeMode="contain"
+      />
            <Text style={styles.subtitle}>Create a new job that can be assigned to team members for monitoring and collaboration using photos, video, comments and more.</Text>
         
         <Input
