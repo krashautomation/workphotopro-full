@@ -107,7 +107,7 @@ export default function Teams() {
   const handleTeamSelect = async (team: any) => {
     try {
       await switchTeam(team); // Pass the full team object
-      router.back();
+      router.push('/(jobs)');
     } catch (error) {
       console.error('Error switching team:', error);
     }

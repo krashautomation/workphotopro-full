@@ -13,11 +13,13 @@ export default function DeleteTeam() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
   const [teamExists, setTeamExists] = useState(false);
+  const [canDeleteTeam, setCanDeleteTeam] = useState(false);
+  const [organizationTeamCount, setOrganizationTeamCount] = useState(0);
 
-  // Validate team exists when component mounts
+  // Validate team exists and check if user can delete it
   useEffect(() => {
     const validateTeam = async () => {
-      if (!teamId) {
+      if (!teamId || !currentOrganization?.$id) {
         setIsValidating(false);
         return;
       }
@@ -26,20 +28,39 @@ export default function DeleteTeam() {
         // Try to get the team to see if it exists (including soft-deleted teams)
         await teamService.getTeam(teamId, true);
         setTeamExists(true);
+
+        // Check how many teams the user has in their current organization
+        const orgTeamsResponse = await teamService.listOrganizationTeams(currentOrganization.$id);
+        const teamCount = orgTeamsResponse.teams.length;
+        setOrganizationTeamCount(teamCount);
+
+        // User can only delete if they have more than one team
+        setCanDeleteTeam(teamCount > 1);
       } catch (error) {
         console.warn('Team validation failed:', error);
         setTeamExists(false);
+        setCanDeleteTeam(false);
       } finally {
         setIsValidating(false);
       }
     };
 
     validateTeam();
-  }, [teamId]);
+  }, [teamId, currentOrganization?.$id]);
 
   const handleDeleteTeam = async () => {
     if (!teamId) {
       Alert.alert('Error', 'Workspace ID is missing');
+      return;
+    }
+
+    // Check if user can delete this team (must have more than one team)
+    if (!canDeleteTeam) {
+      Alert.alert(
+        'Cannot Delete Team',
+        'You must have at least one team in your organization. You cannot delete your last team.',
+        [{ text: 'OK' }]
+      );
       return;
     }
 
@@ -62,7 +83,7 @@ export default function DeleteTeam() {
       Alert.alert('Success', 'Workspace archived successfully', [
         {
           text: 'OK',
-          onPress: () => router.back(),
+          onPress: () => router.push('/(jobs)/teams'),
         },
       ]);
     } catch (error) {
@@ -118,14 +139,29 @@ export default function DeleteTeam() {
                 <Text style={styles.backButtonText}>Go Back</Text>
               </TouchableOpacity>
             </View>
+          ) : !canDeleteTeam ? (
+            <View style={styles.warningContainer}>
+              <Text style={styles.warningText}>
+                You cannot delete this team because it is your last team in this organization.
+              </Text>
+              <Text style={styles.warningSubText}>
+                You must have at least one team in your organization. Create another team first if you want to delete this one.
+              </Text>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => router.back()}
+              >
+                <Text style={styles.backButtonText}>Go Back</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <>
               <Text style={styles.text}>
-                Delete a Team group will remove it from you and your team's list and prevent you from receiving notifications for activity.
+                Deleting a Team group will remove it from you and your team's list and prevent you from receiving notifications for activity.
               </Text>
               
               <Text style={styles.text}>
-                This can be reversed at any time through the Team settings menu.
+                This can be reversed at any time through the User settings menu.
               </Text>
 
               <TouchableOpacity
@@ -153,15 +189,15 @@ export default function DeleteTeam() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#000000',
   },
   content: {
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     padding: 20,
   },
   text: {
     fontSize: 16,
-    color: '#000',
+    color: '#ffffff',
     lineHeight: 24,
     marginBottom: 16,
   },
@@ -183,7 +219,7 @@ const styles = StyleSheet.create({
   },
   bottomArea: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#000000',
   },
   loadingContainer: {
     alignItems: 'center',
@@ -204,6 +240,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 24,
+  },
+  warningContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    backgroundColor: '#000000',
+  },
+  warningText: {
+    fontSize: 16,
+    color: '#f59e0b',
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 24,
+    fontWeight: '600',
+  },
+  warningSubText: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
   },
   backButton: {
     backgroundColor: '#666',
