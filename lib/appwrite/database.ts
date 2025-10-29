@@ -163,6 +163,37 @@ export const jobChatService = {
       total: deletedJobs.length
     };
   },
+
+  async listJobChatsByStatus(status: string, teamId?: string, orgId?: string) {
+    const queries = [
+      Query.equal('status', status),
+      Query.limit(100),
+      Query.orderDesc('$createdAt')
+    ];
+
+    // Filter by team if provided
+    if (teamId) {
+      queries.push(Query.equal('teamId', teamId));
+    }
+
+    // Filter by organization if provided
+    if (orgId) {
+      queries.push(Query.equal('orgId', orgId));
+    }
+
+    const response = await databaseService.listDocuments(this.COLLECTION_ID, queries);
+    
+    // Filter out soft-deleted jobs in the application
+    const activeJobs = response.documents.filter((job: any) => 
+      !job.deletedAt || job.deletedAt === null
+    );
+    
+    return {
+      ...response,
+      documents: activeJobs,
+      total: activeJobs.length
+    };
+  },
 };
 
 // Multi-tenant Message service

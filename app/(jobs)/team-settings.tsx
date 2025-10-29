@@ -72,8 +72,7 @@ export default function EditTeam() {
   };
 
   const handleTrashedJobs = () => {
-    // TODO: Navigate to trashed jobs
-    console.log('Trashed jobs pressed');
+    router.push('/(jobs)/trashed-jobs');
   };
 
   return (
