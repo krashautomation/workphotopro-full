@@ -247,6 +247,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  backButtonText: {
+    fontSize: 16,
+    color: colors.text,
+    fontWeight: '500',
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',

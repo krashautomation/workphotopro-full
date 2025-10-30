@@ -4,6 +4,8 @@ import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useOrganization } from '@/context/OrganizationContext';
 import { useAuth } from '@/context/AuthContext';
 import { teamService } from '@/lib/appwrite/teams';
+import { databaseService } from '@/lib/appwrite/database';
+import { Query } from 'react-native-appwrite';
 
 export default function DeleteTeam() {
   const router = useRouter();
@@ -69,6 +71,22 @@ export default function DeleteTeam() {
       
       // Delete the team using teamService
       await teamService.deleteTeam(teamId);
+      
+      // Force-set our database team inactive by name as a safety net
+      if (teamName) {
+        try {
+          const teamDocs = await databaseService.listDocuments('teams', [
+            Query.equal('teamName', String(teamName)),
+          ]);
+          for (const doc of teamDocs.documents) {
+            if (doc.isActive !== false) {
+              await databaseService.updateDocument('teams', doc.$id, { isActive: false });
+            }
+          }
+        } catch (forceErr) {
+          console.warn('Force inactivate team in DB failed:', forceErr);
+        }
+      }
       
       // Clean up any orphaned jobs that might reference non-existent teams
       try {

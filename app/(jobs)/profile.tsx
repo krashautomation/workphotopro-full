@@ -260,7 +260,7 @@ export default function ProfileScreen() {
               />
             </Pressable>
             
-            <Pressable style={styles.settingItem}>
+            <Pressable style={styles.settingItem} onPress={() => router.push('/(jobs)/archived-teams')}>
               <View style={styles.settingLeft}>
                 <IconSymbol name="archivebox.fill" color="#22C55E" size={20} />
                 <Text style={styles.settingText}>Archived teams</Text>
