@@ -1,0 +1,433 @@
+<div style="background-color: #0a0a0a; color: #e0e0e0; font-family: 'Courier New', 'Consolas', 'Monaco', monospace; padding: 30px; border-radius: 12px; line-height: 1.8; max-width: 900px; margin: 0 auto; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
+
+<div style="font-size: 32px; font-weight: bold; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px;">📦 Build Commands Guide</div>
+
+<div style="color: #a0a0a0; margin-bottom: 30px;">This document explains all available build commands for the WorkPhotoPro V2 project.</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; margin-bottom: 30px;">
+<div style="color: #667eea; font-size: 20px; font-weight: bold; margin-bottom: 15px;">📋 Table of Contents</div>
+<div style="padding-left: 20px;">
+<div style="color: #9b9bff;">• Development Commands</div>
+<div style="color: #9b9bff;">• Native Build Commands</div>
+<div style="color: #9b9bff;">• Prebuild Commands</div>
+<div style="color: #9b9bff;">• EAS Build Commands</div>
+<div style="color: #9b9bff;">• Command Differences Explained</div>
+</div>
+</div>
+
+<div style="border-top: 1px solid #333; padding-top: 30px; margin-top: 30px;">
+
+<div style="font-size: 24px; font-weight: bold; color: #4ade80; margin-bottom: 20px;">🚀 Development Commands</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #4ade80; margin-bottom: 20px;">
+<div style="color: #4ade80; font-size: 18px; font-weight: bold; margin-bottom: 10px;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npm start</code> or <code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx expo start</code></div>
+<div style="font-weight: bold; color: #f59e0b; margin-top: 10px;">Purpose:</div>
+<div style="margin-left: 20px;">Starts the Expo development server (Metro bundler)</div>
+<div style="color: #f59e0b; margin-top: 10px;">Options:</div>
+<div style="margin-left: 20px;">
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--web</code> - Start for web development</div>
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--ios</code> - Start and open iOS simulator</div>
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--android</code> - Start and open Android emulator</div>
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--tunnel</code> - Use tunnel connection (slower but works across networks)</div>
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--lan</code> - Use LAN connection (default)</div>
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--localhost</code> - Use localhost connection only</div>
+</div>
+</div>
+
+</div>
+
+<div style="border-top: 1px solid #333; padding-top: 30px; margin-top: 30px;">
+
+<div style="font-size: 24px; font-weight: bold; color: #f59e0b; margin-bottom: 20px;">🤖 Native Build Commands</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #f59e0b; margin-bottom: 20px;">
+<div style="color: #f59e0b; font-size: 18px; font-weight: bold; margin-bottom: 10px;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npm run android</code> vs <code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx expo run:android</code></div>
+<div style="color: #4ade80; font-size: 18px; font-weight: bold; margin-bottom: 10px;">They are the SAME! 🎯</div>
+<div style="margin-top: 10px;">What it does:</div>
+<div style="margin-left: 20px;">
+<div>1. Checks for native code - If <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">android/</code> folder doesn't exist, runs <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">prebuild</code> first</div>
+<div>2. Installs dependencies - Runs <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">cd android && ./gradlew</code> dependencies</div>
+<div>3. Builds the app - Compiles native Android code</div>
+<div>4. Installs on device/emulator - Installs the APK</div>
+<div>5. Starts Metro bundler - Automatically starts the dev server</div>
+</div>
+<div style="color: #f59e0b; margin-top: 10px;">Requirements:</div>
+<div style="margin-left: 20px;">
+<div>• Android Studio installed</div>
+<div>• Android SDK configured</div>
+<div>• Either an Android emulator running OR a physical device connected via USB with USB debugging enabled</div>
+</div>
+</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #f59e0b; margin-bottom: 20px;">
+<div style="color: #f59e0b; font-size: 18px; font-weight: bold; margin-bottom: 10px;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npm run ios</code> or <code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx expo run:ios</code></div>
+<div style="margin-top: 10px;">What it does:</div>
+<div style="margin-left: 20px;">
+<div>1. Checks for native code - If <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">ios/</code> folder doesn't exist, runs <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">prebuild</code> first</div>
+<div>2. Installs CocoaPods dependencies - Runs <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">cd ios && pod install</code></div>
+<div>3. Builds the app - Compiles native iOS code using Xcode</div>
+<div>4. Installs on simulator/device - Launches the app</div>
+<div>5. Starts Metro bundler - Automatically starts the dev server</div>
+</div>
+<div style="color: #f59e0b; margin-top: 10px;">Requirements:</div>
+<div style="margin-left: 20px;">
+<div>• macOS only (iOS development requires Mac)</div>
+<div>• Xcode installed</div>
+<div>• CocoaPods installed</div>
+<div>• iOS Simulator or physical device</div>
+</div>
+<div style="color: #f59e0b; margin-top: 10px;">Options:</div>
+<div style="margin-left: 20px;">
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--device</code> - Build for a connected physical device</div>
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--scheme &lt;name&gt;</code> - Use a specific Xcode scheme</div>
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--configuration &lt;Debug|Release&gt;</code> - Build configuration</div>
+</div>
+</div>
+
+</div>
+
+<div style="border-top: 1px solid #333; padding-top: 30px; margin-top: 30px;">
+
+<div style="font-size: 24px; font-weight: bold; color: #60a5fa; margin-bottom: 20px;">⚙️ Prebuild Commands</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #60a5fa; margin-bottom: 20px;">
+<div style="color: #60a5fa; font-size: 18px; font-weight: bold; margin-bottom: 10px;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx expo prebuild</code></div>
+<div style="font-weight: bold; color: #f59e0b; margin-top: 10px;">Purpose:</div>
+<div style="margin-left: 20px;">Generates native <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">android/</code> and <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">ios/</code> directories from your Expo config</div>
+<div style="color: #f59e0b; margin-top: 10px;">When to use:</div>
+<div style="margin-left: 20px;">
+<div>• When you need to add custom native code</div>
+<div>• When you want to modify native Android/iOS files directly</div>
+<div>• After adding Expo modules that require native configuration</div>
+<div>• When starting native development (one-time setup)</div>
+</div>
+<div style="color: #f59e0b; margin-top: 10px;">What it does:</div>
+<div style="margin-left: 20px;">
+<div>1. Reads your <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">app.json</code> configuration</div>
+<div>2. Generates <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">android/</code> directory with Gradle files, manifest, etc.</div>
+<div>3. Generates <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">ios/</code> directory with Xcode project, Info.plist, etc.</div>
+<div>4. Configures all native modules based on your <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">plugins</code> array</div>
+<div>5. Sets up all permissions from your config</div>
+</div>
+<div style="color: #f59e0b; margin-top: 10px;">Options:</div>
+<div style="margin-left: 20px;">
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--platform android</code> - Only generate Android native code</div>
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--platform ios</code> - Only generate iOS native code</div>
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #ef4444;">--clean</code> - Remove existing native folders before generating (⚠️ DESTRUCTIVE - deletes all custom native code!)</div>
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--no-install</code> - Skip installing dependencies</div>
+</div>
+</div>
+
+<div style="background-color: #2a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #ef4444; margin-bottom: 20px;">
+<div style="color: #ef4444; font-size: 18px; font-weight: bold; margin-bottom: 10px;">⚠️ <code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx expo prebuild --clean</code></div>
+<div style="font-weight: bold; color: #f59e0b; margin-top: 10px;">Purpose:</div>
+<div style="margin-left: 20px;">Removes existing native folders and regenerates them from scratch</div>
+<div style="color: #ef4444; font-size: 18px; font-weight: bold; margin-top: 10px;">⚠️ WARNING:</div>
+<div style="margin-left: 20px;">This will DELETE all your custom native code changes!</div>
+<div style="margin-left: 20px; margin-top: 10px;">
+<div>• Custom Android code in <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">android/</code></div>
+<div>• Custom iOS code in <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">ios/</code></div>
+<div>• Any manual modifications to native files</div>
+</div>
+<div style="color: #f59e0b; margin-top: 10px;">Use case:</div>
+<div style="margin-left: 20px;">When your native config in <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">app.json</code> has changed significantly and you want a fresh start</div>
+</div>
+
+</div>
+
+<div style="border-top: 1px solid #333; padding-top: 30px; margin-top: 30px;">
+
+<div style="font-size: 24px; font-weight: bold; color: #a78bfa; margin-bottom: 20px;">☁️ EAS Build Commands (Cloud Builds)</div>
+
+<div style="color: #a0a0a0; margin-bottom: 20px;">These commands build your app in Expo's cloud infrastructure. No need for local Android Studio or Xcode setup.</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #a78bfa; margin-bottom: 15px;">
+<div style="color: #a78bfa; font-size: 18px; font-weight: bold; margin-bottom: 10px;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx eas build --profile development --platform android</code></div>
+<div style="font-weight: bold; color: #f59e0b;">Purpose:</div>
+<div style="margin-left: 20px;">Build a development APK in the cloud</div>
+<div style="margin-left: 20px;">
+<div>• Uses your <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">eas.json</code> "development" profile</div>
+<div>• Includes <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">expo-dev-client</code> for hot reloading</div>
+<div>• Distribution: Internal (for testing)</div>
+<div>• Build type: APK (direct install)</div>
+</div>
+</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #a78bfa; margin-bottom: 15px;">
+<div style="color: #a78bfa; font-size: 18px; font-weight: bold; margin-bottom: 10px;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx eas build --profile development --platform ios</code></div>
+<div style="font-weight: bold; color: #f59e0b;">Purpose:</div>
+<div style="margin-left: 20px;">Build a development iOS app in the cloud</div>
+<div style="margin-left: 20px;">
+<div>• Requires Apple Developer account</div>
+<div>• Includes <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">expo-dev-client</code></div>
+<div>• Distribution: Internal</div>
+</div>
+</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #a78bfa; margin-bottom: 15px;">
+<div style="color: #a78bfa; font-size: 18px; font-weight: bold; margin-bottom: 10px;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx eas build --profile preview --platform android</code></div>
+<div style="font-weight: bold; color: #f59e0b;">Purpose:</div>
+<div style="margin-left: 20px;">Build a preview APK for testing</div>
+<div style="margin-left: 20px;">
+<div>• No dev client (production-like)</div>
+<div>• APK format for easy sharing</div>
+<div>• Distribution: Internal</div>
+</div>
+</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #a78bfa; margin-bottom: 15px;">
+<div style="color: #a78bfa; font-size: 18px; font-weight: bold; margin-bottom: 10px;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx eas build --profile production --platform android</code></div>
+<div style="font-weight: bold; color: #f59e0b;">Purpose:</div>
+<div style="margin-left: 20px;">Build production Android App Bundle (AAB) for Play Store</div>
+<div style="margin-left: 20px;">
+<div>• App Bundle format (required by Play Store)</div>
+<div>• Optimized and signed for release</div>
+<div>• Ready for Google Play submission</div>
+</div>
+</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #a78bfa; margin-bottom: 20px;">
+<div style="color: #a78bfa; font-size: 18px; font-weight: bold; margin-bottom: 10px;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx eas build --profile production --platform ios</code></div>
+<div style="font-weight: bold; color: #f59e0b;">Purpose:</div>
+<div style="margin-left: 20px;">Build production iOS app for App Store</div>
+<div style="margin-left: 20px;">
+<div>• Requires Apple Developer account</div>
+<div>• Signed with production certificates</div>
+<div>• Ready for App Store submission</div>
+</div>
+</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #a78bfa;">
+<div style="color: #f59e0b; font-weight: bold; margin-bottom: 10px;">Common EAS Build Options:</div>
+<div>
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--local</code> - Build locally instead of cloud (requires full native setup)</div>
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--profile &lt;name&gt;</code> - Use specific build profile from <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">eas.json</code></div>
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--platform &lt;android|ios|all&gt;</code> - Target platform(s)</div>
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #60a5fa;">--clear-cache</code> - Clear build cache</div>
+</div>
+</div>
+
+</div>
+
+<div style="border-top: 1px solid #333; padding-top: 30px; margin-top: 30px;">
+
+<div style="font-size: 24px; font-weight: bold; color: #fbbf24; margin-bottom: 20px;">💡 Additional Useful Commands</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #fbbf24; margin-bottom: 15px;">
+<div style="color: #fbbf24; font-size: 18px; font-weight: bold; margin-bottom: 10px;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx expo run:android --variant debug</code></div>
+<div style="font-weight: bold; color: #f59e0b;">Purpose:</div>
+<div style="margin-left: 20px;">Build debug variant specifically</div>
+<div style="margin-left: 20px;">
+<div>• Faster builds (no optimization)</div>
+<div>• Includes debugging symbols</div>
+<div>• Default for <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">run:android</code></div>
+</div>
+</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #fbbf24; margin-bottom: 15px;">
+<div style="color: #fbbf24; font-size: 18px; font-weight: bold; margin-bottom: 10px;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx expo run:android --variant release</code></div>
+<div style="font-weight: bold; color: #f59e0b;">Purpose:</div>
+<div style="margin-left: 20px;">Build release variant (production-like)</div>
+<div style="margin-left: 20px;">
+<div>• Optimized builds</div>
+<div>• No debugging symbols</div>
+<div>• Smaller APK size</div>
+<div>• Testing production builds locally</div>
+</div>
+</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #fbbf24; margin-bottom: 15px;">
+<div style="color: #fbbf24; font-size: 18px; font-weight: bold; margin-bottom: 10px;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx expo run:ios --configuration Release</code></div>
+<div style="font-weight: bold; color: #f59e0b;">Purpose:</div>
+<div style="margin-left: 20px;">Build iOS in Release mode</div>
+<div style="margin-left: 20px;">
+<div>• Optimized builds</div>
+<div>• Testing production builds locally</div>
+</div>
+</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #fbbf24; margin-bottom: 15px;">
+<div style="color: #fbbf24; font-size: 18px; font-weight: bold; margin-bottom: 10px;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx expo install --check</code></div>
+<div style="font-weight: bold; color: #f59e0b;">Purpose:</div>
+<div style="margin-left: 20px;">Check for compatibility issues with Expo SDK version</div>
+<div style="margin-left: 20px;">• Ensures all packages are compatible with Expo SDK 54</div>
+</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #fbbf24;">
+<div style="color: #fbbf24; font-size: 18px; font-weight: bold; margin-bottom: 10px;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx expo-doctor</code></div>
+<div style="font-weight: bold; color: #f59e0b;">Purpose:</div>
+<div style="margin-left: 20px;">Diagnose common Expo setup issues</div>
+<div style="margin-left: 20px;">
+<div>• Checks for configuration problems</div>
+<div>• Verifies dependencies</div>
+<div>• Validates <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">app.json</code></div>
+</div>
+</div>
+
+</div>
+
+<div style="border-top: 1px solid #333; padding-top: 30px; margin-top: 30px;">
+
+<div style="font-size: 24px; font-weight: bold; color: #10b981; margin-bottom: 20px;">📊 Command Differences Explained</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #10b981; margin-bottom: 20px;">
+<div style="color: #f59e0b; font-weight: bold; margin-bottom: 10px;">Why <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #fbbf24;">npm run android</code> vs <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #fbbf24;">npx expo run:android</code>?</div>
+<pre style="background-color: #000; padding: 15px; border-radius: 8px; overflow-x: auto; margin: 10px 0;"><code style="color: #4ade80;">// package.json
+"scripts": {
+  "android": "expo run:android"
+}</code></pre>
+<div style="color: #10b981; font-weight: bold; margin-top: 10px;">No difference! 🎯</div>
+<div style="margin-left: 20px;">Both execute <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">expo run:android</code>. The npm script is just a shortcut.</div>
+<div style="color: #f59e0b; margin-top: 10px;">Recommendation:</div>
+<div style="margin-left: 20px;">
+<div>• Use <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #fbbf24;">npm run android</code> - shorter, consistent with other npm scripts</div>
+<div>• Use <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #fbbf24;">npx expo run:android</code> - when you need to pass additional flags that aren't in the npm script</div>
+</div>
+</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #10b981;">
+<div style="color: #f59e0b; font-weight: bold; margin-bottom: 10px;">When does <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #fbbf24;">expo run:android</code> run <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #fbbf24;">prebuild</code> automatically?</div>
+<div><code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">expo run:android</code> automatically runs <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">prebuild</code> if:</div>
+<div style="margin-left: 20px;">
+<div>• <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">android/</code> folder doesn't exist</div>
+<div>• Expo detects that <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">app.json</code> has changed and native code is out of sync</div>
+</div>
+<div style="margin-top: 10px;">This means you usually don't need to run <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">prebuild</code> manually unless:</div>
+<div style="margin-left: 20px;">
+<div>• You want to regenerate native code from scratch</div>
+<div>• You want to update native code without building/running</div>
+</div>
+</div>
+
+</div>
+
+<div style="border-top: 1px solid #333; padding-top: 30px; margin-top: 30px;">
+
+<div style="font-size: 24px; font-weight: bold; color: #38bdf8; margin-bottom: 20px;">🔄 Build Flow Summary</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #38bdf8; margin-bottom: 20px;">
+<div style="color: #f59e0b; font-weight: bold; margin-bottom: 10px;">First Time Setup (Development):</div>
+<pre style="background-color: #000; padding: 15px; border-radius: 8px; overflow-x: auto; margin: 10px 0;"><code style="color: #4ade80;"># 1. Install dependencies
+npm install
+
+# 2. Generate native code (if not exists)
+npx expo prebuild
+
+# 3. Run on device/emulator
+npm run android  # or npm run ios</code></pre>
+</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #38bdf8; margin-bottom: 20px;">
+<div style="color: #f59e0b; font-weight: bold; margin-bottom: 10px;">Daily Development:</div>
+<pre style="background-color: #000; padding: 15px; border-radius: 8px; overflow-x: auto; margin: 10px 0;"><code style="color: #4ade80;"># Just run - prebuild runs automatically if needed
+npm run android
+# or
+npm run ios</code></pre>
+</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #38bdf8; margin-bottom: 20px;">
+<div style="color: #f59e0b; font-weight: bold; margin-bottom: 10px;">When Adding New Native Modules:</div>
+<pre style="background-color: #000; padding: 15px; border-radius: 8px; overflow-x: auto; margin: 10px 0;"><code style="color: #4ade80;"># 1. Install the package
+npm install expo-camera  # example
+
+# 2. If the module needs native config, it's usually auto-added
+# 3. Rebuild native code (if needed)
+npm run android  # Automatically updates native code</code></pre>
+</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #38bdf8;">
+<div style="color: #f59e0b; font-weight: bold; margin-bottom: 10px;">Production Build:</div>
+<pre style="background-color: #000; padding: 15px; border-radius: 8px; overflow-x: auto; margin: 10px 0;"><code style="color: #4ade80;"># Option 1: Cloud build (recommended)
+npx eas build --profile production --platform android
+
+# Option 2: Local build
+npx expo run:android --variant release</code></pre>
+</div>
+
+</div>
+
+<div style="border-top: 1px solid #333; padding-top: 30px; margin-top: 30px;">
+
+<div style="font-size: 24px; font-weight: bold; color: #f97316; margin-bottom: 20px;">🔧 Troubleshooting</div>
+
+<div style="background-color: #2a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #f97316; margin-bottom: 15px;">
+<div style="color: #f97316; font-weight: bold; margin-bottom: 10px;">"Command failed: gradlew.bat assembleDebug"</div>
+<div style="margin-left: 20px;">
+<div>• Ensure Android Studio and SDK are installed</div>
+<div>• Check that <code style="background-color: #000; padding: 2px 6px; border-radius: 4px;">ANDROID_HOME</code> environment variable is set</div>
+<div>• Verify Java JDK is installed</div>
+</div>
+</div>
+
+<div style="background-color: #2a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #f97316; margin-bottom: 15px;">
+<div style="color: #f97316; font-weight: bold; margin-bottom: 10px;">"ios/ folder not found"</div>
+<div style="margin-left: 20px;">
+<div>• Run <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #fbbf24;">npx expo prebuild --platform ios</code></div>
+<div>• Or let <code style="background-color: #000; padding: 2px 6px; border-radius: 4px; color: #fbbf24;">expo run:ios</code> run it automatically</div>
+</div>
+</div>
+
+<div style="background-color: #2a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #f97316; margin-bottom: 15px;">
+<div style="color: #f97316; font-weight: bold; margin-bottom: 10px;">"CocoaPods not found" (iOS)</div>
+<pre style="background-color: #000; padding: 15px; border-radius: 8px; overflow-x: auto; margin: 10px 0;"><code style="color: #4ade80;">sudo gem install cocoapods
+cd ios
+pod install</code></pre>
+</div>
+
+<div style="background-color: #2a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #f97316;">
+<div style="color: #f97316; font-weight: bold; margin-bottom: 10px;">Build keeps failing after config changes</div>
+<pre style="background-color: #000; padding: 15px; border-radius: 8px; overflow-x: auto; margin: 10px 0;"><code style="color: #4ade80;"># Clean and regenerate
+npx expo prebuild --clean
+npm run android  # or ios</code></pre>
+</div>
+
+</div>
+
+<div style="border-top: 1px solid #333; padding-top: 30px; margin-top: 30px;">
+
+<div style="font-size: 24px; font-weight: bold; color: #ec4899; margin-bottom: 20px;">⚡ Quick Reference</div>
+
+<div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border-left: 4px solid #ec4899;">
+<div style="display: grid; grid-template-columns: auto 1fr auto; gap: 15px; align-items: start;">
+<div style="color: #ec4899; font-weight: bold; grid-column: 1;">Command</div>
+<div style="color: #ec4899; font-weight: bold; grid-column: 2;">Purpose</div>
+<div style="color: #ec4899; font-weight: bold; grid-column: 3;">Platform</div>
+
+<div style="grid-column: 1;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npm start</code></div>
+<div style="grid-column: 2;">Start dev server</div>
+<div style="grid-column: 3; color: #60a5fa;">All</div>
+
+<div style="grid-column: 1;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npm run android</code></div>
+<div style="grid-column: 2;">Build & run Android</div>
+<div style="grid-column: 3; color: #60a5fa;">Android</div>
+
+<div style="grid-column: 1;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npm run ios</code></div>
+<div style="grid-column: 2;">Build & run iOS</div>
+<div style="grid-column: 3; color: #60a5fa;">iOS (Mac only)</div>
+
+<div style="grid-column: 1;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npm run web</code></div>
+<div style="grid-column: 2;">Run web version</div>
+<div style="grid-column: 3; color: #60a5fa;">Web</div>
+
+<div style="grid-column: 1;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx expo prebuild</code></div>
+<div style="grid-column: 2;">Generate native code</div>
+<div style="grid-column: 3; color: #60a5fa;">Android/iOS</div>
+
+<div style="grid-column: 1;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx expo prebuild --clean</code></div>
+<div style="grid-column: 2;">Regenerate native code</div>
+<div style="grid-column: 3; color: #60a5fa;">Android/iOS</div>
+
+<div style="grid-column: 1;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx eas build --profile development</code></div>
+<div style="grid-column: 2;">Cloud dev build</div>
+<div style="grid-column: 3; color: #60a5fa;">Android/iOS</div>
+
+<div style="grid-column: 1;"><code style="background-color: #000; padding: 4px 8px; border-radius: 4px; color: #fbbf24;">npx eas build --profile production</code></div>
+<div style="grid-column: 2;">Cloud prod build</div>
+<div style="grid-column: 3; color: #60a5fa;">Android/iOS</div>
+</div>
+</div>
+
+</div>
+
+</div>
+

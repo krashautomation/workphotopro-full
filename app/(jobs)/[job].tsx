@@ -283,7 +283,46 @@ const getMessages = async () => {
         });
         
         // Update messages state with fresh data
-        const freshMessages = documents as Message[];
+        // Parse locationData from locationData attribute (now defined in Appwrite)
+        // Infer messageType from locationData presence (since messageType attribute doesn't exist in Appwrite)
+        const freshMessages = documents.map((doc: any) => {
+            // Check if this message has locationData (infers it's a location message)
+            if (doc.locationData) {
+                // Parse locationData from attribute (stored as JSON string)
+                if (typeof doc.locationData === 'string') {
+                    try {
+                        doc.locationData = JSON.parse(doc.locationData);
+                        doc.messageType = 'location'; // Infer messageType from locationData presence
+                        console.log('🔍 getMessages: Parsed locationData and inferred messageType=location for message:', doc.$id);
+                    } catch (e) {
+                        console.error('🔍 getMessages: Error parsing locationData:', e, 'Raw data:', doc.locationData);
+                        // If parsing fails, try parsing from content field (backward compatibility)
+                        const locationMatch = doc.content?.match(/\|LOCATION_DATA:(.+?)\|/);
+                        if (locationMatch && locationMatch[1]) {
+                            try {
+                                doc.locationData = JSON.parse(locationMatch[1]);
+                                doc.content = doc.content.replace(/\|LOCATION_DATA:.+?\|/, '').trim();
+                                doc.messageType = 'location';
+                                console.log('🔍 getMessages: Parsed locationData from content (fallback) for message:', doc.$id);
+                            } catch (e2) {
+                                console.error('🔍 getMessages: Error parsing locationData from content:', e2);
+                            }
+                        }
+                    }
+                } else if (typeof doc.locationData === 'object') {
+                    // Already parsed (shouldn't happen, but handle it just in case)
+                    doc.messageType = 'location';
+                    console.log('🔍 getMessages: locationData already an object, inferred messageType=location for message:', doc.$id);
+                }
+            } else if (doc.messageType === 'location') {
+                // Backward compatibility: if messageType exists but no locationData, remove messageType
+                // This handles old messages that might have messageType but no locationData
+                console.log('🔍 getMessages: Found messageType=location but no locationData, removing messageType:', doc.$id);
+                delete doc.messageType;
+            }
+            return doc;
+        }) as Message[];
+        
         setMessages(prevMessages => {
             // Only update if the data is actually different to prevent unnecessary re-renders
             if (JSON.stringify(prevMessages) !== JSON.stringify(freshMessages)) {
@@ -559,17 +598,23 @@ const getMessages = async () => {
             const userProfilePicture = await getUserProfilePicture();
             console.log('🔍 postLocationToChat: User profile picture:', userProfilePicture);
 
+            // Store locationData as JSON string in the locationData attribute (now defined in Appwrite)
+            // Note: messageType is not defined in Appwrite, so we'll infer it from locationData presence
+            const locationDataJson = JSON.stringify(locationData);
             const message: any = {
                 content: `📍 Location shared: ${locationData.address || 'Current location'}`,
                 senderId: user?.$id,
                 senderName: user?.name,
                 senderPhoto: userProfilePicture || '',
                 jobId: jobId,
-                teamId: currentTeam?.$id, // Add teamId from current team
-                orgId: currentOrganization?.$id, // Add orgId from current organization
-                locationData: locationData,
-                messageType: 'location',
+                teamId: currentTeam?.$id,
+                orgId: currentOrganization?.$id,
+                locationData: locationDataJson, // Store as JSON string in locationData attribute
+                // messageType removed - not defined in Appwrite, will be inferred from locationData presence
             };
+            
+            console.log('🔍 postLocationToChat: Location data JSON length:', locationDataJson.length);
+            console.log('🔍 postLocationToChat: Location data preview:', locationDataJson.substring(0, 100) + '...');
 
             console.log('🔍 postLocationToChat: Creating location message:', message);
 
