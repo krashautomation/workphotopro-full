@@ -56,11 +56,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await authService.sendEmailOTP(email);
       
       // Create default organization and team for new user
-      try {
-        await createDefaultWorkspace(result.userId, name, email);
-      } catch (workspaceError) {
-        console.warn('Failed to create default workspace:', workspaceError);
-        // Don't fail signup if workspace creation fails
+      // This is non-blocking - errors won't prevent signup
+      const workspaceResult = await createDefaultWorkspace(result.userId, name, email);
+      if (workspaceResult.organization && workspaceResult.team) {
+        console.log('✅ Default workspace created successfully');
+      } else {
+        console.warn('⚠️ Default workspace creation skipped or failed - user can still sign up');
       }
       
       // Return userId and email for OTP verification screen
@@ -95,11 +96,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('🟢 AuthContext: OAuth successful, user:', user);
       
       // Check if this is a new user and create default workspace
-      try {
-        await createDefaultWorkspace(user.$id, user.name || 'User', user.email);
-      } catch (workspaceError) {
-        console.warn('Failed to create default workspace for Google user:', workspaceError);
-        // Don't fail signin if workspace creation fails
+      // This is non-blocking - errors won't prevent login
+      const workspaceResult = await createDefaultWorkspace(user.$id, user.name || 'User', user.email);
+      if (workspaceResult.organization && workspaceResult.team) {
+        console.log('✅ Default workspace created successfully');
+      } else {
+        console.warn('⚠️ Default workspace creation skipped or failed - user can still use the app');
       }
       
       setUser(user);
@@ -124,47 +126,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /**
    * Create default organization and team for new users
+   * This is a non-blocking operation - errors won't prevent login
    */
   const createDefaultWorkspace = async (userId: string, userName: string, userEmail: string) => {
     try {
       console.log('🏢 Creating default workspace for user:', userId);
       
       // Check if user already has organizations (avoid duplicates)
-      const existingOrgs = await organizationService.listUserOrganizations(userId);
-      if (existingOrgs.documents.length > 0) {
-        console.log('🏢 User already has organizations, skipping workspace creation');
-        return;
+      // This may fail if user doesn't have read permissions - that's OK, we'll continue
+      let existingOrgs;
+      try {
+        existingOrgs = await organizationService.listUserOrganizations(userId);
+        if (existingOrgs.documents.length > 0) {
+          console.log('🏢 User already has organizations, skipping workspace creation');
+          return { organization: null, team: null };
+        }
+      } catch (listError: any) {
+        // If we can't list organizations due to permissions, log but continue
+        console.warn('⚠️ Cannot check existing organizations (permission error):', listError.message);
+        console.warn('⚠️ This may indicate that collection permissions need to be configured in Appwrite Console');
+        // Continue with workspace creation attempt - maybe we can create but not read
       }
 
       // Create organization with placeholder data
       const orgName = `${userName}'s Organization`;
       const orgDescription = `Welcome to ${userName}'s workspace!`;
       
-      const organization = await organizationService.createOrganization(
-        orgName,
-        orgDescription,
-        userId
-      );
-      
-      console.log('🏢 Created organization:', organization.$id);
+      let organization;
+      try {
+        organization = await organizationService.createOrganization(
+          orgName,
+          orgDescription,
+          userId
+        );
+        console.log('✅ Created organization:', organization.$id);
+      } catch (createOrgError: any) {
+        // Organization creation failed - likely permission issue
+        console.error('❌ Failed to create organization:', createOrgError.message);
+        console.error('❌ This indicates the "organizations" collection may need permissions configured in Appwrite Console');
+        console.error('❌ Required permissions: "create" for authenticated users');
+        // Don't throw - workspace creation is optional
+        return { organization: null, team: null };
+      }
 
       // Create default team
       const teamName = `${userName} Team`;
       const teamDescription = `Your personal team in ${orgName}`;
       
-      const team = await teamService.createTeam(
-        teamName,
-        organization.$id,
-        teamDescription,
-        ['owner'] // User is the owner of their default team
-      );
-      
-      console.log('🏢 Created team:', team.$id);
+      let team;
+      try {
+        team = await teamService.createTeam(
+          teamName,
+          organization.$id,
+          teamDescription,
+          ['owner'], // User is the owner of their default team
+          userId // Pass userId to create membership
+        );
+        console.log('✅ Created team:', team.$id);
+      } catch (createTeamError: any) {
+        // Team creation failed - log but don't throw
+        console.error('❌ Failed to create team:', createTeamError.message);
+        console.error('❌ This indicates the "teams" or "memberships" collections may need permissions configured');
+        console.error('❌ Required permissions: "create" for authenticated users');
+        // Organization was created but team wasn't - return what we have
+        return { organization, team: null };
+      }
       
       return { organization, team };
-    } catch (error) {
-      console.error('🏢 Error creating default workspace:', error);
-      throw error;
+    } catch (error: any) {
+      // Catch-all for any unexpected errors
+      console.error('❌ Unexpected error creating default workspace:', error);
+      console.error('❌ Error details:', error.message);
+      console.warn('⚠️ Workspace creation failed but login will continue');
+      // Return null values to indicate failure without throwing
+      return { organization: null, team: null };
     }
   };
 

@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import JobDetails from './job-details'
 import * as SecureStore from 'expo-secure-store'
+import SaveImageModal from '@/components/SaveImageModal'
 
 
 export default function Job() {
@@ -61,6 +62,7 @@ export default function Job() {
     const [messageToDelete, setMessageToDelete] = React.useState<Message | null>(null);
     const [fullScreenImage, setFullScreenImage] = React.useState<string | null>(null);
     const [isImageViewVisible, setIsImageViewVisible] = React.useState(false);
+    const [showSaveImageModal, setShowSaveImageModal] = React.useState(false);
     const [isRefreshing, setIsRefreshing] = React.useState(false);
     const [showShareLocation, setShowShareLocation] = React.useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
@@ -234,7 +236,7 @@ export default function Job() {
     };
 
     // Function to update jobChat status locally and in database
-    const updateJobStatus = async (status: 'current' | 'complete') => {
+    const updateJobStatus = async (status: 'active' | 'completed') => {
         try {
             console.log('🔍 updateJobStatus: Updating job status to:', status);
             
@@ -935,7 +937,7 @@ const getMessages = async () => {
                                     }}
                                 >
                                     <IconSymbol 
-                                        name="face" 
+                                        name="face.smiling" 
                                         color={isUploading ? Colors.Gray : '#4A9EFF'}
                                         size={24}
                                     />
@@ -1139,6 +1141,7 @@ const getMessages = async () => {
                     setIsImageViewVisible(false);
                     setFullScreenImage(null);
                 }}
+                {...({ onLongPress: () => setShowSaveImageModal(true) } as any)}
                 HeaderComponent={() => (
                     <View style={{
                         position: 'absolute',
@@ -1164,6 +1167,12 @@ const getMessages = async () => {
                         </Pressable>
                     </View>
                 )}
+            />
+
+            <SaveImageModal
+                visible={showSaveImageModal}
+                imageUrl={fullScreenImage}
+                onClose={() => setShowSaveImageModal(false)}
             />
 
             {/* Share Location Modal */}

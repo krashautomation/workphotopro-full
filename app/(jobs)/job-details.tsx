@@ -14,20 +14,56 @@ interface JobDetailsProps {
     jobId: string
     jobChat: JobChat | null
     onJobDeleted: () => void
-    onStatusUpdate: (status: 'current' | 'complete') => Promise<void>
+    onStatusUpdate: (status: 'active' | 'completed') => Promise<void>
 }
 
 export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdate }: JobDetailsProps) {
     const { user } = useAuth()
     const router = useRouter()
-    const [isCurrent, setIsCurrent] = React.useState(jobChat?.status === 'current' || jobChat?.status === undefined || false)
-    const [isComplete, setIsComplete] = React.useState(jobChat?.status === 'complete' || false)
+    const [isCurrent, setIsCurrent] = React.useState(jobChat?.status === 'active' || jobChat?.status === undefined || false)
+    const [isComplete, setIsComplete] = React.useState(jobChat?.status === 'completed' || false)
     const [isDeleting, setIsDeleting] = React.useState(false)
     
     // Tags state
     const [tagTemplates, setTagTemplates] = React.useState<TagTemplate[]>([])
     const [assignedTags, setAssignedTags] = React.useState<JobTagAssignment[]>([])
     const [isLoadingTags, setIsLoadingTags] = React.useState(true)
+
+    const loadTags = React.useCallback(async () => {
+        console.log('🔍 JobDetails: Starting to load tags for jobId:', jobId)
+        try {
+            setIsLoadingTags(true)
+            
+            // Load available tag templates
+            console.log('🔍 JobDetails: Loading tag templates...')
+            const templatesResponse = await tagService.getActiveTagTemplates()
+            console.log('🔍 JobDetails: Loaded', templatesResponse.documents.length, 'tag templates')
+            setTagTemplates(templatesResponse.documents as any as TagTemplate[])
+            
+            // Try to load assigned tags for this job (collection might not exist yet)
+            try {
+                console.log('🔍 JobDetails: Loading job tag assignments...')
+                const assignmentsResponse = await tagService.getJobTagAssignments(jobId)
+                console.log('🔍 JobDetails: Loaded', assignmentsResponse.documents.length, 'tag assignments')
+                setAssignedTags(assignmentsResponse.documents as any as JobTagAssignment[])
+            } catch (assignmentError) {
+                console.log('🔍 JobDetails: Job tag assignments collection not found, using empty assignments')
+                setAssignedTags([])
+            }
+            
+            console.log('🔍 JobDetails: Tags loaded successfully')
+        } catch (error) {
+            console.error('🔍 JobDetails: Error loading tags:', error)
+            // Don't show alert for missing collections, just log it
+            const message = (error as any)?.message as string | undefined
+            if (!message?.includes('Collection with the requested ID could not be found')) {
+                Alert.alert('Error', 'Failed to load tags. Please try again.')
+            }
+        } finally {
+            console.log('🔍 JobDetails: Setting isLoadingTags to false')
+            setIsLoadingTags(false)
+        }
+    }, [jobId])
 
     // Load tags when component mounts or jobId changes
     React.useEffect(() => {
@@ -39,45 +75,10 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
     // Update state when jobChat prop changes (e.g., when switching tabs)
     React.useEffect(() => {
         if (jobChat) {
-            setIsCurrent(jobChat.status === 'current' || jobChat.status === undefined)
-            setIsComplete(jobChat.status === 'complete' || false)
+            setIsCurrent(jobChat.status === 'active' || jobChat.status === undefined)
+            setIsComplete(jobChat.status === 'completed' || false)
         }
     }, [jobChat])
-
-    const loadTags = React.useCallback(async () => {
-        console.log('🔍 JobDetails: Starting to load tags for jobId:', jobId)
-        try {
-            setIsLoadingTags(true)
-            
-            // Load available tag templates
-            console.log('🔍 JobDetails: Loading tag templates...')
-            const templatesResponse = await tagService.getActiveTagTemplates()
-            console.log('🔍 JobDetails: Loaded', templatesResponse.documents.length, 'tag templates')
-            setTagTemplates(templatesResponse.documents)
-            
-            // Try to load assigned tags for this job (collection might not exist yet)
-            try {
-                console.log('🔍 JobDetails: Loading job tag assignments...')
-                const assignmentsResponse = await tagService.getJobTagAssignments(jobId)
-                console.log('🔍 JobDetails: Loaded', assignmentsResponse.documents.length, 'tag assignments')
-                setAssignedTags(assignmentsResponse.documents)
-            } catch (assignmentError) {
-                console.log('🔍 JobDetails: Job tag assignments collection not found, using empty assignments')
-                setAssignedTags([])
-            }
-            
-            console.log('🔍 JobDetails: Tags loaded successfully')
-        } catch (error) {
-            console.error('🔍 JobDetails: Error loading tags:', error)
-            // Don't show alert for missing collections, just log it
-            if (!error.message?.includes('Collection with the requested ID could not be found')) {
-                Alert.alert('Error', 'Failed to load tags. Please try again.')
-            }
-        } finally {
-            console.log('🔍 JobDetails: Setting isLoadingTags to false')
-            setIsLoadingTags(false)
-        }
-    }, [jobId])
 
     const isTagAssigned = (tagTemplateId: string) => {
         return assignedTags.some(assignment => assignment.tagTemplateId === tagTemplateId)
@@ -123,18 +124,19 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
             }
         } catch (error) {
             console.error('🔍 JobDetails: Error toggling tag:', error)
-            if (error.message?.includes('Collection with the requested ID could not be found')) {
+            const message = (error as any)?.message as string | undefined
+            if (message?.includes('Collection with the requested ID could not be found')) {
                 Alert.alert(
                     'Tag Assignment Not Available', 
                     'Tag assignments are not set up yet. Please create the job_tag_assignments collection in Appwrite to enable this feature.'
                 )
-            } else if (error.message?.includes('Invalid query')) {
+            } else if (message?.includes('Invalid query')) {
                 Alert.alert(
                     'Query Error', 
                     `There's an issue with the job ID format. Job ID: "${jobId}" (type: ${typeof jobId}). Please check the collection configuration.`
                 )
             } else {
-                Alert.alert('Error', `Failed to update tag: ${error.message}`)
+                Alert.alert('Error', `Failed to update tag${message ? `: ${message}` : ''}`)
             }
         }
     }
@@ -151,7 +153,7 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
             }
 
             // Use the parent's update function to maintain consistency across tabs
-            await onStatusUpdate(checked ? status : 'current')
+            await onStatusUpdate(checked ? (status === 'current' ? 'active' : 'completed') : 'active')
         } catch (error) {
             console.error('Error updating job status:', error)
             Alert.alert('Error', 'Failed to update job status. Please try again.')
@@ -423,7 +425,7 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                             >
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                     <IconSymbol 
-                                        name={tag.icon || "circle"} 
+                                        name={(tag.icon as any) || 'circle'} 
                                         color={tag.color} 
                                         size={16} 
                                     />
