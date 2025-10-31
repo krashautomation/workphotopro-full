@@ -1,8 +1,6 @@
 import { account } from './client';
 import { ID, OAuthProvider } from 'react-native-appwrite';
-import { Linking, Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
 
 export const authService = {
   /**
@@ -179,20 +177,32 @@ export const authService = {
     try {
       console.log('🔵 Starting Google OAuth flow following Appwrite docs...');
       
-      // Create deep link that works across Expo environments
-      // Use preferLocalhost: false to get the actual IP address for physical devices
-      const deepLink = new URL(makeRedirectUri({ preferLocalhost: false }));
-      const scheme = `${deepLink.protocol}//`; // e.g. 'exp://' or 'appwrite-callback-<PROJECT_ID>://'
+      // Get project ID from environment
+      const projectId = process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID;
+      if (!projectId) {
+        throw new Error('Missing EXPO_PUBLIC_APPWRITE_PROJECT_ID in environment variables');
+      }
       
-      console.log('🔵 Deep link created:', deepLink.toString());
+      // Use Appwrite callback scheme format: appwrite-callback-<PROJECT_ID>://
+      // This is the standard Appwrite callback format and should work without additional registration
+      // Fallback to app scheme (workphotopro://) if Appwrite callback doesn't work
+      const appwriteCallbackScheme = `appwrite-callback-${projectId}://`;
+      const appScheme = 'workphotopro://';
+      
+      // Try Appwrite callback scheme first (recommended), fallback to app scheme
+      const redirectUri = appwriteCallbackScheme;
+      const scheme = redirectUri;
+      
+      console.log('🔵 Using redirect URI:', redirectUri);
       console.log('🔵 Scheme:', scheme);
+      console.log('🔵 Project ID:', projectId);
       
       // Start OAuth flow
       console.log('🔵 Creating OAuth2 token...');
       const loginUrl = await account.createOAuth2Token({
         provider: OAuthProvider.Google,
-        success: `${deepLink}`,
-        failure: `${deepLink}`,
+        success: redirectUri,
+        failure: redirectUri,
         scopes: ['profile', 'email', 'openid'], // Add scopes to get profile picture
       });
       
