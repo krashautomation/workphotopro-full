@@ -8,7 +8,9 @@ node_modules/
 dist/
 web-build/
 
-# Native
+# Native (excluded when using Prebuild/CNG)
+android/
+ios/
 *.orig.*
 *.jks
 *.p8
