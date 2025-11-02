@@ -8,7 +8,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "add-team-member": "node scripts/add-team-member.js"
+    "add-team-member": "node scripts/add-team-member.js",
+    "migrate-membership-emails": "node scripts/migrate-membership-emails.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

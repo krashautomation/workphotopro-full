@@ -43,7 +43,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       
       // Load user's organizations (where they are owner)
       // This may fail if user doesn't have read permissions
-      let orgs = [];
+      let orgs: Organization[] = [];
       try {
         const orgsResponse = await organizationService.listUserOrganizations(user.$id);
         orgs = orgsResponse.documents;
@@ -57,7 +57,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
       // Load user's teams (where they are member)
       // This may also fail if user doesn't have read permissions
-      let teams = [];
+      let teams: Team[] = [];
       try {
         const teamsResponse = await teamService.listTeams(user.$id);
         teams = teamsResponse.teams;
@@ -152,6 +152,9 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       
       if (!team) {
         // Reload data and get fresh teams
+        if (!user?.$id) {
+          throw new Error('User not authenticated');
+        }
         const orgsResponse = await organizationService.listUserOrganizations(user.$id);
         const teamsResponse = await teamService.listTeams(user.$id);
         const teams = teamsResponse.teams;
@@ -219,10 +222,11 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       const updatedTeams = await teamService.listTeams(user.$id);
       const newTeam = updatedTeams.teams.find(t => t.name === name);
       
-      if (newTeam) {
-        setCurrentTeam(newTeam);
+      if (!newTeam) {
+        throw new Error('Failed to create team');
       }
 
+      setCurrentTeam(newTeam);
       return newTeam;
     } catch (error) {
       console.error('Error creating team:', error);
@@ -378,16 +382,42 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
    * Switch to a different team (accepts team object or teamId)
    */
   const switchTeamDirect = async (teamOrId: Team | string) => {
+    let team: Team | null = null;
+    
     if (typeof teamOrId === 'string') {
       // If it's a string, use the existing switchTeam logic
-      const team = userTeams.find(t => t.$id === teamOrId);
+      team = userTeams.find(t => t.$id === teamOrId) || null;
       if (!team) {
         throw new Error('Team not found');
       }
-      setCurrentTeam(team);
     } else {
       // If it's a team object, use it directly
-      setCurrentTeam(teamOrId);
+      team = teamOrId;
+    }
+    
+    console.log('🔍 switchTeamDirect: Switching to team:', {
+      teamId: team.$id,
+      teamName: team.name,
+      hasTeamData: !!team.teamData,
+      orgId: team.teamData?.orgId
+    });
+    
+    // Set the current team
+    setCurrentTeam(team);
+    
+    // Update currentOrganization to match the team's organization
+    if (team?.teamData?.orgId) {
+      try {
+        console.log('🔍 switchTeamDirect: Fetching organization:', team.teamData.orgId);
+        const org = await organizationService.getOrganization(team.teamData.orgId);
+        console.log('🔍 switchTeamDirect: Fetched organization:', org.orgName);
+        setCurrentOrganization(org);
+      } catch (error) {
+        console.error('Error fetching organization for team:', error);
+        // Continue even if organization fetch fails
+      }
+    } else {
+      console.warn('🔍 switchTeamDirect: No orgId found in team.teamData');
     }
   };
 

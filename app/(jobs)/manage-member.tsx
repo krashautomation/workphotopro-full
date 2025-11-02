@@ -1,20 +1,117 @@
-import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/utils/colors';
 import { IconSymbol } from '@/components/IconSymbol';
-import UserProfile from '@/components/UserProfile';
+import Avatar from '@/components/Avatar';
 import { Switch } from 'react-native';
+import { useOrganization } from '@/context/OrganizationContext';
+import { teamService } from '@/lib/appwrite/teams';
 
 export default function ManageMemberScreen() {
-  const { memberId, memberName } = useLocalSearchParams();
+  const { memberId, memberName, teamId } = useLocalSearchParams<{ 
+    memberId: string; 
+    memberName?: string;
+    teamId: string;
+  }>();
+  const { currentTeam } = useOrganization();
   const [sendJobReports, setSendJobReports] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [member, setMember] = useState<any>(null);
+  
+  // Get the actual teamId (prefer param, fallback to currentTeam)
+  const actualTeamId = teamId || currentTeam?.$id || '';
+  
+  useEffect(() => {
+    loadMemberData();
+  }, [memberId, actualTeamId]);
+
+  const loadMemberData = async () => {
+    if (!actualTeamId || !memberId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      // Get memberships and find the specific member
+      const memberships = await teamService.listMemberships(actualTeamId);
+      const foundMember = memberships.memberships.find((m: any) => m.userId === memberId);
+      
+      if (foundMember) {
+        setMember(foundMember);
+      } else {
+        // If not found, create a basic member object from params
+        setMember({
+          userId: memberId,
+          userName: memberName || 'Member',
+          userEmail: '',
+          roles: [],
+          membershipData: null
+        });
+      }
+    } catch (error) {
+      console.error('Error loading member data:', error);
+      // Fallback to params
+      setMember({
+        userId: memberId,
+        userName: memberName || 'Member',
+        userEmail: '',
+        roles: [],
+        membershipData: null
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Get display name for member
+  const getMemberDisplayName = (): string => {
+    if (member?.userName && member.userName.trim()) {
+      return member.userName.trim();
+    }
+    if (member?.membershipData?.userName && member.membershipData.userName.trim()) {
+      return member.membershipData.userName.trim();
+    }
+    if (member?.userEmail && member.userEmail.includes('@')) {
+      // Format name from email
+      const emailName = member.userEmail.split('@')[0];
+      return emailName
+        .split(/[._-]/)
+        .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+    }
+    return memberName || 'Member';
+  };
+
+  // Get profile picture for member
+  const getMemberProfilePicture = (): string | undefined => {
+    if (member?.profilePicture && member.profilePicture.trim()) {
+      return member.profilePicture.trim();
+    }
+    if (member?.membershipData?.profilePicture && member.membershipData.profilePicture.trim()) {
+      return member.membershipData.profilePicture.trim();
+    }
+    return undefined;
+  };
+
+  // Get member role
+  const getMemberRole = (): string => {
+    if (member?.membershipData?.role) {
+      return member.membershipData.role;
+    }
+    if (member?.roles && member.roles.length > 0) {
+      return member.roles[0];
+    }
+    return 'member';
+  };
 
   const handleRemoveMember = () => {
+    const displayName = getMemberDisplayName();
     Alert.alert(
       'Remove Member',
-      `Are you sure you want to remove ${memberName} from the team?`,
+      `Are you sure you want to remove ${displayName} from the team?`,
       [
         {
           text: 'Cancel',
@@ -23,10 +120,20 @@ export default function ManageMemberScreen() {
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: () => {
-            // TODO: Implement remove member functionality
-            console.log('Remove member:', memberId);
-            router.back();
+          onPress: async () => {
+            try {
+              // Find the Appwrite membership ID
+              if (member?.$id && actualTeamId) {
+                await teamService.deleteMembership(actualTeamId, member.$id);
+                Alert.alert('Success', `${displayName} has been removed from the team`);
+                router.back();
+              } else {
+                Alert.alert('Error', 'Could not remove member. Membership not found.');
+              }
+            } catch (error: any) {
+              console.error('Error removing member:', error);
+              Alert.alert('Error', error.message || 'Failed to remove member. Please try again.');
+            }
           },
         },
       ]
@@ -36,6 +143,29 @@ export default function ManageMemberScreen() {
   const handleBack = () => {
     router.back();
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen 
+          options={{ 
+            title: 'Manage Member',
+            headerBackTitle: '',
+            headerBackVisible: true,
+          }} 
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.Primary} />
+          <Text style={styles.loadingText}>Loading member data...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const displayName = getMemberDisplayName();
+  const profilePicture = getMemberProfilePicture();
+  const memberRole = getMemberRole();
+  const memberEmail = member?.userEmail || member?.membershipData?.userEmail || '';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -48,14 +178,20 @@ export default function ManageMemberScreen() {
       />
       
       <View style={styles.content}>
-        {/* User Profile Section */}
+        {/* Member Profile Section */}
         <View style={styles.profileSection}>
-          <UserProfile 
-            size={120} 
-            showEditButton={false}
-            showName={false}
+          <Avatar
+            name={displayName}
+            imageUrl={profilePicture}
+            size={120}
           />
-          <Text style={styles.userName}>{memberName || 'Dave H.'}</Text>
+          <Text style={styles.userName}>{displayName}</Text>
+          {memberEmail && (
+            <Text style={styles.userEmail}>{memberEmail}</Text>
+          )}
+          <View style={styles.roleBadge}>
+            <Text style={styles.roleText}>{memberRole.toUpperCase()}</Text>
+          </View>
         </View>
 
         {/* Permissions Section */}
@@ -89,6 +225,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.Background,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.Gray,
+    marginTop: 12,
+  },
   content: {
     flex: 1,
     padding: 20,
@@ -98,10 +244,28 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   userName: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     color: Colors.Text,
     marginTop: 16,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: Colors.Gray,
+    marginTop: 4,
+  },
+  roleBadge: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    backgroundColor: Colors.Secondary,
+    borderRadius: 12,
+  },
+  roleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.Primary,
+    letterSpacing: 0.5,
   },
   permissionsSection: {
     marginBottom: 40,

@@ -84,6 +84,9 @@ export interface MembershipData {
   userId: string; // References Appwrite Users
   teamId: string; // References Teams
   role: string; // e.g., "owner", "admin", "member"
+  userEmail?: string; // Email of the member (stored when creating membership)
+  userName?: string; // Name of the member (cached from Appwrite Users)
+  profilePicture?: string; // Profile picture URL (cached from Appwrite Users preferences)
   invitedBy: string; // User who invited this member
   joinedAt: string; // ISO date string
   isActive: boolean;
@@ -213,20 +216,5 @@ export interface PaginatedResponse<T> {
   total: number;
 }
 
-// Export all types
-export type { 
-  JobChat, 
-  Message, 
-  User, 
-  TagTemplate, 
-  JobTagAssignment, 
-  JobChatWithTags,
-  Organization,
-  Team,
-  TeamData,
-  Membership,
-  MembershipData,
-  OrganizationContextType,
-  TeamRole,
-  OrganizationRole
-};
+// Export User type (not exported above)
+export type { User };

@@ -41,8 +41,25 @@ export const databaseService = {
   async listDocuments(collectionId: string, queries: string[] = []) {
     try {
       return await databases.listDocuments(DATABASE_ID, collectionId, queries);
-    } catch (error) {
-      console.error('List documents error:', error);
+    } catch (error: any) {
+      // Check if this is a "collection not found" error (expected for optional collections)
+      const isCollectionNotFound = 
+        error?.message?.includes('Collection with the requested ID could not be found') ||
+        error?.code === 404 ||
+        error?.type === 'general_not_found';
+      
+      // For "users" collection specifically, log at debug level since it's optional
+      // For other collections, still log as error but less verbosely
+      if (isCollectionNotFound && collectionId === 'users') {
+        // Users collection is optional - only log at debug level
+        console.debug(`Collection "${collectionId}" not found (expected)`);
+      } else if (isCollectionNotFound) {
+        // Other collections not found - log as warning
+        console.warn(`Collection "${collectionId}" not found:`, error?.message || error);
+      } else {
+        // Other errors - log as error
+        console.error('List documents error:', error);
+      }
       throw error;
     }
   },

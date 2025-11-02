@@ -19,7 +19,7 @@ export const organizationService = {
         ...(ownerId && { ownerId })
       };
 
-      return await databaseService.createDocument('organizations', orgData);
+      return await databaseService.createDocument('organizations', orgData) as unknown as Organization;
     } catch (error) {
       console.error('Create organization error:', error);
       throw error;
@@ -31,7 +31,7 @@ export const organizationService = {
    */
   async getOrganization(orgId: string) {
     try {
-      return await databaseService.getDocument('organizations', orgId);
+      return await databaseService.getDocument('organizations', orgId) as unknown as Organization;
     } catch (error) {
       console.error('Get organization error:', error);
       throw error;
@@ -43,10 +43,14 @@ export const organizationService = {
    */
   async listUserOrganizations(userId: string) {
     try {
-      return await databaseService.listDocuments('organizations', [
+      const result = await databaseService.listDocuments('organizations', [
         Query.equal('ownerId', userId),
         Query.equal('isActive', true)
       ]);
+      return {
+        ...result,
+        documents: result.documents as unknown as Organization[]
+      };
     } catch (error) {
       console.error('List user organizations error:', error);
       throw error;
@@ -121,7 +125,8 @@ export const teamService = {
       
       return {
         ...appwriteTeam,
-        teamData: teamDoc
+        $permissions: [], // Appwrite Teams don't have $permissions, provide empty array
+        teamData: teamDoc as unknown as TeamData
       };
     } catch (error) {
       console.error('Create team error:', error);
@@ -144,7 +149,8 @@ export const teamService = {
 
       return {
         ...appwriteTeam,
-        teamData: teamData.documents[0] || null
+        $permissions: [], // Appwrite Teams don't have $permissions, provide empty array
+        teamData: (teamData.documents[0] as unknown as TeamData) || null
       };
     } catch (error) {
       // If Appwrite lookup fails, try to find team in our database only
@@ -175,7 +181,7 @@ export const teamService = {
           
           return {
             ...mockAppwriteTeam,
-            teamData: teamDoc
+            teamData: teamDoc as unknown as TeamData
           };
         }
       }
@@ -194,7 +200,7 @@ export const teamService = {
         
         return {
           ...mockAppwriteTeam,
-          teamData: fallbackTeam
+          teamData: fallbackTeam as unknown as TeamData
         };
       }
       
@@ -244,7 +250,8 @@ export const teamService = {
             
             return {
               ...team,
-              teamData: teamData.documents[0] || null,
+              $permissions: [], // Appwrite Teams don't have $permissions, provide empty array
+              teamData: (teamData.documents[0] as unknown as TeamData) || null,
               membershipRole: membershipRole || null
             };
           } catch (error) {
@@ -288,7 +295,8 @@ export const teamService = {
             if (appwriteTeam) {
               return {
                 ...appwriteTeam,
-                teamData: team
+                $permissions: [], // Appwrite Teams don't have $permissions, provide empty array
+                teamData: team as unknown as TeamData
               };
             } else {
               // Team doesn't exist in Appwrite, return mock data
@@ -299,7 +307,7 @@ export const teamService = {
                 $createdAt: team.$createdAt,
                 $updatedAt: team.$updatedAt,
                 $permissions: [],
-                teamData: team
+                teamData: team as unknown as TeamData
               };
             }
           } catch (error) {
@@ -310,7 +318,7 @@ export const teamService = {
               $createdAt: team.$createdAt,
               $updatedAt: team.$updatedAt,
               $permissions: [],
-              teamData: team
+              teamData: team as unknown as TeamData
             };
           }
         })
@@ -521,10 +529,12 @@ export const teamService = {
       const appwriteMembership = await teams.createMembership(teamId, roles, email, undefined, undefined, url);
       
       // Create our custom membership data
+      // Store email so we can use it later when Appwrite's membership object doesn't have it
       const membershipData = {
         userId: appwriteMembership.userId,
         teamId: teamId,
         role: roles[0] || 'member', // Use first role as primary role
+        userEmail: email, // Store the email for later use
         invitedBy: invitedBy,
         joinedAt: new Date().toISOString(),
         isActive: true
@@ -536,6 +546,141 @@ export const teamService = {
     } catch (error) {
       console.error('Create membership error:', error);
       throw error;
+    }
+  },
+
+  /**
+   * Helper function to update membership document with email from Appwrite Users
+   * This can be used to manually update existing memberships that are missing userEmail
+   */
+  async updateMembershipWithEmail(membershipId: string, email: string): Promise<void> {
+    try {
+      // Get the membership document
+      const membershipData = await databaseService.getDocument('memberships', membershipId);
+      
+      // Update it with the email
+      await databaseService.updateDocument('memberships', membershipId, {
+        userEmail: email
+      });
+      
+      console.log('✅ Updated membership with email:', { membershipId, email });
+    } catch (error) {
+      console.error('Could not update membership with email:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Bulk migration: Update all memberships with emails from Appwrite Users
+   * 
+   * NOTE: This is a CLIENT-SIDE function with limitations:
+   * - Can only get email for currently logged-in user
+   * - Cannot access other users' emails from client SDK
+   * - For full migration, use the server-side script in scripts/migrate-membership-emails.ts
+   * 
+   * For production, create an Appwrite Cloud Function with the server-side script
+   */
+  async migrateMembershipEmailsForCurrentUser(): Promise<{ updated: number; skipped: number; errors: number }> {
+    try {
+      const { account } = await import('./client');
+      
+      // Get current user
+      const currentUser = await account.get();
+      if (!currentUser || !currentUser.$id || !currentUser.email) {
+        throw new Error('No user logged in or user has no email');
+      }
+
+      const userEmail = currentUser.email;
+      const userId = currentUser.$id;
+
+      console.log(`🚀 Migrating memberships for current user: ${userEmail}`);
+
+      // Get all memberships for this user
+      const memberships = await databaseService.listDocuments('memberships', [
+        Query.equal('userId', userId),
+        Query.limit(100)
+      ]);
+
+      let updated = 0;
+      let skipped = 0;
+      let errors = 0;
+
+      // Update each membership
+      for (const membership of memberships.documents) {
+        try {
+          // Skip if email already exists and matches
+          if (membership.userEmail === userEmail) {
+            skipped++;
+            continue;
+          }
+
+          // Update membership document with email
+          await databaseService.updateDocument('memberships', membership.$id, {
+            userEmail: userEmail
+          });
+
+          updated++;
+
+        } catch (error: any) {
+          console.error(`Error updating membership ${membership.$id}:`, error);
+          errors++;
+        }
+      }
+
+      console.log(`✅ Migration complete: ${updated} updated, ${skipped} skipped, ${errors} errors`);
+      
+      return { updated, skipped, errors };
+    } catch (error) {
+      console.error('Migration failed:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Helper function to get user information by userId
+   * This will try to fetch from a users collection, or use Appwrite membership data
+   * Note: For profile pictures, we need to store them in memberships table or use a Cloud Function
+   */
+  async getUserInfo(userId: string): Promise<{ name?: string; email?: string; profilePicture?: string } | null> {
+    try {
+      // Try to get from a users collection if it exists
+      try {
+        const usersResult = await databaseService.listDocuments('users', [
+          Query.equal('userId', userId)
+        ]);
+        
+        if (usersResult.documents && usersResult.documents.length > 0) {
+          const userDoc = usersResult.documents[0];
+          return {
+            name: userDoc.name || userDoc.userName || undefined,
+            email: userDoc.email || userDoc.userEmail || undefined,
+            profilePicture: userDoc.profilePicture || userDoc.profilePictureUrl || undefined
+          };
+        }
+      } catch (dbError: any) {
+        // Check if this is a "collection not found" error (expected and handled gracefully)
+        const isCollectionNotFound = 
+          dbError?.message?.includes('Collection with the requested ID could not be found') ||
+          dbError?.code === 404 ||
+          dbError?.type === 'general_not_found';
+        
+        if (isCollectionNotFound) {
+          // Users collection doesn't exist - this is expected and handled gracefully
+          // Only log at debug level to avoid noise in console
+          console.debug('Users collection not available, will use Appwrite Auth data');
+        } else {
+          // For other errors, log a warning
+          console.warn('Users collection access error:', dbError);
+        }
+      }
+
+      // Users collection doesn't exist - return null and use membership data from Appwrite Teams API
+      // The Appwrite Teams membership object should have userName and userEmail
+      // Profile pictures would need to be stored in memberships table or fetched via Cloud Function
+      return null;
+    } catch (error) {
+      console.warn('Could not fetch user info for userId:', userId, error);
+      return null;
     }
   },
 
@@ -559,24 +704,246 @@ export const teamService = {
       
       const appwriteMemberships = await teams.listMemberships(teamId);
       
-      // Get our custom membership data for each member
+      // Get our custom membership data and user info for each member
+      // Also sync Appwrite memberships with our database to avoid redundancy issues
       const membershipsWithData = await Promise.all(
-        appwriteMemberships.memberships.map(async (membership) => {
+        appwriteMemberships.memberships.map(async (membership: any) => {
           try {
-            const membershipData = await databaseService.listDocuments('memberships', [
+            // Get membership data from our database
+            // First try with both userId and teamId
+            let membershipData = await databaseService.listDocuments('memberships', [
               Query.equal('userId', membership.userId),
               Query.equal('teamId', teamId)
             ]);
             
-            return {
+            // If no documents found, try with just userId (in case teamId doesn't match)
+            if (!membershipData.documents || membershipData.documents.length === 0) {
+              console.log('⚠️ Membership data not found with teamId filter, trying with userId only...');
+              membershipData = await databaseService.listDocuments('memberships', [
+                Query.equal('userId', membership.userId)
+              ]);
+              
+              // Filter by teamId in the results manually
+              if (membershipData.documents && membershipData.documents.length > 0) {
+                const filteredDocs = membershipData.documents.filter((doc: any) => doc.teamId === teamId);
+                membershipData.documents = filteredDocs;
+              }
+              
+              // If still no match, sync/create membership data from Appwrite membership
+              if ((!membershipData.documents || membershipData.documents.length === 0) && membership.confirm && membership.joined) {
+                console.log('⚠️ Syncing Appwrite membership to our database...');
+                try {
+                  // Create/update membership data from Appwrite membership
+                  // This ensures our database stays in sync with Appwrite Teams
+                  const syncMembershipData: any = {
+                    userId: membership.userId,
+                    teamId: teamId,
+                    role: membership.roles[0] || 'member',
+                    invitedBy: membership.invited || new Date().toISOString(),
+                    joinedAt: membership.joined || new Date().toISOString(),
+                    isActive: true
+                  };
+                  
+                  // Try to preserve email if we can find it from other memberships
+                  const allUserMemberships = await databaseService.listDocuments('memberships', [
+                    Query.equal('userId', membership.userId)
+                  ]);
+                  const membershipWithEmail = allUserMemberships.documents?.find((doc: any) => doc.userEmail && doc.userEmail.trim());
+                  if (membershipWithEmail?.userEmail) {
+                    syncMembershipData.userEmail = membershipWithEmail.userEmail;
+                  }
+                  
+                  await databaseService.createDocument('memberships', syncMembershipData);
+                  console.log('✅ Synced membership data from Appwrite to our database');
+                  
+                  // Re-query to get the newly created document
+                  membershipData = await databaseService.listDocuments('memberships', [
+                    Query.equal('userId', membership.userId),
+                    Query.equal('teamId', teamId)
+                  ]);
+                } catch (syncError) {
+                  console.warn('Could not sync membership data:', syncError);
+                }
+              }
+            } else if (membershipData.documents[0]) {
+              // Membership data exists - ensure it's in sync with Appwrite
+              const dbMembership = membershipData.documents[0];
+              const needsUpdate: any = {};
+              
+              // Update role if different
+              if (dbMembership.role !== membership.roles[0]) {
+                needsUpdate.role = membership.roles[0] || 'member';
+              }
+              
+              // Update joinedAt if Appwrite has more recent data
+              if (membership.joined && (!dbMembership.joinedAt || new Date(membership.joined) > new Date(dbMembership.joinedAt))) {
+                needsUpdate.joinedAt = membership.joined;
+              }
+              
+              // Update isActive based on confirm status
+              if (dbMembership.isActive !== membership.confirm) {
+                needsUpdate.isActive = membership.confirm;
+              }
+              
+              // If there are updates needed, sync them
+              if (Object.keys(needsUpdate).length > 0) {
+                try {
+                  await databaseService.updateDocument('memberships', dbMembership.$id, needsUpdate);
+                  console.log('✅ Synced membership data updates from Appwrite');
+                  // Re-query to get updated document
+                  membershipData = await databaseService.listDocuments('memberships', [
+                    Query.equal('userId', membership.userId),
+                    Query.equal('teamId', teamId)
+                  ]);
+                } catch (updateError) {
+                  console.warn('Could not sync membership data updates:', updateError);
+                }
+              }
+            }
+            
+            // Log membershipData query results for debugging
+            console.log('🔍 MembershipData query result:', {
+              userId: membership.userId,
+              teamId: teamId,
+              documentsFound: membershipData.documents?.length || 0,
+              documentData: membershipData.documents[0] || null
+            });
+            
+            // Log raw Appwrite membership object to see what fields it has
+            console.log('🔍 Raw Appwrite membership:', {
+              $id: membership.$id,
+              userId: membership.userId,
+              teamId: membership.teamId,
+              userName: membership.userName,
+              userEmail: membership.userEmail,
+              email: (membership as any).email,
+              roles: membership.roles,
+              confirm: membership.confirm,
+              invited: membership.invited,
+              joined: membership.joined,
+              allKeys: Object.keys(membership)
+            });
+            
+            // Try to get user info (name and profile picture) from our users collection
+            const userInfo = await this.getUserInfo(membership.userId);
+            
+            // Start with the Appwrite membership data (which should have userName and userEmail)
+            const combinedMembership: any = {
               ...membership,
-              membershipData: membershipData.documents[0] || null
+              membershipData: membershipData.documents[0] || null,
+              userInfo: userInfo || null
             };
+            
+            // Get email first (needed for name formatting fallback)
+            // Priority order for userEmail:
+            // 1. userInfo.email (from our users collection if it exists)
+            // 2. membershipData.userEmail (from our database - this is stored when creating membership)
+            // 3. membership.userEmail (from Appwrite Teams API - usually empty until user sets it)
+            // 4. Try to find email from any other membership records for this userId
+            if (!combinedMembership.userEmail) {
+              if (userInfo?.email) {
+                combinedMembership.userEmail = userInfo.email;
+              } else if (membershipData.documents[0]?.userEmail) {
+                combinedMembership.userEmail = membershipData.documents[0].userEmail;
+              } else if (membership.userEmail && membership.userEmail.trim()) {
+                combinedMembership.userEmail = membership.userEmail;
+              } else if ((membership as any).email && (membership as any).email.trim()) {
+                // Check if email is stored in 'email' field instead of 'userEmail'
+                combinedMembership.userEmail = (membership as any).email;
+              } else {
+                // Last resort: try to find email from any membership record for this user
+                try {
+                  const allUserMemberships = await databaseService.listDocuments('memberships', [
+                    Query.equal('userId', membership.userId)
+                  ]);
+                  const membershipWithEmail = allUserMemberships.documents?.find((doc: any) => doc.userEmail && doc.userEmail.trim());
+                  if (membershipWithEmail?.userEmail) {
+                    combinedMembership.userEmail = membershipWithEmail.userEmail;
+                    // Also update the current membership data if it exists
+                    if (membershipData.documents[0]?.$id) {
+                      try {
+                        await databaseService.updateDocument('memberships', membershipData.documents[0].$id, {
+                          userEmail: membershipWithEmail.userEmail
+                        });
+                      } catch (updateError) {
+                        console.warn('Could not update membership data with email:', updateError);
+                      }
+                    }
+                  }
+                } catch (queryError) {
+                  console.warn('Could not query all memberships for email:', queryError);
+                }
+              }
+            }
+            
+            // Log membership data for debugging
+            console.log('🔍 Membership data:', {
+              userId: membership.userId,
+              membershipUserName: membership.userName,
+              membershipUserEmail: membership.userEmail,
+              membershipDataUserEmail: membershipData.documents[0]?.userEmail,
+              membershipDataUserName: membershipData.documents[0]?.userName,
+              hasUserInfo: !!userInfo,
+              userInfoName: userInfo?.name,
+              finalUserEmail: combinedMembership.userEmail
+            });
+            
+            // Priority order for userName:
+            // 1. membershipData.userName (from our database - cached from Appwrite Users API via server script)
+            // 2. membership.userName (from Appwrite Teams API - might be empty if user hasn't set name)
+            // 3. userInfo.name (from our users collection if it exists - legacy)
+            // 4. Format from email if available (last resort)
+            if (!combinedMembership.userName || !combinedMembership.userName.trim()) {
+              if (membershipData.documents[0]?.userName && membershipData.documents[0].userName.trim()) {
+                // Use cached name from our database (populated by migration script)
+                combinedMembership.userName = membershipData.documents[0].userName.trim();
+              } else if (membership.userName && membership.userName.trim()) {
+                // Use name from Appwrite Teams membership
+                combinedMembership.userName = membership.userName.trim();
+              } else if (userInfo?.name && userInfo.name.trim()) {
+                // Legacy: use name from users collection if it exists
+                combinedMembership.userName = userInfo.name.trim();
+              } else if (combinedMembership.userEmail && combinedMembership.userEmail.includes('@')) {
+                // Format name from email (e.g., "john.doe@example.com" -> "John Doe")
+                const emailName = combinedMembership.userEmail.split('@')[0];
+                combinedMembership.userName = emailName
+                  .split(/[._-]/)
+                  .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+                  .join(' ');
+              }
+            }
+            
+            // Priority order for profilePicture:
+            // 1. membershipData.profilePicture (from our database - cached from Appwrite Users API via server script)
+            // 2. userInfo.profilePicture (from our users collection if it exists - legacy)
+            // 3. membership.profilePicture (from Appwrite if available)
+            if (!combinedMembership.profilePicture) {
+              if (membershipData.documents[0]?.profilePicture && membershipData.documents[0].profilePicture.trim()) {
+                // Use cached profile picture from our database (populated by migration script)
+                combinedMembership.profilePicture = membershipData.documents[0].profilePicture.trim();
+              } else if (userInfo?.profilePicture) {
+                // Legacy: use profile picture from users collection
+                combinedMembership.profilePicture = userInfo.profilePicture;
+              }
+            }
+            
+            // Log final combined membership for debugging
+            console.log('✅ Final combined membership:', {
+              userId: combinedMembership.userId,
+              userName: combinedMembership.userName,
+              userEmail: combinedMembership.userEmail,
+              hasProfilePicture: !!combinedMembership.profilePicture,
+              role: combinedMembership.membershipData?.role || combinedMembership.roles?.[0]
+            });
+            
+            return combinedMembership;
           } catch (error) {
-            console.warn('Could not fetch membership data for user:', membership.userId);
+            console.warn('Could not fetch membership data for user:', membership.userId, error);
+            // Return membership with whatever data Appwrite provides
             return {
               ...membership,
-              membershipData: null
+              membershipData: null,
+              userInfo: null
             };
           }
         })
@@ -607,7 +974,7 @@ export const teamService = {
   ) {
     try {
       // Update Appwrite membership
-      const appwriteMembership = await teams.updateMembershipRoles(teamId, membershipId, roles);
+      const appwriteMembership = await teams.updateMembership(teamId, membershipId, roles);
       
       // Update our custom membership data
       const membershipData = await databaseService.listDocuments('memberships', [

@@ -51,9 +51,14 @@ export default function TeamScreen() {
   };
 
   const handleManageMember = (memberId: string, memberName: string) => {
+    // Pass memberId (userId) and teamId so manage-member can fetch full member data
     router.push({
       pathname: '/(jobs)/manage-member',
-      params: { memberId, memberName }
+      params: { 
+        memberId, // This is actually userId
+        memberName, // Pass as fallback
+        teamId: currentTeam?.$id || ''
+      }
     });
   };
 
@@ -75,19 +80,80 @@ export default function TeamScreen() {
   // Check if current user is already in the members list
   const currentUserInMembers = members.find(m => m.userId === user?.$id);
   
+  // Helper function to get display name for a member
+  const getMemberDisplayName = (member: any): string => {
+    // If this is the current user and userName is empty, use displayName
+    if (member.userId === user?.$id && (!member.userName || !member.userName.trim())) {
+      return displayName;
+    }
+    
+    // Check userInfo first (from getUserInfo lookup)
+    if (member.userInfo?.name) {
+      return member.userInfo.name;
+    }
+    
+    // If userName exists and is not empty, use it
+    if (member.userName && member.userName.trim()) {
+      return member.userName.trim();
+    }
+    
+    // Check for email in Appwrite membership object
+    let email = member.userEmail || member.email || '';
+    
+    // Check for email in userInfo
+    if ((!email || !email.includes('@')) && member.userInfo?.email) {
+      email = member.userInfo.email;
+    }
+    
+    // Check for email in our custom membershipData (if we stored it)
+    if ((!email || !email.includes('@')) && member.membershipData?.userEmail) {
+      email = member.membershipData.userEmail;
+    }
+    
+    // If email exists, format it nicely
+    if (email && email.includes('@')) {
+      const emailName = email.split('@')[0];
+      return emailName.charAt(0).toUpperCase() + emailName.slice(1);
+    }
+    
+    // Use a more user-friendly fallback - format userId nicely
+    const shortUserId = member.userId ? member.userId.slice(0, 8) : 'member';
+    return `Member ${shortUserId}`;
+  };
+  
+  // Helper function to get profile picture for a member
+  const getMemberProfilePicture = (member: any): string | undefined => {
+    // Current user gets their profile picture
+    if (member.$id === 'current-user') {
+      return userProfilePicture ?? undefined;
+    }
+    
+    // Priority order for profile picture:
+    // 1. membershipData.profilePicture (cached in our database from server script)
+    // 2. member.profilePicture (from combined membership object)
+    // 3. userInfo.profilePicture (legacy from users collection)
+    if (member.membershipData?.profilePicture && member.membershipData.profilePicture.trim()) {
+      return member.membershipData.profilePicture.trim();
+    }
+    
+    if (member.profilePicture && member.profilePicture.trim()) {
+      return member.profilePicture.trim();
+    }
+    
+    if (member.userInfo?.profilePicture) {
+      return member.userInfo.profilePicture;
+    }
+    
+    return undefined;
+  };
+  
   // If current user is not in members list but we have a team, add them as owner
-  // Also, if they're in members list but userName is empty, replace it with displayName
+  // Also, ensure all members have a valid display name
   const displayMembers = currentUserInMembers 
-    ? members.map(m => {
-        // If this is the current user and their userName is empty, use displayName
-        if (m.userId === user?.$id && !m.userName) {
-          return {
-            ...m,
-            userName: displayName
-          };
-        }
-        return m;
-      })
+    ? members.map(m => ({
+        ...m,
+        userName: getMemberDisplayName(m)
+      }))
     : user && currentTeam 
       ? [
           {
@@ -97,9 +163,15 @@ export default function TeamScreen() {
             membershipData: { role: 'owner' },
             $id: 'current-user'
           },
-          ...members
+          ...members.map(m => ({
+            ...m,
+            userName: getMemberDisplayName(m)
+          }))
         ]
-      : members;
+      : members.map(m => ({
+          ...m,
+          userName: getMemberDisplayName(m)
+        }));
 
   const finalMemberCount = displayMembers.length;
 
@@ -146,13 +218,13 @@ export default function TeamScreen() {
                 <View style={styles.memberInfo}>
                   <Avatar
                     name={member.userName}
-                    imageUrl={member.$id === 'current-user' ? userProfilePicture : undefined}
+                    imageUrl={getMemberProfilePicture(member)}
                     size={50}
                   />
                   <View style={styles.memberDetails}>
                     <Text style={styles.memberName}>{member.userName}</Text>
                     <Text style={styles.memberRole}>
-                      {member.membershipData?.role || member.roles[0] || 'member'}
+                      {member.membershipData?.role || member.roles?.[0] || 'member'}
                     </Text>
                   </View>
                 </View>
