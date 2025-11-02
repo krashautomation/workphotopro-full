@@ -279,34 +279,25 @@ export default function Teams() {
                 ]}
                 onPress={() => handleTeamSelect(item)}
               >
-                <View style={styles.cardContent}>
-                  <View style={styles.cardHeader}>
-                    <View style={styles.teamNameContainer}>
-                      <Text style={styles.teamName}>{teamName}</Text>
-                      {isCurrentTeam && (
-                        <View style={styles.currentTeamBadge}>
-                          <Text style={styles.currentTeamBadgeText}>Active</Text>
-                        </View>
-                      )}
-                    </View>
-                    <View style={styles.statusIndicator}>
-                      <IconSymbol
-                        name={isActive ? "checkmark.circle.fill" : "pause.circle.fill"}
-                        size={16}
-                        color={isActive ? colors.success : colors.textMuted}
-                      />
-                    </View>
+                <View style={styles.teamContent}>
+                  <View style={styles.teamHeader}>
+                    <Text style={styles.teamName}>{teamName}</Text>
+                    {isCurrentTeam && (
+                      <View style={styles.currentTeamBadge}>
+                        <Text style={styles.currentTeamBadgeText}>Active</Text>
+                      </View>
+                    )}
                   </View>
                   {description ? (
                     <Text style={styles.description}>{description}</Text>
                   ) : null}
-                  <View style={styles.cardFooter}>
-                    <IconSymbol
-                      name="chevron.right"
-                      size={16}
-                      color={colors.textSecondary}
-                    />
-                  </View>
+                </View>
+                <View style={styles.chevron}>
+                  <IconSymbol
+                    name="chevron.right"
+                    size={16}
+                    color={colors.textSecondary}
+                  />
                 </View>
               </TouchableOpacity>
             );
@@ -317,58 +308,81 @@ export default function Teams() {
         />
       )}
 
-      {/* Bottom Buttons */}
+      {/* Bottom Menu */}
       <View style={styles.bottomContainer}>
         {activeTab === 'myTeams' && currentTeam && (
-          <TouchableOpacity 
-            style={styles.deleteTeamButton}
-            onPress={handleDeleteTeam}
-          >
+          <TouchableOpacity style={styles.menuItem} onPress={handleDeleteTeam}>
+            <View style={styles.menuItemLeft}>
+              <IconSymbol
+                name="trash"
+                size={20}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.menuItemText}>Delete Team</Text>
+            </View>
             <IconSymbol
-              name="trash"
-              size={20}
-              color="#ef4444"
+              name="chevron.right"
+              size={16}
+              color={colors.textSecondary}
             />
-            <Text style={styles.deleteTeamButtonText}>Delete Team</Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity 
-          style={styles.createButton}
-          onPress={handleCreateTeam}
-        >
+        <TouchableOpacity style={styles.menuItem} onPress={handleCreateTeam}>
+          <View style={styles.menuItemLeft}>
+            <IconSymbol
+              name="plus"
+              size={20}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.menuItemText}>Create Team</Text>
+          </View>
           <IconSymbol
-            name="plus"
-            size={20}
-            color={colors.primary}
+            name="chevron.right"
+            size={16}
+            color={colors.textSecondary}
           />
-          <Text style={styles.createButtonText}>Create Team</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={styles.premiumButton}
+          style={styles.menuItem}
           onPress={() => {
             router.push('/(jobs)/get-premium');
           }}
         >
+          <View style={styles.menuItemLeft}>
+            <IconSymbol
+              name="creditcard"
+              size={20}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.menuItemText}>Get Premium</Text>
+          </View>
           <IconSymbol
-            name="creditcard"
-            size={20}
-            color="#FFD700"
+            name="chevron.right"
+            size={16}
+            color={colors.textSecondary}
           />
-          <Text style={styles.premiumButtonText}>Get Premium</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={styles.settingsButton}
+          style={styles.menuItem}
           onPress={() => {
             router.push('/(jobs)/team-settings');
           }}
         >
+          <View style={styles.menuItemLeft}>
+            <IconSymbol
+              name="gearshape"
+              size={20}
+              color={colors.textSecondary}
+            />
+            <Text style={styles.menuItemText}>Team Settings</Text>
+          </View>
           <IconSymbol
-            name="gearshape"
-            size={20}
+            name="chevron.right"
+            size={16}
             color={colors.textSecondary}
           />
-          <Text style={styles.settingsButtonText}>Team Settings</Text>
         </TouchableOpacity>
+        <View style={styles.bottomPadding} />
       </View>
     </View>
   );
@@ -441,12 +455,15 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 20,
-    paddingBottom: 240, // Add padding to account for bottom buttons (increased for new buttons)
+    paddingBottom: 240, // Add padding to account for bottom menu
   },
   teamCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
     padding: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   activeCard: {
     // Active cards have default styling
@@ -456,26 +473,18 @@ const styles = StyleSheet.create({
   },
   currentTeamCard: {
     backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    borderWidth: 2,
-    borderColor: colors.primary,
   },
-  cardContent: {
+  teamContent: {
     flex: 1,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  teamNameContainer: {
+  teamHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flex: 1,
+    marginBottom: 4,
   },
   teamName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: colors.text,
   },
@@ -490,41 +499,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  statusIndicator: {
-    marginLeft: 8,
-  },
-  organizationName: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
   description: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: 8,
-    lineHeight: 20,
+    marginBottom: 4,
   },
-  roleContainer: {
-    marginBottom: 12,
-  },
-  roleText: {
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  memberCount: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  memberCountText: {
-    fontSize: 12,
-    color: colors.textSecondary,
+  chevron: {
+    marginLeft: 12,
   },
   separator: {
     height: 12,
@@ -549,76 +530,29 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.background,
-    padding: 20,
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  deleteTeamButton: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#ef4444',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  deleteTeamButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ef4444',
-  },
-  createButton: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
+  menuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: colors.primary,
+    gap: 12,
   },
-  createButtonText: {
+  menuItemText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
+    color: colors.text,
   },
-  premiumButton: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#FFD700',
-  },
-  premiumButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFD700',
-  },
-  settingsButton: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: colors.textSecondary,
-  },
-  settingsButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textSecondary,
+  bottomPadding: {
+    paddingBottom: 30,
   },
 });
