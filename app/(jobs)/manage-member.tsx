@@ -7,6 +7,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import Avatar from '@/components/Avatar';
 import { Switch } from 'react-native';
 import { useOrganization } from '@/context/OrganizationContext';
+import { useAuth } from '@/context/AuthContext';
 import { teamService } from '@/lib/appwrite/teams';
 
 export default function ManageMemberScreen() {
@@ -16,16 +17,27 @@ export default function ManageMemberScreen() {
     teamId: string;
   }>();
   const { currentTeam } = useOrganization();
+  const { user } = useAuth();
   const [sendJobReports, setSendJobReports] = useState(false);
   const [loading, setLoading] = useState(true);
   const [member, setMember] = useState<any>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<string>('member');
+  const [updatingRole, setUpdatingRole] = useState(false);
   
   // Get the actual teamId (prefer param, fallback to currentTeam)
   const actualTeamId = teamId || currentTeam?.$id || '';
   
-  useEffect(() => {
-    loadMemberData();
-  }, [memberId, actualTeamId]);
+  // Get member role helper (defined early so useEffects can use it)
+  const getMemberRole = (): string => {
+    if (member?.membershipData?.role) {
+      return member.membershipData.role;
+    }
+    if (member?.roles && member.roles.length > 0) {
+      return member.roles[0];
+    }
+    return 'member';
+  };
 
   const loadMemberData = async () => {
     if (!actualTeamId || !memberId) {
@@ -66,6 +78,44 @@ export default function ManageMemberScreen() {
     }
   };
 
+  const loadCurrentUserRole = async () => {
+    if (!actualTeamId || !user?.$id) {
+      setCurrentUserRole(null);
+      return;
+    }
+
+    try {
+      const memberships = await teamService.listMemberships(actualTeamId);
+      const currentUserMembership = memberships.memberships.find((m: any) => m.userId === user.$id);
+      
+      if (currentUserMembership) {
+        const role = currentUserMembership.membershipData?.role || currentUserMembership.roles?.[0] || 'member';
+        setCurrentUserRole(role.toLowerCase());
+      } else {
+        setCurrentUserRole(null);
+      }
+    } catch (error) {
+      console.error('Error loading current user role:', error);
+      setCurrentUserRole(null);
+    }
+  };
+
+  useEffect(() => {
+    loadMemberData();
+  }, [memberId, actualTeamId]);
+
+  useEffect(() => {
+    loadCurrentUserRole();
+  }, [actualTeamId, user]);
+
+  useEffect(() => {
+    // Update selectedRole when member data loads
+    if (member) {
+      const role = getMemberRole();
+      setSelectedRole(role === 'owner' ? 'member' : role); // Don't allow changing owner role
+    }
+  }, [member]);
+
   // Get display name for member
   const getMemberDisplayName = (): string => {
     if (member?.userName && member.userName.trim()) {
@@ -96,18 +146,23 @@ export default function ManageMemberScreen() {
     return undefined;
   };
 
-  // Get member role
-  const getMemberRole = (): string => {
-    if (member?.membershipData?.role) {
-      return member.membershipData.role;
-    }
-    if (member?.roles && member.roles.length > 0) {
-      return member.roles[0];
-    }
-    return 'member';
+  // Check if member is owner
+  const isOwner = (): boolean => {
+    const role = getMemberRole().toLowerCase();
+    return role === 'owner' || role === 'owners';
   };
 
   const handleRemoveMember = () => {
+    // Prevent removing owners
+    if (isOwner()) {
+      Alert.alert(
+        'Cannot Remove Owner',
+        'The owner cannot be removed from the team. You must transfer ownership first.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     const displayName = getMemberDisplayName();
     Alert.alert(
       'Remove Member',
@@ -122,6 +177,12 @@ export default function ManageMemberScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              // Double-check role before deletion
+              if (isOwner()) {
+                Alert.alert('Error', 'Cannot remove the owner from the team.');
+                return;
+              }
+
               // Find the Appwrite membership ID
               if (member?.$id && actualTeamId) {
                 await teamService.deleteMembership(actualTeamId, member.$id);
@@ -142,6 +203,48 @@ export default function ManageMemberScreen() {
 
   const handleBack = () => {
     router.back();
+  };
+
+  // Check if current user is owner
+  const isCurrentUserOwner = (): boolean => {
+    if (!currentUserRole) return false;
+    return currentUserRole === 'owner' || currentUserRole === 'owners';
+  };
+
+  // Handle role change
+  const handleRoleChange = async (newRole: string) => {
+    if (!member || !actualTeamId || !member.$id) {
+      Alert.alert('Error', 'Cannot change role. Member information is missing.');
+      return;
+    }
+
+    // Prevent changing owner role
+    if (isOwner()) {
+      Alert.alert('Error', 'Cannot change the owner role.');
+      return;
+    }
+
+    // Only allow Member or Manager roles
+    if (newRole !== 'member' && newRole !== 'manager') {
+      Alert.alert('Error', 'Invalid role. Only Member or Manager roles are allowed.');
+      return;
+    }
+
+    try {
+      setUpdatingRole(true);
+      await teamService.updateMembershipRoles(actualTeamId, member.$id, [newRole]);
+      
+      // Reload member data to reflect the change
+      await loadMemberData();
+      setSelectedRole(newRole);
+      
+      Alert.alert('Success', `Role updated to ${newRole.charAt(0).toUpperCase() + newRole.slice(1)}`);
+    } catch (error: any) {
+      console.error('Error updating role:', error);
+      Alert.alert('Error', error.message || 'Failed to update role. Please try again.');
+    } finally {
+      setUpdatingRole(false);
+    }
   };
 
   if (loading) {
@@ -209,12 +312,74 @@ export default function ManageMemberScreen() {
           </View>
         </View>
 
-        {/* Remove Button */}
-        <View style={styles.removeSection}>
-          <Pressable style={styles.removeButton} onPress={handleRemoveMember}>
-            <Text style={styles.removeButtonText}>Remove</Text>
-          </Pressable>
-        </View>
+        {/* Role Change Section - Only show if current user is owner and member is not owner */}
+        {isCurrentUserOwner() && !isOwner() && (
+          <View style={styles.roleSection}>
+            <Text style={styles.roleSectionTitle}>ROLE</Text>
+            <View style={styles.roleSelector}>
+              <Pressable
+                style={[
+                  styles.roleOption,
+                  selectedRole === 'member' && styles.roleOptionSelected
+                ]}
+                onPress={() => handleRoleChange('member')}
+                disabled={updatingRole}
+              >
+                <Text style={[
+                  styles.roleOptionText,
+                  selectedRole === 'member' && styles.roleOptionTextSelected
+                ]}>
+                  Member
+                </Text>
+                {selectedRole === 'member' && (
+                  <IconSymbol name="checkmark.circle.fill" color={Colors.Primary} size={20} />
+                )}
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.roleOption,
+                  selectedRole === 'manager' && styles.roleOptionSelected
+                ]}
+                onPress={() => handleRoleChange('manager')}
+                disabled={updatingRole}
+              >
+                <Text style={[
+                  styles.roleOptionText,
+                  selectedRole === 'manager' && styles.roleOptionTextSelected
+                ]}>
+                  Manager
+                </Text>
+                {selectedRole === 'manager' && (
+                  <IconSymbol name="checkmark.circle.fill" color={Colors.Primary} size={20} />
+                )}
+              </Pressable>
+            </View>
+            {updatingRole && (
+              <View style={styles.updatingIndicator}>
+                <ActivityIndicator size="small" color={Colors.Primary} />
+                <Text style={styles.updatingText}>Updating role...</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Remove Button - Only show for non-owners */}
+        {!isOwner() && (
+          <View style={styles.removeSection}>
+            <Pressable style={styles.removeButton} onPress={handleRemoveMember}>
+              <Text style={styles.removeButtonText}>Remove</Text>
+            </Pressable>
+          </View>
+        )}
+        
+        {/* Owner Info Message */}
+        {isOwner() && (
+          <View style={styles.ownerInfoSection}>
+            <Text style={styles.ownerInfoText}>
+              The owner cannot be removed from the team.
+            </Text>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -305,5 +470,68 @@ const styles = StyleSheet.create({
     color: Colors.White,
     fontSize: 16,
     fontWeight: '600',
+  },
+  ownerInfoSection: {
+    marginTop: 'auto',
+    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: Colors.Secondary,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  ownerInfoText: {
+    fontSize: 14,
+    color: Colors.Gray,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  roleSection: {
+    marginBottom: 40,
+  },
+  roleSectionTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: Colors.Text,
+    marginBottom: 16,
+    letterSpacing: 0.5,
+  },
+  roleSelector: {
+    gap: 12,
+  },
+  roleOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Colors.Secondary,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  roleOptionSelected: {
+    borderColor: Colors.Primary,
+    backgroundColor: Colors.Secondary,
+  },
+  roleOptionText: {
+    fontSize: 16,
+    color: Colors.Text,
+    fontWeight: '500',
+  },
+  roleOptionTextSelected: {
+    color: Colors.Primary,
+    fontWeight: '600',
+  },
+  updatingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    gap: 8,
+  },
+  updatingText: {
+    fontSize: 14,
+    color: Colors.Gray,
   },
 });

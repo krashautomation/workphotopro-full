@@ -96,6 +96,7 @@ export const teamService = {
       // Create our custom team data
       const teamData = {
         teamName: name,
+        appwriteTeamId: appwriteTeam.$id, // Store Appwrite Team ID for linking
         orgId: orgId,
         description: description || '',
         isActive: true,

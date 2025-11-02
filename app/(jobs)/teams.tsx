@@ -190,16 +190,6 @@ export default function Teams() {
           <Text style={styles.title}>Teams</Text>
           <Text style={styles.subtitle}>Select your team</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <IconSymbol
-            name="xmark"
-            size={24}
-            color={colors.textSecondary}
-          />
-        </TouchableOpacity>
       </View>
 
       {/* Tabs */}
@@ -418,14 +408,6 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: colors.textSecondary,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   tabContainer: {
     flexDirection: 'row',

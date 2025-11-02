@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "add-team-member": "node scripts/add-team-member.js",
-    "migrate-membership-emails": "node scripts/migrate-membership-emails.js"
+    "migrate-membership-emails": "node scripts/migrate-membership-emails.js",
+    "migrate-team-appwrite-ids": "node scripts/migrate-team-appwrite-ids.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

@@ -48,6 +48,7 @@ export interface Team {
 export interface TeamData {
   $id: string; // Our database document ID
   teamName: string;
+  appwriteTeamId: string; // Appwrite Teams ID (links to Appwrite Teams)
   orgId: string; // References Organizations
   description?: string;
   email?: string;
