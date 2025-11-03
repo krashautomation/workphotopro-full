@@ -54,6 +54,42 @@ export default function Jobs() {
   };
 
   /**
+   * Get relative time string (e.g., "3 hours", "2 days", "14 minutes")
+   */
+  const getRelativeTime = (dateString: string): string => {
+    const now = new Date();
+    const updatedAt = new Date(dateString);
+    const diffInSeconds = Math.floor((now.getTime() - updatedAt.getTime()) / 1000);
+
+    if (diffInSeconds < 60) {
+      return `${diffInSeconds} ${diffInSeconds === 1 ? 'second' : 'seconds'}`;
+    }
+
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes} ${diffInMinutes === 1 ? 'minute' : 'minutes'}`;
+    }
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) {
+      return `${diffInHours} ${diffInHours === 1 ? 'hour' : 'hours'}`;
+    }
+
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 30) {
+      return `${diffInDays} ${diffInDays === 1 ? 'day' : 'days'}`;
+    }
+
+    const diffInMonths = Math.floor(diffInDays / 30);
+    if (diffInMonths < 12) {
+      return `${diffInMonths} ${diffInMonths === 1 ? 'month' : 'months'}`;
+    }
+
+    const diffInYears = Math.floor(diffInMonths / 12);
+    return `${diffInYears} ${diffInYears === 1 ? 'year' : 'years'}`;
+  };
+
+  /**
    * Load tags for a specific job
    */
   const loadJobTags = async (jobId: string, allTagTemplates: any[]) => {
@@ -251,10 +287,21 @@ export default function Jobs() {
           >
             <TouchableOpacity style={styles.jobCard}>
               <View style={styles.jobContent}>
-                <Text style={styles.jobTitle}>{item.title}</Text>
-                {item.description && (
-                  <Text style={styles.jobDescription}>{item.description}</Text>
-                )}
+                <View style={styles.jobTopContent}>
+                  <View style={styles.jobHeader}>
+                    <Text style={styles.jobTitle} numberOfLines={1} ellipsizeMode="tail">{item.title}</Text>
+                    <View style={styles.jobHeaderRight}>
+                      <Text style={styles.jobDate}>
+                        {getRelativeTime(item.$updatedAt)}
+                      </Text>
+                    </View>
+                  </View>
+                  {item.description ? (
+                    <Text style={styles.jobDescription} numberOfLines={1} ellipsizeMode="tail">{item.description}</Text>
+                  ) : (
+                    <View style={styles.descriptionPlaceholder} />
+                  )}
+                </View>
                 <View style={styles.jobMeta}>
                   <View style={styles.tagsContainer}>
                     {item.assignedTags && item.assignedTags.length > 0 ? (
@@ -271,13 +318,21 @@ export default function Jobs() {
                       <View style={styles.noTagsPlaceholder} />
                     )}
                   </View>
-                  <Text style={styles.jobDate}>
-                    {new Date(item.$createdAt).toLocaleDateString()}
-                  </Text>
+                  {item.status === 'active' && (
+                    <View style={styles.activeStatusIconContainer}>
+                      <Text style={styles.activeStatusIcon}>👈</Text>
+                    </View>
+                  )}
+                  {item.status === 'completed' && (
+                    <View style={styles.statusIconContainer}>
+                      <IconSymbol
+                        name="checkmark"
+                        size={10}
+                        color={colors.background}
+                      />
+                    </View>
+                  )}
                 </View>
-              </View>
-              <View style={styles.chevron}>
-                <Text style={styles.chevronText}>›</Text>
               </View>
             </TouchableOpacity>
           </Link>
@@ -466,30 +521,72 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 4,
     paddingBottom: 100, // Add padding to account for bottom menu
   },
   jobCard: {
     backgroundColor: colors.surface,
-    padding: 16,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingTop: 12,
+    paddingBottom: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    height: 90,
   },
   jobContent: {
     flex: 1,
+    justifyContent: 'space-between',
+  },
+  jobTopContent: {
+    minHeight: 0,
+  },
+  jobHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 6,
+  },
+  jobHeaderRight: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 4,
+    marginLeft: 12,
+  },
+  statusIconContainer: {
+    width: 16,
+    height: 16,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeStatusIconContainer: {
+    width: 20,
+    height: 20,
+    borderRadius: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeStatusIcon: {
+    fontSize: 16,
+    color: '#FFFFFF',
   },
   jobTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '500',
     color: colors.text,
-    marginBottom: 4,
+    flex: 1,
   },
   jobDescription: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: 8,
+    marginBottom: 4,
+    lineHeight: 18,
+    flexShrink: 1,
+    height: 18,
+  },
+  descriptionPlaceholder: {
+    height: 18,
+    marginBottom: 4,
   },
   jobMeta: {
     flexDirection: 'row',
@@ -499,7 +596,7 @@ const styles = StyleSheet.create({
   tagsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
   },
   tagIcon: {
     marginRight: 2,
@@ -511,14 +608,6 @@ const styles = StyleSheet.create({
   jobDate: {
     fontSize: 12,
     color: colors.textMuted,
-  },
-  chevron: {
-    marginLeft: 12,
-  },
-  chevronText: {
-    fontSize: 24,
-    color: colors.textSecondary,
-    fontWeight: '300',
   },
   separator: {
     height: 12,
