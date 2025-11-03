@@ -4,7 +4,7 @@ import { globalStyles, colors } from '@/styles/globalStyles';
 import { jobChatService, tagService } from '@/lib/appwrite/database';
 import { JobChat, JobChatWithTags } from '@/utils/types';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
-import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Image } from 'react-native';
 import { useEffect, useState, useCallback } from 'react';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -267,6 +267,11 @@ export default function Jobs() {
         }
         ListEmptyComponent={() => (
           <View style={styles.emptyState}>
+            <Image 
+              source={require('../../assets/images/green-man.png')}
+              style={styles.emptyImage}
+              resizeMode="contain"
+            />
             <Text style={styles.emptyText}>No jobs yet</Text>
             <Text style={styles.emptySubtext}>
               Create your first job to start organizing your work photos
@@ -615,6 +620,11 @@ const styles = StyleSheet.create({
   emptyState: {
     padding: 40,
     alignItems: 'center',
+  },
+  emptyImage: {
+    width: 280,
+    height: 280,
+    marginBottom: 24,
   },
   emptyText: {
     fontSize: 20,
