@@ -120,13 +120,25 @@ export default function Notifications() {
   return (
     <View style={styles.container}>
       {/* Header Actions */}
-      {unreadCount > 0 && (
-        <View style={styles.headerActions}>
-          <TouchableOpacity onPress={markAllAsRead} style={styles.markAllButton}>
-            <Text style={styles.markAllText}>Mark all as read</Text>
+      <View style={styles.headerActions}>
+        <View style={styles.headerActionsRow}>
+          {unreadCount > 0 && (
+            <TouchableOpacity onPress={markAllAsRead} style={styles.markAllButton}>
+              <Text style={styles.markAllText}>Mark all as read</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity 
+            onPress={() => router.push('/(jobs)/notification-settings')}
+            style={styles.settingsButton}
+          >
+            <IconSymbol
+              name="gearshape"
+              size={20}
+              color={colors.textSecondary}
+            />
           </TouchableOpacity>
         </View>
-      )}
+      </View>
 
       {/* Notifications List */}
       <FlatList
@@ -206,8 +218,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  headerActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 16,
+  },
   markAllButton: {
-    alignSelf: 'flex-end',
+    // No additional styles needed
+  },
+  settingsButton: {
+    padding: 4,
   },
   markAllText: {
     color: colors.primary,

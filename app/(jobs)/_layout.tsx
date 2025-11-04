@@ -175,6 +175,15 @@ export default function JobsLayout() {
           headerTintColor: '#fff',
         }}
       />
+      <Stack.Screen
+        name="notification-settings"
+        options={{
+          headerShown: true,
+          title: 'Notification Settings',
+          headerStyle: { backgroundColor: '#1a1a1a' },
+          headerTintColor: '#fff',
+        }}
+      />
     </Stack>
   );
 }
