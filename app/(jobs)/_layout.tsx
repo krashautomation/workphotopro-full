@@ -3,6 +3,8 @@ import { useAuth } from '@/context/AuthContext';
 import { Redirect, Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, View, TouchableOpacity } from 'react-native';
 import Avatar from '@/components/Avatar';
+import { IconSymbol } from '@/components/IconSymbol';
+import { colors } from '@/styles/globalStyles';
 
 function HeaderRight() {
   const router = useRouter();
@@ -23,16 +25,28 @@ function HeaderRight() {
   const displayName = googleData?.displayName || googleData?.googleName || googleData?.firstName || user?.name || 'User';
 
   return (
-    <TouchableOpacity 
-      style={{ marginRight: 16 }}
-      onPress={() => router.push('/(jobs)/profile')}
-    >
-      <Avatar
-        name={displayName}
-        imageUrl={profilePicture || undefined}
-        size={32}
-      />
-    </TouchableOpacity>
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, gap: 12 }}>
+      <TouchableOpacity 
+        onPress={() => router.push('/(jobs)/notifications')}
+      >
+        <IconSymbol
+          name="bell"
+          size={20}
+          color={colors.textSecondary}
+        />
+        {/* TODO: Add notification badge when unread count > 0 */}
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+        onPress={() => router.push('/(jobs)/profile')}
+      >
+        <Avatar
+          name={displayName}
+          imageUrl={profilePicture || undefined}
+          size={32}
+        />
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -148,6 +162,15 @@ export default function JobsLayout() {
         options={{
           headerShown: true,
           title: 'Invite to Team',
+          headerStyle: { backgroundColor: '#1a1a1a' },
+          headerTintColor: '#fff',
+        }}
+      />
+      <Stack.Screen
+        name="notifications"
+        options={{
+          headerShown: true,
+          title: 'Notifications',
           headerStyle: { backgroundColor: '#1a1a1a' },
           headerTintColor: '#fff',
         }}
