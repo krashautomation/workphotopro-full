@@ -8,6 +8,7 @@ import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, 
 import { useEffect, useState, useCallback } from 'react';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
+import { Coins, Gem } from 'lucide-react-native';
 
 export default function Jobs() {
   const { user, isAuthenticated, getUserProfilePicture, getGoogleUserData } = useAuth();
@@ -226,6 +227,45 @@ export default function Jobs() {
 
   return (
     <View style={styles.container}>
+      {/* Achievements Card */}
+      <Link href="/(jobs)/achievements" asChild>
+        <TouchableOpacity style={styles.achievementsCard}>
+          <View style={styles.achievementsContent}>
+            <View style={styles.achievementsLeft}>
+              {/* Progress Label and Percentage */}
+              <View style={styles.progressHeader}>
+                <Text style={styles.progressLabel}>Your Progress</Text>
+                <Text style={styles.progressText}>79%</Text>
+              </View>
+              
+              {/* Progress Bar */}
+              <View style={styles.progressBarWrapper}>
+                <View style={styles.progressBarContainer}>
+                  <View style={[styles.progressBarFill, { width: '79%' }]} />
+                </View>
+              </View>
+              
+              {/* Pills */}
+              <View style={styles.pillsContainer}>
+                <View style={styles.pill}>
+                  <Coins size={14} color="#FFD700" />
+                  <Text style={styles.pillText}>Experience</Text>
+                  <Text style={styles.pillNumber}>1,250</Text>
+                </View>
+                <View style={styles.pill}>
+                  <Gem size={14} color="#9333EA" />
+                  <Text style={styles.pillText}>Achievements</Text>
+                  <Text style={styles.pillNumber}>12</Text>
+                </View>
+              </View>
+            </View>
+            
+            {/* Eye Emojis */}
+            <Text style={styles.eyeEmojis}>👀</Text>
+          </View>
+        </TouchableOpacity>
+      </Link>
+
       {/* Header Card */}
       <TouchableOpacity 
         style={styles.headerCard}
@@ -252,7 +292,6 @@ export default function Jobs() {
           </View>
         </View>
       </TouchableOpacity>
-
 
       {/* Error Banner */}
       {error && (
@@ -399,16 +438,17 @@ const styles = StyleSheet.create({
   },
   headerCard: {
     marginHorizontal: 20,
-    marginTop: 20,
+    marginTop: 8,
     marginBottom: 12,
     borderRadius: 12,
     backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: colors.primary,
   },
   headerCardContent: {
     borderRadius: 12,
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
@@ -647,6 +687,88 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 24,
+  },
+  achievementsCard: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 4,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  achievementsContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 16,
+    position: 'relative',
+  },
+  achievementsLeft: {
+    flex: 1,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  progressLabel: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  progressBarWrapper: {
+    marginBottom: 12,
+  },
+  progressBarContainer: {
+    width: '100%',
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 4,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 4,
+    position: 'relative',
+  },
+  progressText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  pillsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  pillText: {
+    fontSize: 12,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  pillNumber: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    marginLeft: 2,
+  },
+  eyeEmojis: {
+    fontSize: 20,
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
   },
 });
 
