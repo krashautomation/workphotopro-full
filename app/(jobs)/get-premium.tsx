@@ -3,8 +3,9 @@ import { globalStyles, colors } from '@/styles/globalStyles';
 import { useRouter } from 'expo-router';
 import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useState } from 'react';
+import { Rocket } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
-import { IconSymbol } from '@/components/IconSymbol';
 import BottomModal from '@/components/BottomModal';
 import PackageModal from './get-package';
 
@@ -146,20 +147,20 @@ export default function GetPremium() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <IconSymbol
-            name="chevron.left"
-            size={24}
-            color={colors.textSecondary}
-          />
-        </TouchableOpacity>
-        <Text style={styles.title}>Premium</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <LinearGradient
+        colors={['#1e40af', '#1e3a8a']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <View style={styles.titleContainer}>
+          <Rocket size={24} color="#FFFFFF" style={styles.rocketIcon} />
+          <Text style={styles.title}>Get Premium</Text>
+        </View>
+        <Text style={styles.subtitle}>
+          Get access to all advanced features to supercharge your productivity and manage your work photos with ease.
+        </Text>
+      </LinearGradient>
 
       {/* Tabs */}
       <View style={styles.tabContainer}>
@@ -231,28 +232,28 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    padding: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
+  },
+  titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    marginBottom: 12,
   },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+  rocketIcon: {
+    marginRight: 8,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.text,
+    color: '#FFFFFF',
   },
-  headerSpacer: {
-    width: 36,
+  subtitle: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    opacity: 0.9,
+    lineHeight: 22,
   },
   tabContainer: {
     flexDirection: 'row',

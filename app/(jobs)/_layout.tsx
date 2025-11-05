@@ -1,9 +1,11 @@
 import React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Redirect, Stack, useRouter } from 'expo-router';
-import { ActivityIndicator, View, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
+import { Rocket } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/styles/globalStyles';
 
 function HeaderRight() {
@@ -26,6 +28,20 @@ function HeaderRight() {
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, gap: 12 }}>
+      <TouchableOpacity 
+        onPress={() => router.push('/(jobs)/get-premium')}
+      >
+        <LinearGradient
+          colors={['#1e40af', '#1e3a8a']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.upgradeButton}
+        >
+          <Rocket size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Text style={styles.upgradeButtonText}>Get Premium</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+      
       <TouchableOpacity 
         onPress={() => router.push('/(jobs)/notifications')}
       >
@@ -187,3 +203,26 @@ export default function JobsLayout() {
     </Stack>
   );
 }
+
+const styles = StyleSheet.create({
+  upgradeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20, // pill-shaped
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  upgradeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});
