@@ -36,12 +36,6 @@ export default function NotificationSettings() {
       enabled: true,
     },
     {
-      id: '5',
-      title: 'Comments',
-      description: 'Get notified when someone comments on your photos',
-      enabled: true,
-    },
-    {
       id: '6',
       title: 'Team Invitations',
       description: 'Get notified when you receive a team invitation',
@@ -72,21 +66,23 @@ export default function NotificationSettings() {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.content}>
-        {settings.map((setting) => (
-          <View key={setting.id} style={styles.settingItem}>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>{setting.title}</Text>
-              <Text style={styles.settingDescription}>{setting.description}</Text>
+        {settings
+          .filter((setting) => setting.title !== 'Comments')
+          .map((setting) => (
+            <View key={setting.id} style={styles.settingItem}>
+              <View style={styles.settingContent}>
+                <Text style={styles.settingTitle}>{setting.title}</Text>
+                <Text style={styles.settingDescription}>{setting.description}</Text>
+              </View>
+              <Switch
+                value={setting.enabled}
+                onValueChange={() => toggleSetting(setting.id)}
+                trackColor={{ false: colors.border, true: colors.primary + '80' }}
+                thumbColor={setting.enabled ? colors.primary : colors.textMuted}
+                ios_backgroundColor={colors.border}
+              />
             </View>
-            <Switch
-              value={setting.enabled}
-              onValueChange={() => toggleSetting(setting.id)}
-              trackColor={{ false: colors.border, true: colors.primary + '80' }}
-              thumbColor={setting.enabled ? colors.primary : colors.textMuted}
-              ios_backgroundColor={colors.border}
-            />
-          </View>
-        ))}
+          ))}
       </View>
     </ScrollView>
   );

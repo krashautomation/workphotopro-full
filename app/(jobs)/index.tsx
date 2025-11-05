@@ -232,6 +232,13 @@ export default function Jobs() {
         onPress={() => router.push('/(jobs)/teams')}
       >
         <View style={styles.headerCardContent}>
+          <View style={styles.switchIconContainer}>
+            <IconSymbol
+              name="arrow.left.arrow.right"
+              size={20}
+              color={colors.text}
+            />
+          </View>
           <View style={styles.headerLeft}>
             <Text style={styles.subtitle}>
               <Text style={styles.boldText}>Organization:</Text> {currentOrganization?.orgName || 'No Organization'}
@@ -241,11 +248,7 @@ export default function Jobs() {
             </Text>
           </View>
           <View style={styles.headerButtons}>
-            <IconSymbol
-              name="chevron.right"
-              size={20}
-              color={colors.textSecondary}
-            />
+            <Text style={styles.switchSymbol}>⇄</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -395,21 +398,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   headerCard: {
-    marginHorizontal: 0,
-    marginTop: 0,
+    marginHorizontal: 20,
+    marginTop: 20,
     marginBottom: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
     borderWidth: 2,
     borderColor: colors.primary,
   },
   headerCardContent: {
-    backgroundColor: colors.surface,
-    borderRadius: 0,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 14,
+    borderRadius: 12,
+    padding: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    gap: 12,
+  },
+  switchIconContainer: {
+    paddingTop: 2,
   },
   header: {
     flexDirection: 'row',
@@ -434,13 +440,17 @@ const styles = StyleSheet.create({
   },
   boldText: {
     fontWeight: 'bold',
-    color: '#ffffff',
-    opacity: 0.7,
+    color: colors.text,
+    opacity: 0.9,
   },
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  switchSymbol: {
+    fontSize: 28,
+    color: colors.text,
   },
   profileButton: {
     width: 36,
