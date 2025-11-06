@@ -9,6 +9,8 @@ import { appwriteConfig, db, ID } from '@/utils/appwrite'
 import { JobChat, TagTemplate, JobTagAssignment } from '@/utils/types'
 import { tagService } from '@/lib/appwrite/database'
 import { useAuth } from '@/context/AuthContext'
+import { useOrganization } from '@/context/OrganizationContext'
+import { teamService } from '@/lib/appwrite/teams'
 
 interface JobDetailsProps {
     jobId: string
@@ -19,6 +21,7 @@ interface JobDetailsProps {
 
 export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdate }: JobDetailsProps) {
     const { user } = useAuth()
+    const { currentTeam } = useOrganization()
     const router = useRouter()
     const [isCurrent, setIsCurrent] = React.useState(jobChat?.status === 'active' || jobChat?.status === undefined || false)
     const [isComplete, setIsComplete] = React.useState(jobChat?.status === 'completed' || false)
@@ -28,6 +31,10 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
     const [tagTemplates, setTagTemplates] = React.useState<TagTemplate[]>([])
     const [assignedTags, setAssignedTags] = React.useState<JobTagAssignment[]>([])
     const [isLoadingTags, setIsLoadingTags] = React.useState(true)
+    
+    // Team members state
+    const [teamMembers, setTeamMembers] = React.useState<any[]>([])
+    const [isLoadingMembers, setIsLoadingMembers] = React.useState(true)
 
     const loadTags = React.useCallback(async () => {
         console.log('🔍 JobDetails: Starting to load tags for jobId:', jobId)
@@ -71,6 +78,86 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
             loadTags()
         }
     }, [jobId, loadTags])
+
+    // Load team members
+    const loadTeamMembers = React.useCallback(async () => {
+        try {
+            setIsLoadingMembers(true)
+            if (currentTeam?.$id) {
+                const memberships = await teamService.listMemberships(currentTeam.$id)
+                setTeamMembers(memberships.memberships)
+            } else {
+                setTeamMembers([])
+            }
+        } catch (error) {
+            console.error('Error loading team members:', error)
+            setTeamMembers([])
+        } finally {
+            setIsLoadingMembers(false)
+        }
+    }, [currentTeam])
+
+    // Load team members when component mounts or team changes
+    React.useEffect(() => {
+        loadTeamMembers()
+    }, [loadTeamMembers])
+
+    // Helper function to get display name for a member
+    const getMemberDisplayName = (member: any): string => {
+        // Check userInfo first (from getUserInfo lookup)
+        if (member.userInfo?.name) {
+            return member.userInfo.name
+        }
+        
+        // If userName exists and is not empty, use it
+        if (member.userName && member.userName.trim()) {
+            return member.userName.trim()
+        }
+        
+        // Check for email in Appwrite membership object
+        let email = member.userEmail || member.email || ''
+        
+        // Check for email in userInfo
+        if ((!email || !email.includes('@')) && member.userInfo?.email) {
+            email = member.userInfo.email
+        }
+        
+        // Check for email in our custom membershipData (if we stored it)
+        if ((!email || !email.includes('@')) && member.membershipData?.userEmail) {
+            email = member.membershipData.userEmail
+        }
+        
+        // If email exists, format it nicely
+        if (email && email.includes('@')) {
+            const emailName = email.split('@')[0]
+            return emailName.charAt(0).toUpperCase() + emailName.slice(1)
+        }
+        
+        // Use a more user-friendly fallback - format userId nicely
+        const shortUserId = member.userId ? member.userId.slice(0, 8) : 'member'
+        return `Member ${shortUserId}`
+    }
+    
+    // Helper function to get profile picture for a member
+    const getMemberProfilePicture = (member: any): string | undefined => {
+        // Priority order for profile picture:
+        // 1. membershipData.profilePicture (cached in our database from server script)
+        // 2. member.profilePicture (from combined membership object)
+        // 3. userInfo.profilePicture (legacy from users collection)
+        if (member.membershipData?.profilePicture && member.membershipData.profilePicture.trim()) {
+            return member.membershipData.profilePicture.trim()
+        }
+        
+        if (member.profilePicture && member.profilePicture.trim()) {
+            return member.profilePicture.trim()
+        }
+        
+        if (member.userInfo?.profilePicture) {
+            return member.userInfo.profilePicture
+        }
+        
+        return undefined
+    }
 
     // Update state when jobChat prop changes (e.g., when switching tabs)
     React.useEffect(() => {
@@ -486,42 +573,96 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                     </Pressable>
                 </View>
 
-                {/* Job Creator */}
-                <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    backgroundColor: Colors.Secondary,
-                    borderRadius: 12,
-                }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Avatar 
-                            name={jobChat?.createdByName || 'Unknown User'}
-                            size={40}
-                        />
-                        <Text style={{
-                            color: Colors.Text,
-                            fontSize: 16,
-                            marginLeft: 12,
-                        }}>
-                            {jobChat?.createdByName || 'Unknown User'}
-                        </Text>
-                    </View>
+                {isLoadingMembers ? (
                     <View style={{
-                        width: 24,
-                        height: 24,
-                        borderWidth: 2,
-                        borderColor: Colors.Primary,
-                        borderRadius: 4,
-                        backgroundColor: Colors.Primary,
+                        flexDirection: 'row',
                         alignItems: 'center',
                         justifyContent: 'center',
+                        paddingVertical: 20,
                     }}>
-                        <IconSymbol name="checkmark" color={Colors.White} size={16} />
+                        <ActivityIndicator size="small" color={Colors.Primary} />
+                        <Text style={{
+                            color: Colors.Gray,
+                            fontSize: 14,
+                            marginLeft: 8,
+                        }}>
+                            Loading team members...
+                        </Text>
                     </View>
-                </View>
+                ) : teamMembers.length === 0 ? (
+                    <View style={{
+                        paddingVertical: 20,
+                        alignItems: 'center',
+                    }}>
+                        <Text style={{
+                            color: Colors.Gray,
+                            fontSize: 14,
+                            textAlign: 'center',
+                        }}>
+                            No team members found. Please select a team.
+                        </Text>
+                    </View>
+                ) : (
+                    teamMembers.map((member, index) => {
+                        const memberName = getMemberDisplayName(member)
+                        const memberProfilePicture = getMemberProfilePicture(member)
+                        const memberRole = member.membershipData?.role || member.roles?.[0] || 'member'
+                        
+                        return (
+                            <View
+                                key={member.$id || member.userId || index}
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    paddingVertical: 12,
+                                    paddingHorizontal: 16,
+                                    backgroundColor: Colors.Secondary,
+                                    borderRadius: 12,
+                                    marginBottom: index < teamMembers.length - 1 ? 12 : 0,
+                                }}
+                            >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                    <Avatar 
+                                        name={memberName}
+                                        imageUrl={memberProfilePicture}
+                                        size={40}
+                                    />
+                                    <View style={{ marginLeft: 12, flex: 1 }}>
+                                        <Text style={{
+                                            color: Colors.Text,
+                                            fontSize: 16,
+                                            fontWeight: '600',
+                                        }}>
+                                            {memberName}
+                                        </Text>
+                                        <Text style={{
+                                            color: Colors.Gray,
+                                            fontSize: 14,
+                                            textTransform: 'capitalize',
+                                        }}>
+                                            {memberRole}
+                                        </Text>
+                                    </View>
+                                </View>
+                                {member.userId === jobChat?.createdBy && (
+                                    <View style={{
+                                        width: 24,
+                                        height: 24,
+                                        borderWidth: 2,
+                                        borderColor: Colors.Primary,
+                                        borderRadius: 4,
+                                        backgroundColor: Colors.Primary,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}>
+                                        <IconSymbol name="checkmark" color={Colors.White} size={16} />
+                                    </View>
+                                )}
+                            </View>
+                        )
+                    })
+                )}
             </View>
 
                 {/* Delete Job Section */}
