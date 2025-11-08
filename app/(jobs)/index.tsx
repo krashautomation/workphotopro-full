@@ -4,11 +4,11 @@ import { globalStyles, colors } from '@/styles/globalStyles';
 import { jobChatService, tagService } from '@/lib/appwrite/database';
 import { JobChat, JobChatWithTags } from '@/utils/types';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
-import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Image } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Image, TextInput } from 'react-native';
 import { useEffect, useState, useCallback } from 'react';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
-import { Coins, Gem } from 'lucide-react-native';
+import { Coins, Gem, LayoutGrid } from 'lucide-react-native';
 
 export default function Jobs() {
   const { user, isAuthenticated, getUserProfilePicture, getGoogleUserData } = useAuth();
@@ -22,6 +22,7 @@ export default function Jobs() {
   const [error, setError] = useState<string | null>(null);
   const [userProfilePicture, setUserProfilePicture] = useState<string | null>(null);
   const [googleData, setGoogleData] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   /**
    * Load user profile picture
@@ -293,6 +294,28 @@ export default function Jobs() {
         </View>
       </TouchableOpacity>
 
+      {/* Search & Filter */}
+      <View style={styles.searchFilterRow}>
+        <View style={styles.searchInputContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search jobs"
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+          />
+          <IconSymbol
+            name="magnifyingglass"
+            size={18}
+            color={colors.textSecondary}
+          />
+        </View>
+        <TouchableOpacity style={styles.filterButton}>
+          <LayoutGrid size={20} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
       {/* Error Banner */}
       {error && (
         <View style={styles.errorBanner}>
@@ -508,6 +531,43 @@ const styles = StyleSheet.create({
   },
   profileAvatar: {
     // No additional styles needed - Avatar component handles its own styling
+  },
+  searchFilterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    alignSelf: 'stretch',
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    borderWidth: 0,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 2,
+    flex: 1,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 0,
+    marginRight: 8,
+    color: colors.text,
+    fontSize: 14,
+  },
+  filterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   infoContainer: {
     marginTop: 12,

@@ -40,6 +40,8 @@ const MAPPING = {
   // Additional common icons
   "arrow.right.square": "logout",
   "pencil": "edit",
+  "magnifyingglass": "search",
+  "line.3.horizontal.decrease.circle": "tune",
   // Team and camera icons
   "person.3": "group",
   "camera": "camera-alt",
