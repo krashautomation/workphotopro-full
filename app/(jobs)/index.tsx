@@ -27,6 +27,7 @@ export default function Jobs() {
   const roleDisplay = userRole
     ? `${userRole.charAt(0).toUpperCase()}${userRole.slice(1)}`
     : null;
+  const isManagerRole = userRole?.toLowerCase() === 'manager';
 
   /**
    * Load user profile picture
@@ -292,8 +293,8 @@ export default function Jobs() {
             </View>
             <View style={styles.roleSwitchContainer}>
               {roleDisplay && (
-                <View style={styles.rolePill}>
-                  <Text style={styles.rolePillText}>{roleDisplay}</Text>
+                <View style={[styles.rolePill, isManagerRole && styles.rolePillManager]}>
+                  <Text style={[styles.rolePillText, isManagerRole && styles.rolePillTextManager]}>{roleDisplay}</Text>
                 </View>
               )}
               <Text style={styles.switchSymbol}>⇄</Text>
@@ -341,7 +342,7 @@ export default function Jobs() {
         ListEmptyComponent={() => (
           <View style={styles.emptyState}>
             <Image 
-              source={require('../../assets/images/green-man.png')}
+              source={require('../../assets/images/camera-boy.png')}
               style={styles.emptyImage}
               resizeMode="contain"
             />
@@ -533,12 +534,18 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 999,
   },
+  rolePillManager: {
+    backgroundColor: 'rgba(147, 51, 234, 0.15)',
+  },
   rolePillText: {
     color: colors.primary,
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'capitalize',
     letterSpacing: 0.3,
+  },
+  rolePillTextManager: {
+    color: '#9333EA',
   },
   profileButton: {
     width: 36,
@@ -753,13 +760,13 @@ const styles = StyleSheet.create({
     height: 12,
   },
   emptyState: {
-    padding: 40,
+    padding: 10,
     alignItems: 'center',
   },
   emptyImage: {
-    width: 280,
-    height: 280,
-    marginBottom: 24,
+    width: 200,
+    height: 200,
+    marginBottom: 6,
   },
   emptyText: {
     fontSize: 20,
