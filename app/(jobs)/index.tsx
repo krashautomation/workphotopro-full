@@ -8,7 +8,7 @@ import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, 
 import { useEffect, useState, useCallback } from 'react';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
-import { Coins, Gem, LayoutGrid } from 'lucide-react-native';
+import { Coins, Gem, TableProperties } from 'lucide-react-native';
 
 export default function Jobs() {
   const { user, isAuthenticated, getUserProfilePicture, getGoogleUserData } = useAuth();
@@ -23,6 +23,10 @@ export default function Jobs() {
   const [userProfilePicture, setUserProfilePicture] = useState<string | null>(null);
   const [googleData, setGoogleData] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const userRole = (currentTeam as any)?.membershipRole || (currentTeam as any)?.teamData?.role || null;
+  const roleDisplay = userRole
+    ? `${userRole.charAt(0).toUpperCase()}${userRole.slice(1)}`
+    : null;
 
   /**
    * Load user profile picture
@@ -268,28 +272,32 @@ export default function Jobs() {
       </Link>
 
       {/* Header Card */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.headerCard}
         onPress={() => router.push('/(jobs)/teams')}
       >
         <View style={styles.headerCardContent}>
-          <View style={styles.switchIconContainer}>
-            <IconSymbol
-              name="arrow.left.arrow.right"
-              size={20}
-              color={colors.text}
-            />
-          </View>
-          <View style={styles.headerLeft}>
-            <Text style={styles.subtitle}>
-              <Text style={styles.boldText}>Organization:</Text> {currentOrganization?.orgName || 'No Organization'}
-            </Text>
-            <Text style={styles.subtitle}>
-              <Text style={styles.boldText}>Team:</Text> {currentTeam?.name || 'No Team'}
-            </Text>
-          </View>
-          <View style={styles.headerButtons}>
-            <Text style={styles.switchSymbol}>⇄</Text>
+          <View style={styles.headerRowContainer}>
+            <View style={styles.headerColumn}>
+              <View style={styles.headerRow}>
+                <Text style={styles.subtitle}>
+                  <Text style={styles.boldText}>Company:</Text> {currentOrganization?.orgName || 'No Organization'}
+                </Text>
+              </View>
+              <View style={styles.headerRow}>
+                <Text style={styles.subtitle}>
+                  <Text style={styles.boldText}>Team:</Text> {currentTeam?.name || 'No Team'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.roleSwitchContainer}>
+              {roleDisplay && (
+                <View style={styles.rolePill}>
+                  <Text style={styles.rolePillText}>{roleDisplay}</Text>
+                </View>
+              )}
+              <Text style={styles.switchSymbol}>⇄</Text>
+            </View>
           </View>
         </View>
       </TouchableOpacity>
@@ -312,7 +320,7 @@ export default function Jobs() {
           />
         </View>
         <TouchableOpacity style={styles.filterButton}>
-          <LayoutGrid size={20} color={colors.textSecondary} />
+          <TableProperties size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -464,21 +472,37 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 12,
     borderRadius: 12,
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    backgroundColor: colors.surface,
     borderWidth: 0,
-    borderColor: colors.primary,
   },
   headerCardContent: {
     borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  headerRowContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: 12,
   },
-  switchIconContainer: {
-    paddingTop: 2,
+  headerColumn: {
+    flex: 1,
+    gap: 2,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  roleSwitchContainer: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 0,
+  },
+  switchSymbol: {
+    fontSize: 28,
+    color: colors.textSecondary,
   },
   header: {
     flexDirection: 'row',
@@ -487,9 +511,6 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-  },
-  headerLeft: {
-    flex: 1,
   },
   welcomeText: {
     fontSize: 28,
@@ -506,14 +527,18 @@ const styles = StyleSheet.create({
     color: colors.text,
     opacity: 0.9,
   },
-  headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  rolePill: {
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 999,
   },
-  switchSymbol: {
-    fontSize: 28,
-    color: colors.text,
+  rolePillText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+    letterSpacing: 0.3,
   },
   profileButton: {
     width: 36,
