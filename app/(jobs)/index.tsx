@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderRadius: 12,
     backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    borderWidth: 1,
+    borderWidth: 0,
     borderColor: colors.primary,
   },
   headerCardContent: {
@@ -754,7 +754,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     backgroundColor: colors.surface,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 0,
     borderColor: colors.border,
   },
   achievementsContent: {

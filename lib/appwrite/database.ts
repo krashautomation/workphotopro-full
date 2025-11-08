@@ -462,28 +462,28 @@ export const tagService = {
       
       const defaultTags = [
         {
-          name: 'Yellow',
-          color: '#FFD700',
+          name: 'High priority',
+          color: '#FFD700', // Yellow
           icon: 'circle',
-          description: 'General tag',
+          description: 'High priority tag',
           isActive: true,
           sortOrder: 1,
           createdBy,
         },
         {
-          name: 'Blue',
-          color: '#007AFF',
+          name: 'Awaiting info',
+          color: '#9ACD32', // Yellow-green
           icon: 'circle',
-          description: 'Information tag',
+          description: 'Awaiting info tag',
           isActive: true,
           sortOrder: 2,
           createdBy,
         },
         {
-          name: 'Red',
-          color: '#FF3B30',
+          name: 'Client facing',
+          color: '#22C55E', // Green
           icon: 'circle',
-          description: 'Urgent tag',
+          description: 'Client facing tag',
           isActive: true,
           sortOrder: 3,
           createdBy,
