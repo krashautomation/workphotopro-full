@@ -5,6 +5,8 @@ import {
   StyleSheet,
   TouchableWithoutFeedback,
   Dimensions,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -13,9 +15,21 @@ type BottomModal2Props = {
   visible: boolean;
   onClose: () => void;
   children: React.ReactNode;
+  minHeightRatio?: number;
+  maxHeightRatio?: number;
+  contentStyle?: StyleProp<ViewStyle>;
+  overlayStyle?: StyleProp<ViewStyle>;
 };
 
-export default function BottomModal2({ visible, onClose, children }: BottomModal2Props) {
+export default function BottomModal2({
+  visible,
+  onClose,
+  children,
+  minHeightRatio = 0.4,
+  maxHeightRatio = 0.9,
+  contentStyle,
+  overlayStyle,
+}: BottomModal2Props) {
   return (
     <Modal
       visible={visible}
@@ -23,14 +37,23 @@ export default function BottomModal2({ visible, onClose, children }: BottomModal
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <View style={[styles.overlay, overlayStyle]}>
         {/* Background overlay - tap to close */}
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={styles.background} />
         </TouchableWithoutFeedback>
         
         {/* Modal content */}
-        <View style={styles.container}>
+        <View
+          style={[
+            styles.container,
+            {
+              minHeight: SCREEN_HEIGHT * minHeightRatio,
+              maxHeight: SCREEN_HEIGHT * maxHeightRatio,
+            },
+            contentStyle,
+          ]}
+        >
           {children}
         </View>
       </View>
@@ -52,7 +75,5 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
-    minHeight: SCREEN_HEIGHT * 0.4,
-    maxHeight: SCREEN_HEIGHT * 0.9,
   },
 });

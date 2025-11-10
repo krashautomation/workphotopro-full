@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, Pressable, Alert, ActivityIndicator, ScrollView } from 'react-native'
+import { View, Text, Pressable, Alert, ActivityIndicator, ScrollView, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { IconSymbol } from '@/components/IconSymbol'
 import Avatar from '@/components/Avatar'
@@ -318,7 +318,7 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
         <View style={{ flex: 1 }}>
             <ScrollView 
                 style={{ flex: 1 }} 
-                contentContainerStyle={{ padding: 20 }}
+                contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
                 {/* Job Title */}
@@ -355,318 +355,169 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                 </View>
 
             {/* Job Status Section */}
-            <View style={{ marginBottom: 24 }}>
-                <Text style={{
-                    fontSize: 16,
-                    fontWeight: '500',
-                    color: Colors.Gray,
-                    marginBottom: 12
-                }}>
-                    Job Status
-                </Text>
-
-                {/* Current Status Checkbox */}
-                <Pressable
-                    style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        paddingVertical: 12,
-                        paddingHorizontal: 16,
-                        backgroundColor: Colors.Secondary,
-                        borderRadius: 12,
-                        marginBottom: 12,
-                    }}
-                    onPress={() => handleStatusChange('current', !isCurrent)}
-                >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                        <View style={{
-                            width: 24,
-                            height: 24,
-                            borderWidth: 2,
-                            borderColor: isCurrent ? Colors.Primary : Colors.Gray,
-                            borderRadius: 4,
-                            backgroundColor: isCurrent ? Colors.Primary : 'transparent',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            marginRight: 12,
-                        }}>
-                            {isCurrent && (
-                                <IconSymbol name="checkmark" color={Colors.White} size={16} />
-                            )}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Job Status</Text>
+                <View style={styles.card}>
+                    <Pressable
+                        style={[styles.listItem, styles.listItemDivider]}
+                        onPress={() => handleStatusChange('current', !isCurrent)}
+                    >
+                        <View style={styles.itemContent}>
+                            <View style={[
+                                styles.checkbox,
+                                styles.checkboxLeading,
+                                isCurrent && styles.checkboxSelected
+                            ]}>
+                                {isCurrent && (
+                                    <IconSymbol name="checkmark" color={Colors.White} size={16} />
+                                )}
+                            </View>
+                            <Text style={[styles.itemText, isCurrent && styles.itemTextSelected]}>
+                                Current
+                            </Text>
                         </View>
-                        <Text style={{
-                            color: Colors.Text,
-                            fontSize: 16,
-                            fontWeight: isCurrent ? '600' : '400',
-                        }}>
-                            Current
-                        </Text>
-                    </View>
-                    <Text style={{
-                        fontSize: 20,
-                    }}>
-                        👈
-                    </Text>
-                </Pressable>
-
-                {/* Complete Status Checkbox */}
-                <Pressable
-                    style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        paddingVertical: 12,
-                        paddingHorizontal: 16,
-                        backgroundColor: Colors.Secondary,
-                        borderRadius: 12,
-                    }}
-                    onPress={() => handleStatusChange('complete', !isComplete)}
-                >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                        <View style={{
-                            width: 24,
-                            height: 24,
-                            borderWidth: 2,
-                            borderColor: isComplete ? Colors.Primary : Colors.Gray,
-                            borderRadius: 4,
-                            backgroundColor: isComplete ? Colors.Primary : 'transparent',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            marginRight: 12,
-                        }}>
-                            {isComplete && (
-                                <IconSymbol name="checkmark" color={Colors.White} size={16} />
-                            )}
+                        <Text style={styles.indicator}>👈</Text>
+                    </Pressable>
+                    <Pressable
+                        style={styles.listItem}
+                        onPress={() => handleStatusChange('complete', !isComplete)}
+                    >
+                        <View style={styles.itemContent}>
+                            <View style={[
+                                styles.checkbox,
+                                styles.checkboxLeading,
+                                isComplete && styles.checkboxSelected
+                            ]}>
+                                {isComplete && (
+                                    <IconSymbol name="checkmark" color={Colors.White} size={16} />
+                                )}
+                            </View>
+                            <Text style={[styles.itemText, isComplete && styles.itemTextSelected]}>
+                                Complete
+                            </Text>
                         </View>
-                        <Text style={{
-                            color: Colors.Text,
-                            fontSize: 16,
-                            fontWeight: isComplete ? '600' : '400',
-                        }}>
-                            Complete
-                        </Text>
-                    </View>
-                    <Text style={{
-                        fontSize: 20,
-                    }}>
-                        ✅
-                    </Text>
-                </Pressable>
+                        <Text style={styles.indicator}>✅</Text>
+                    </Pressable>
+                </View>
             </View>
 
             {/* Tags Section */}
-            <View style={{ marginBottom: 24 }}>
-                <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: 11,
-                }}>
-                    <Text style={{
-                        fontSize: 16,
-                        fontWeight: '500',
-                        color: Colors.Gray,
-                        marginBottom: 0,
-                    }}>
-                        Tags
-                    </Text>
+            <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Tags</Text>
                     <Pressable onPress={handleEditTags}>
                         <IconSymbol name="pencil" color={Colors.Gray} size={20} />
                     </Pressable>
                 </View>
 
                 {isLoadingTags ? (
-                    <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        paddingVertical: 20,
-                    }}>
+                    <View style={[styles.card, styles.placeholderCard]}>
                         <ActivityIndicator size="small" color={Colors.Primary} />
-                        <Text style={{
-                            color: Colors.Gray,
-                            fontSize: 14,
-                            marginLeft: 8,
-                        }}>
-                            Loading tags...
-                        </Text>
+                        <Text style={[styles.placeholderText, styles.placeholderMargin]}>Loading tags...</Text>
                     </View>
                 ) : tagTemplates.length === 0 ? (
-                    <View style={{
-                        paddingVertical: 20,
-                        alignItems: 'center',
-                    }}>
-                        <Text style={{
-                            color: Colors.Gray,
-                            fontSize: 14,
-                            textAlign: 'center',
-                        }}>
+                    <View style={[styles.card, styles.placeholderCard]}>
+                        <Text style={styles.placeholderText}>
                             No tags available. Contact your administrator to set up tags.
                         </Text>
                     </View>
                 ) : (
-                    tagTemplates.map((tag, index) => {
-                        const isAssigned = isTagAssigned(tag.$id)
-                        return (
-                            <Pressable
-                                key={tag.$id}
-                                style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    paddingVertical: 12,
-                                    paddingHorizontal: 16,
-                                    backgroundColor: Colors.Secondary,
-                                    borderRadius: 12,
-                                    marginBottom: index < tagTemplates.length - 1 ? 12 : 0,
-                                }}
-                                onPress={() => handleTagToggle(tag.$id)}
-                            >
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <IconSymbol 
-                                        name={(tag.icon as any) || 'circle'} 
-                                        color={tag.color} 
-                                        size={16} 
-                                    />
-                                    <Text style={{
-                                        color: Colors.Text,
-                                        fontSize: 16,
-                                        marginLeft: 12,
-                                    }}>
-                                        {tag.name}
-                                    </Text>
-                                </View>
-                                <View style={{
-                                    width: 24,
-                                    height: 24,
-                                    borderWidth: 2,
-                                    borderColor: isAssigned ? Colors.Primary : Colors.Gray,
-                                    borderRadius: 4,
-                                    backgroundColor: isAssigned ? Colors.Primary : 'transparent',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                }}>
-                                    {isAssigned && (
-                                        <IconSymbol name="checkmark" color={Colors.White} size={16} />
-                                    )}
-                                </View>
-                            </Pressable>
-                        )
-                    })
+                    <View style={styles.card}>
+                        {tagTemplates.map((tag, index) => {
+                            const isAssigned = isTagAssigned(tag.$id)
+                            const showDivider = index < tagTemplates.length - 1
+                            return (
+                                <Pressable
+                                    key={tag.$id}
+                                    style={[styles.listItem, showDivider && styles.listItemDivider]}
+                                    onPress={() => handleTagToggle(tag.$id)}
+                                >
+                                    <View style={styles.itemContent}>
+                                        <IconSymbol 
+                                            name={(tag.icon as any) || 'circle'} 
+                                            color={tag.color} 
+                                            size={16} 
+                                            style={styles.tagIcon}
+                                        />
+                                        <Text style={styles.itemText}>
+                                            {tag.name}
+                                        </Text>
+                                    </View>
+                                    <View style={[
+                                        styles.checkbox,
+                                        styles.checkboxTrailing,
+                                        isAssigned && styles.checkboxSelected
+                                    ]}>
+                                        {isAssigned && (
+                                            <IconSymbol name="checkmark" color={Colors.White} size={16} />
+                                        )}
+                                    </View>
+                                </Pressable>
+                            )
+                        })}
+                    </View>
                 )}
             </View>
 
             {/* Team Members Section */}
-            <View style={{ marginBottom: 24 }}>
-                <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: 11,
-                }}>
-                    <Text style={{
-                        fontSize: 16,
-                        fontWeight: '500',
-                        color: Colors.Gray,
-                        marginBottom: 0,
-                    }}>
-                        Team Members
-                    </Text>
+            <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Team Members</Text>
                     <Pressable onPress={() => router.push('/(jobs)/team')}>
                         <IconSymbol name="pencil" color={Colors.Gray} size={20} />
                     </Pressable>
                 </View>
 
                 {isLoadingMembers ? (
-                    <View style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        paddingVertical: 20,
-                    }}>
+                    <View style={[styles.card, styles.placeholderCard]}>
                         <ActivityIndicator size="small" color={Colors.Primary} />
-                        <Text style={{
-                            color: Colors.Gray,
-                            fontSize: 14,
-                            marginLeft: 8,
-                        }}>
+                        <Text style={[styles.placeholderText, styles.placeholderMargin]}>
                             Loading team members...
                         </Text>
                     </View>
                 ) : teamMembers.length === 0 ? (
-                    <View style={{
-                        paddingVertical: 20,
-                        alignItems: 'center',
-                    }}>
-                        <Text style={{
-                            color: Colors.Gray,
-                            fontSize: 14,
-                            textAlign: 'center',
-                        }}>
+                    <View style={[styles.card, styles.placeholderCard]}>
+                        <Text style={styles.placeholderText}>
                             No team members found. Please select a team.
                         </Text>
                     </View>
                 ) : (
-                    teamMembers.map((member, index) => {
-                        const memberName = getMemberDisplayName(member)
-                        const memberProfilePicture = getMemberProfilePicture(member)
-                        const memberRole = member.membershipData?.role || member.roles?.[0] || 'member'
-                        
-                        return (
-                            <View
-                                key={member.$id || member.userId || index}
-                                style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    paddingVertical: 12,
-                                    paddingHorizontal: 16,
-                                    backgroundColor: Colors.Secondary,
-                                    borderRadius: 12,
-                                    marginBottom: index < teamMembers.length - 1 ? 12 : 0,
-                                }}
-                            >
-                                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                                    <Avatar 
-                                        name={memberName}
-                                        imageUrl={memberProfilePicture}
-                                        size={40}
-                                    />
-                                    <View style={{ marginLeft: 12, flex: 1 }}>
-                                        <Text style={{
-                                            color: Colors.Text,
-                                            fontSize: 16,
-                                            fontWeight: '600',
-                                        }}>
-                                            {memberName}
-                                        </Text>
-                                        <Text style={{
-                                            color: Colors.Gray,
-                                            fontSize: 14,
-                                            textTransform: 'capitalize',
-                                        }}>
-                                            {memberRole}
-                                        </Text>
+                    <View style={styles.card}>
+                        {teamMembers.map((member, index) => {
+                            const memberName = getMemberDisplayName(member)
+                            const memberProfilePicture = getMemberProfilePicture(member)
+                            const memberRole = member.membershipData?.role || member.roles?.[0] || 'member'
+                            const showDivider = index < teamMembers.length - 1
+                            
+                            return (
+                                <View
+                                    key={member.$id || member.userId || index}
+                                    style={[styles.listItem, showDivider && styles.listItemDivider]}
+                                >
+                                    <View style={styles.memberInfo}>
+                                        <Avatar 
+                                            name={memberName}
+                                            imageUrl={memberProfilePicture}
+                                            size={40}
+                                        />
+                                        <View style={styles.memberTextWrapper}>
+                                            <Text style={styles.memberName}>
+                                                {memberName}
+                                            </Text>
+                                            <Text style={styles.memberRole}>
+                                                {memberRole}
+                                            </Text>
+                                        </View>
                                     </View>
+                                    {member.userId === jobChat?.createdBy && (
+                                        <View style={styles.creatorBadge}>
+                                            <IconSymbol name="checkmark" color={Colors.White} size={16} />
+                                        </View>
+                                    )}
                                 </View>
-                                {member.userId === jobChat?.createdBy && (
-                                    <View style={{
-                                        width: 24,
-                                        height: 24,
-                                        borderWidth: 2,
-                                        borderColor: Colors.Primary,
-                                        borderRadius: 4,
-                                        backgroundColor: Colors.Primary,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}>
-                                        <IconSymbol name="checkmark" color={Colors.White} size={16} />
-                                    </View>
-                                )}
-                            </View>
-                        )
-                    })
+                            )
+                        })}
+                    </View>
                 )}
             </View>
 
@@ -707,3 +558,122 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
         </View>
     )
 }
+
+const styles = StyleSheet.create({
+    scrollContent: {
+        padding: 20,
+        paddingBottom: 40,
+    },
+    section: {
+        marginBottom: 24,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: Colors.Gray,
+    },
+    card: {
+        backgroundColor: Colors.Secondary,
+        borderRadius: 16,
+        overflow: 'hidden',
+    },
+    listItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+    },
+    listItemDivider: {
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: Colors.Border,
+    },
+    itemContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    itemText: {
+        color: Colors.Text,
+        fontSize: 16,
+    },
+    itemTextSelected: {
+        fontWeight: '600',
+    },
+    indicator: {
+        fontSize: 20,
+    },
+    checkbox: {
+        width: 24,
+        height: 24,
+        borderWidth: 2,
+        borderColor: Colors.Gray,
+        borderRadius: 4,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'transparent',
+    },
+    checkboxLeading: {
+        marginRight: 12,
+    },
+    checkboxTrailing: {
+        marginLeft: 12,
+    },
+    checkboxSelected: {
+        borderColor: Colors.Primary,
+        backgroundColor: Colors.Primary,
+    },
+    tagIcon: {
+        marginRight: 12,
+    },
+    placeholderCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 20,
+        paddingHorizontal: 16,
+    },
+    placeholderText: {
+        color: Colors.Gray,
+        fontSize: 14,
+        textAlign: 'center',
+    },
+    placeholderMargin: {
+        marginLeft: 8,
+    },
+    memberInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    memberTextWrapper: {
+        flex: 1,
+        marginLeft: 12,
+    },
+    memberName: {
+        color: Colors.Text,
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    memberRole: {
+        color: Colors.Gray,
+        fontSize: 14,
+        textTransform: 'capitalize',
+    },
+    creatorBadge: {
+        width: 24,
+        height: 24,
+        borderWidth: 2,
+        borderColor: Colors.Primary,
+        borderRadius: 4,
+        backgroundColor: Colors.Primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+})

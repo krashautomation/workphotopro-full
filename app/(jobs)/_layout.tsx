@@ -200,6 +200,15 @@ export default function JobsLayout() {
           headerTintColor: '#fff',
         }}
       />
+      <Stack.Screen
+        name="filter-jobs"
+        options={{
+          presentation: 'transparentModal',
+          animation: 'slide_from_bottom',
+          headerShown: false,
+          contentStyle: { backgroundColor: 'transparent' },
+        }}
+      />
     </Stack>
   );
 }

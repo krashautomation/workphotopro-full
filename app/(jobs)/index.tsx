@@ -351,7 +351,10 @@ export default function Jobs() {
             color={colors.textSecondary}
           />
         </View>
-        <TouchableOpacity style={styles.filterButton}>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => router.push('/(jobs)/filter-jobs')}
+        >
           <TableProperties size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
