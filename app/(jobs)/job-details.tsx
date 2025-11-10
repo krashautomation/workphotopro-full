@@ -322,7 +322,7 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                 showsVerticalScrollIndicator={false}
             >
                 {/* Job Title */}
-                <View style={{ marginBottom: 30 }}>
+                <View style={{ marginBottom: 24 }}>
                     <View style={{
                         flexDirection: 'row',
                         alignItems: 'center',
@@ -330,9 +330,9 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                         marginBottom: 8
                     }}>
                         <Text style={{
-                            fontSize: 18,
-                            fontWeight: '600',
-                            color: Colors.Text,
+                        fontSize: 16,
+                        fontWeight: '500',
+                        color: Colors.Gray,
                         }}>
                             Title
                         </Text>
@@ -343,7 +343,7 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                                 currentTitle: jobChat?.title || `Job ${jobId}`
                             }
                         })}>
-                            <IconSymbol name="pencil" color="#007AFF" size={20} />
+                            <IconSymbol name="pencil" color={Colors.Gray} size={20} />
                         </Pressable>
                     </View>
                     <Text style={{
@@ -355,12 +355,12 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                 </View>
 
             {/* Job Status Section */}
-            <View style={{ marginBottom: 40 }}>
+            <View style={{ marginBottom: 24 }}>
                 <Text style={{
-                    fontSize: 18,
-                    fontWeight: '600',
-                    color: Colors.Text,
-                    marginBottom: 20
+                    fontSize: 16,
+                    fontWeight: '500',
+                    color: Colors.Gray,
+                    marginBottom: 12
                 }}>
                     Job Status
                 </Text>
@@ -370,37 +370,43 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                     style={{
                         flexDirection: 'row',
                         alignItems: 'center',
+                        justifyContent: 'space-between',
                         paddingVertical: 12,
                         paddingHorizontal: 16,
                         backgroundColor: Colors.Secondary,
                         borderRadius: 12,
                         marginBottom: 12,
-                        borderWidth: 2,
-                        borderColor: isCurrent ? Colors.Primary : 'transparent',
                     }}
                     onPress={() => handleStatusChange('current', !isCurrent)}
                 >
-                    <View style={{
-                        width: 24,
-                        height: 24,
-                        borderWidth: 2,
-                        borderColor: isCurrent ? Colors.Primary : Colors.Gray,
-                        borderRadius: 4,
-                        backgroundColor: isCurrent ? Colors.Primary : 'transparent',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginRight: 12,
-                    }}>
-                        {isCurrent && (
-                            <IconSymbol name="checkmark" color={Colors.White} size={16} />
-                        )}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                        <View style={{
+                            width: 24,
+                            height: 24,
+                            borderWidth: 2,
+                            borderColor: isCurrent ? Colors.Primary : Colors.Gray,
+                            borderRadius: 4,
+                            backgroundColor: isCurrent ? Colors.Primary : 'transparent',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginRight: 12,
+                        }}>
+                            {isCurrent && (
+                                <IconSymbol name="checkmark" color={Colors.White} size={16} />
+                            )}
+                        </View>
+                        <Text style={{
+                            color: Colors.Text,
+                            fontSize: 16,
+                            fontWeight: isCurrent ? '600' : '400',
+                        }}>
+                            Current
+                        </Text>
                     </View>
                     <Text style={{
-                        color: Colors.Text,
-                        fontSize: 16,
-                        fontWeight: isCurrent ? '600' : '400',
+                        fontSize: 20,
                     }}>
-                        Current
+                        👈
                     </Text>
                 </Pressable>
 
@@ -409,57 +415,64 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                     style={{
                         flexDirection: 'row',
                         alignItems: 'center',
+                        justifyContent: 'space-between',
                         paddingVertical: 12,
                         paddingHorizontal: 16,
                         backgroundColor: Colors.Secondary,
                         borderRadius: 12,
-                        borderWidth: 2,
-                        borderColor: isComplete ? Colors.Primary : 'transparent',
                     }}
                     onPress={() => handleStatusChange('complete', !isComplete)}
                 >
-                    <View style={{
-                        width: 24,
-                        height: 24,
-                        borderWidth: 2,
-                        borderColor: isComplete ? Colors.Primary : Colors.Gray,
-                        borderRadius: 4,
-                        backgroundColor: isComplete ? Colors.Primary : 'transparent',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginRight: 12,
-                    }}>
-                        {isComplete && (
-                            <IconSymbol name="checkmark" color={Colors.White} size={16} />
-                        )}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                        <View style={{
+                            width: 24,
+                            height: 24,
+                            borderWidth: 2,
+                            borderColor: isComplete ? Colors.Primary : Colors.Gray,
+                            borderRadius: 4,
+                            backgroundColor: isComplete ? Colors.Primary : 'transparent',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginRight: 12,
+                        }}>
+                            {isComplete && (
+                                <IconSymbol name="checkmark" color={Colors.White} size={16} />
+                            )}
+                        </View>
+                        <Text style={{
+                            color: Colors.Text,
+                            fontSize: 16,
+                            fontWeight: isComplete ? '600' : '400',
+                        }}>
+                            Complete
+                        </Text>
                     </View>
                     <Text style={{
-                        color: Colors.Text,
-                        fontSize: 16,
-                        fontWeight: isComplete ? '600' : '400',
+                        fontSize: 20,
                     }}>
-                        Complete
+                        ✅
                     </Text>
                 </Pressable>
             </View>
 
             {/* Tags Section */}
-            <View style={{ marginBottom: 40 }}>
+            <View style={{ marginBottom: 24 }}>
                 <View style={{
                     flexDirection: 'row',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    marginBottom: 20
+                    marginBottom: 11,
                 }}>
                     <Text style={{
-                        fontSize: 18,
-                        fontWeight: '600',
-                        color: Colors.Text,
+                        fontSize: 16,
+                        fontWeight: '500',
+                        color: Colors.Gray,
+                        marginBottom: 0,
                     }}>
                         Tags
                     </Text>
                     <Pressable onPress={handleEditTags}>
-                        <IconSymbol name="pencil" color="#007AFF" size={20} />
+                        <IconSymbol name="pencil" color={Colors.Gray} size={20} />
                     </Pressable>
                 </View>
 
@@ -523,15 +536,6 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                                     }}>
                                         {tag.name}
                                     </Text>
-                                    {tag.description && (
-                                        <Text style={{
-                                            color: Colors.Gray,
-                                            fontSize: 12,
-                                            marginLeft: 8,
-                                        }}>
-                                            ({tag.description})
-                                        </Text>
-                                    )}
                                 </View>
                                 <View style={{
                                     width: 24,
@@ -554,22 +558,23 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
             </View>
 
             {/* Team Members Section */}
-            <View style={{ marginBottom: 40 }}>
+            <View style={{ marginBottom: 24 }}>
                 <View style={{
                     flexDirection: 'row',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    marginBottom: 20
+                    marginBottom: 11,
                 }}>
                     <Text style={{
-                        fontSize: 18,
-                        fontWeight: '600',
-                        color: Colors.Text,
+                        fontSize: 16,
+                        fontWeight: '500',
+                        color: Colors.Gray,
+                        marginBottom: 0,
                     }}>
                         Team Members
                     </Text>
                     <Pressable onPress={() => router.push('/(jobs)/team')}>
-                        <IconSymbol name="pencil" color="#007AFF" size={20} />
+                        <IconSymbol name="pencil" color={Colors.Gray} size={20} />
                     </Pressable>
                 </View>
 
@@ -666,7 +671,7 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
             </View>
 
                 {/* Delete Job Section */}
-                <View style={{ marginTop: 20, paddingBottom: 20 }}>
+                <View style={{ marginTop: 12, paddingBottom: 20 }}>
                     <Pressable
                         style={{
                             flexDirection: 'row',
@@ -674,7 +679,7 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                             justifyContent: 'center',
                             paddingVertical: 16,
                             paddingHorizontal: 20,
-                            backgroundColor: '#FF3B30',
+                        backgroundColor: Colors.Primary,
                             borderRadius: 12,
                             opacity: isDeleting ? 0.7 : 1,
                         }}
