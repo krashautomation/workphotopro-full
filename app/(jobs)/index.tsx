@@ -35,6 +35,7 @@ export default function Jobs() {
     filters.statuses.length > 0 ||
     filters.tagIds.length > 0 ||
     filters.memberIds.length > 0;
+  const hasSearchQuery = searchQuery.trim().length > 0;
 
   /**
    * Load user profile picture
@@ -429,7 +430,7 @@ export default function Jobs() {
 
       {/* Search & Filter */}
       <View style={styles.searchFilterRow}>
-        <View style={styles.searchInputContainer}>
+        <View style={[styles.searchInputContainer, hasSearchQuery && styles.searchInputContainerActive]}>
           <TextInput
             style={styles.searchInput}
             placeholder="Search jobs"
@@ -441,8 +442,9 @@ export default function Jobs() {
           <IconSymbol
             name="magnifyingglass"
             size={18}
-            color={colors.textSecondary}
+            color={hasSearchQuery ? colors.primary : colors.textSecondary}
           />
+          {hasSearchQuery && <View style={styles.searchIndicator} />}
         </View>
         <TouchableOpacity
           style={styles.filterButton}
@@ -721,6 +723,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 2,
     flex: 1,
+    position: 'relative',
+  },
+  searchInputContainerActive: {
+    borderWidth: 1,
+    borderColor: colors.primary,
   },
   searchInput: {
     flex: 1,
@@ -728,6 +735,15 @@ const styles = StyleSheet.create({
     marginRight: 8,
     color: colors.text,
     fontSize: 14,
+  },
+  searchIndicator: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
   },
   filterButton: {
     width: 44,
