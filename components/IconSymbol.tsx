@@ -21,7 +21,9 @@ const MAPPING = {
   gearshape: "settings",
   plus: "add",
   paperplane: "send",
+  paperclip: "attach-file",
   photo: "image",
+  "doc.text": "description",
   xmark: "close",
   "xmark.circle.fill": "cancel",
   // Settings icons

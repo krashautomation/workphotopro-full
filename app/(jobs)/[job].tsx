@@ -66,6 +66,7 @@ export default function Job() {
     const [isRefreshing, setIsRefreshing] = React.useState(false);
     const [showShareLocation, setShowShareLocation] = React.useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
+    const [showAttachmentMenu, setShowAttachmentMenu] = React.useState(false);
 
 
     React.useEffect(() => {
@@ -339,6 +340,8 @@ const getMessages = async () => {
 }
 
     const pickImage = async () => {
+        setShowAttachmentMenu(false);
+        setShowEmojiPicker(false);
         try {
             const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
             
@@ -361,6 +364,17 @@ const getMessages = async () => {
             console.error('Error picking image:', error);
             Alert.alert('Error', 'Failed to pick image. Please try again.');
         }
+    };
+
+    const handleUploadImage = async () => {
+        if (isUploading) return;
+        await pickImage();
+    };
+
+    const handleUploadDocument = () => {
+        setShowAttachmentMenu(false);
+        setShowEmojiPicker(false);
+        Alert.alert('Coming Soon', 'Document uploads will be available soon.');
     };
 
     const pickCamera = () => {
@@ -419,6 +433,8 @@ const getMessages = async () => {
     };
 
     const sendMessage = async () => {
+       
+       setShowAttachmentMenu(false);
        
        if(messageContent.trim() === '' && !selectedImage) return;
        
@@ -972,7 +988,10 @@ const getMessages = async () => {
                             }}>
                                 {/* Emoji Picker Button */}
                                 <Pressable 
-                                    onPress={() => setShowEmojiPicker(!showEmojiPicker)}
+                                    onPress={() => {
+                                        setShowEmojiPicker(!showEmojiPicker);
+                                        setShowAttachmentMenu(false);
+                                    }}
                                     disabled={isUploading}
                                     style={{
                                         width: 32,
@@ -988,29 +1007,95 @@ const getMessages = async () => {
                                     />
                                 </Pressable>
 
-                                {/* Image Picker Button */}
-                                <Pressable 
-                                    onPress={pickImage}
-                                    disabled={isUploading}
-                                    style={{
-                                        width: 32,
-                                        height: 32,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    <IconSymbol 
-                                        name="photo" 
-                                        color={isUploading ? Colors.Gray : '#4A9EFF'}
-                                        size={24}
-                                    />
-                                </Pressable>
+                                {/* Attachment Menu */}
+                                <View style={{ position: 'relative' }}>
+                                    <Pressable 
+                                        onPress={() => {
+                                            if (isUploading) return;
+                                            setShowEmojiPicker(false);
+                                            setShowAttachmentMenu((prev) => !prev);
+                                        }}
+                                        disabled={isUploading}
+                                        style={{
+                                            width: 32,
+                                            height: 32,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                        }}
+                                    >
+                                        <IconSymbol 
+                                            name="paperclip" 
+                                            color={isUploading ? Colors.Gray : '#4A9EFF'}
+                                            size={24}
+                                        />
+                                    </Pressable>
+                                    {showAttachmentMenu && (
+                                        <View
+                                            style={{
+                                                position: 'absolute',
+                                                bottom: 44,
+                                                left: -8,
+                                                backgroundColor: Colors.Secondary,
+                                                borderRadius: 8,
+                                                borderWidth: 1,
+                                                borderColor: Colors.Gray,
+                                                paddingVertical: 4,
+                                                width: 200,
+                                                shadowColor: '#000',
+                                                shadowOpacity: 0.15,
+                                                shadowRadius: 6,
+                                                shadowOffset: { width: 0, height: 4 },
+                                                elevation: 5,
+                                            }}
+                                        >
+                                            <Pressable
+                                                onPress={handleUploadImage}
+                                                style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    paddingHorizontal: 12,
+                                                    paddingVertical: 10,
+                                                    gap: 12,
+                                                }}
+                                            >
+                                                <IconSymbol 
+                                                    name="photo" 
+                                                    color={Colors.Primary}
+                                                    size={22}
+                                                />
+                                                <Text style={{ color: Colors.Text, fontSize: 14 }}>
+                                                    Upload Image
+                                                </Text>
+                                            </Pressable>
+                                            <Pressable
+                                                onPress={handleUploadDocument}
+                                                style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    paddingHorizontal: 12,
+                                                    paddingVertical: 10,
+                                                    gap: 12,
+                                                }}
+                                            >
+                                                <IconSymbol 
+                                                    name="doc.text" 
+                                                    color={Colors.Primary}
+                                                    size={22}
+                                                />
+                                                <Text style={{ color: Colors.Text, fontSize: 14 }}>
+                                                    Upload Document
+                                                </Text>
+                                            </Pressable>
+                                        </View>
+                                    )}
+                                </View>
 
                                 <TextInput 
                                 placeholder="Type your message..."
                                 onChangeText={setMessageContent}
                                 value={messageContent}
                                 editable={!isUploading}
+                                onFocus={() => setShowAttachmentMenu(false)}
                                 style={{minHeight: 40, color: Colors.Text, flexGrow: 1,
                                     paddingVertical: 2, paddingHorizontal: 3, flexShrink: 1,
                                 }}
