@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Alert, Switch, Linking } from 'react-native';
 import { Stack, router, useFocusEffect } from 'expo-router';
+import Constants from 'expo-constants';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import UserProfile from '@/components/UserProfile';
 import { useAuth } from '@/context/AuthContext';
@@ -14,6 +15,9 @@ export default function ProfileScreen() {
   const { currentOrganization } = useOrganization();
   const [googleData, setGoogleData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const expoExtra = Constants.expoConfig?.extra as { appVersion?: string } | undefined;
+  const manifestExtra = (Constants.manifest as { extra?: { appVersion?: string } } | null)?.extra;
+  const appVersion = expoExtra?.appVersion ?? manifestExtra?.appVersion ?? '0.1.0-alpha';
   
   // Settings state
   const [imageTimestamps, setImageTimestamps] = useState(true);
@@ -323,7 +327,7 @@ export default function ProfileScreen() {
                 <IconSymbol name="app.badge" color="#22C55E" size={20} />
                 <Text style={styles.settingText}>App version</Text>
               </View>
-              <Text style={styles.versionText}>0.1.22.165</Text>
+              <Text style={styles.versionText}>{appVersion}</Text>
             </View>
             
             <Pressable 
