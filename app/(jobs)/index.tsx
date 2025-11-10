@@ -439,9 +439,23 @@ export default function Jobs() {
             onChangeText={(text) => setSearchQuery(text)}
             returnKeyType="search"
           />
+          {hasSearchQuery && (
+            <TouchableOpacity
+              style={styles.searchClearButton}
+              onPress={() => setSearchQuery('')}
+              accessibilityLabel="Clear search"
+              accessibilityRole="button"
+            >
+              <IconSymbol
+                name="xmark.circle.fill"
+                size={18}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+          )}
           <IconSymbol
             name="magnifyingglass"
-            size={18}
+            size={20}
             color={hasSearchQuery ? colors.primary : colors.textSecondary}
           />
           {hasSearchQuery && <View style={styles.searchIndicator} />}
@@ -736,10 +750,15 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
   },
+  searchClearButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    marginRight: 4,
+  },
   searchIndicator: {
     position: 'absolute',
-    top: 6,
-    right: 6,
+    top: 4,
+    right: 4,
     width: 10,
     height: 10,
     borderRadius: 5,

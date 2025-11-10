@@ -23,6 +23,7 @@ const MAPPING = {
   paperplane: "send",
   photo: "image",
   xmark: "close",
+  "xmark.circle.fill": "cancel",
   // Settings icons
   "clock.badge.checkmark": "schedule",
   "internaldrive": "storage",
