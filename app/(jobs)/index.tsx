@@ -17,6 +17,7 @@ export default function Jobs() {
   
   // State for job chat management
   const [jobChats, setJobChats] = useState<JobChatWithTags[]>([]);
+  const [filteredJobChats, setFilteredJobChats] = useState<JobChatWithTags[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,6 +160,7 @@ export default function Jobs() {
           );
           
           setJobChats(jobsWithTags);
+          setFilteredJobChats(jobsWithTags);
         })
       ]);
     } catch (error) {
@@ -182,6 +184,35 @@ export default function Jobs() {
       setRefreshing(false);
     }
   };
+
+  useEffect(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    if (!query) {
+      setFilteredJobChats(jobChats);
+      return;
+    }
+
+    const nextFiltered = jobChats.filter((job) => {
+      const titleMatch = job.title?.toLowerCase().includes(query);
+      const descriptionMatch = job.description?.toLowerCase().includes(query);
+      const tagMatch = (job.assignedTags || []).some((tag: any) => {
+        const tagText =
+          tag?.name ||
+          tag?.title ||
+          tag?.label ||
+          tag?.text ||
+          tag?.icon ||
+          '';
+
+        return typeof tagText === 'string' && tagText.toLowerCase().includes(query);
+      });
+
+      return titleMatch || descriptionMatch || tagMatch;
+    });
+
+    setFilteredJobChats(nextFiltered);
+  }, [jobChats, searchQuery]);
 
   // Fetch jobs when component mounts or user/team changes
   useEffect(() => {
@@ -311,7 +342,7 @@ export default function Jobs() {
             placeholder="Search jobs"
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={(text) => setSearchQuery(text)}
             returnKeyType="search"
           />
           <IconSymbol
@@ -334,27 +365,37 @@ export default function Jobs() {
 
       {/* Job Chats List */}
       <FlatList
-        data={jobChats}
+        data={filteredJobChats}
         keyExtractor={(item) => item.$id}
+        extraData={searchQuery}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
         ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <Image 
-              source={require('../../assets/images/camera-boy.png')}
-              style={styles.emptyImage}
-              resizeMode="contain"
-            />
-            <Text style={styles.emptyText}>No jobs yet</Text>
-            <Text style={styles.emptySubtext}>
-              Create your first job to start organizing your work photos
-            </Text>
-            
-            <TouchableOpacity style={globalStyles.button}>
-              <Text style={globalStyles.buttonText}>Create Job</Text>
-            </TouchableOpacity>
-          </View>
+          searchQuery.trim() ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No jobs match your search</Text>
+              <Text style={styles.emptySubtext}>
+                Try a different keyword or clear the search to see all jobs.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <Image 
+                source={require('../../assets/images/camera-boy.png')}
+                style={styles.emptyImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.emptyText}>No jobs yet</Text>
+              <Text style={styles.emptySubtext}>
+                Create your first job to start organizing your work photos
+              </Text>
+              
+              <TouchableOpacity style={globalStyles.button}>
+                <Text style={globalStyles.buttonText}>Create Job</Text>
+              </TouchableOpacity>
+            </View>
+          )
         )}
         renderItem={({ item }) => (
           <Link 
