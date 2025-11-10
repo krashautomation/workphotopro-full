@@ -132,9 +132,10 @@ export default function FilterJobs() {
       onClose={handleClose}
       minHeightRatio={0.6}
       overlayStyle={{ backgroundColor: 'rgba(0, 0, 0, 0.35)' }}
-      contentStyle={{ backgroundColor: Colors.Background }}
+      contentStyle={{ backgroundColor: Colors.Surface }}
     >
-      <View style={styles.handleContainer}>
+      <View style={styles.topBar}>
+        <View style={styles.topBorder} />
         <View style={styles.handle} />
       </View>
       <ScrollView
@@ -142,13 +143,6 @@ export default function FilterJobs() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.headerRow}>
-          <Text style={styles.modalTitle}>Filter Jobs</Text>
-          <Pressable onPress={handleClose} style={styles.closeButton}>
-            <IconSymbol name="xmark" size={18} color={Colors.Gray} />
-          </Pressable>
-        </View>
-
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Filter by Job Status</Text>
           <View style={styles.card}>
@@ -162,14 +156,16 @@ export default function FilterJobs() {
                   onPress={() => toggleStatus(option.id)}
                 >
                   <View style={styles.itemContent}>
-                    <View style={[styles.checkbox, styles.checkboxLeading, isSelected && styles.checkboxSelected]}>
-                      {isSelected && <IconSymbol name="checkmark" color={Colors.White} size={16} />}
-                    </View>
+                    {option.indicator && (
+                      <Text style={styles.statusIcon}>{option.indicator}</Text>
+                    )}
                     <Text style={[styles.itemText, isSelected && styles.itemTextSelected]}>
                       {option.label}
                     </Text>
                   </View>
-                  {option.indicator && <Text style={styles.indicator}>{option.indicator}</Text>}
+                  <View style={[styles.checkbox, styles.checkboxTrailing, isSelected && styles.checkboxSelected]}>
+                    {isSelected && <IconSymbol name="checkmark" color={Colors.White} size={16} />}
+                  </View>
                 </Pressable>
               );
             })}
@@ -274,46 +270,34 @@ export default function FilterJobs() {
 }
 
 const styles = StyleSheet.create({
-  handleContainer: {
+  topBar: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
+  },
+  topBorder: {
+    width: '100%',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Colors.Gray,
+    marginBottom: 2
   },
   handle: {
-    width: 52,
+    width: 80,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.Secondary,
+    backgroundColor: Colors.Gray,
+    marginTop: 1,
   },
   scrollContent: {
     paddingBottom: 40,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: Colors.Text,
-  },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.Secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   section: {
-    marginBottom: 24,
+    marginBottom: 14,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '500',
     color: Colors.Gray,
-    marginBottom: 12,
+    marginBottom: 0,
   },
   card: {
     backgroundColor: Colors.Secondary,
@@ -329,7 +313,7 @@ const styles = StyleSheet.create({
   },
   listItemDivider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.Border,
+    borderBottomColor: Colors.Gray,
   },
   itemContent: {
     flexDirection: 'row',
@@ -367,6 +351,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.Primary,
   },
   tagIcon: {
+    marginRight: 12,
+  },
+  statusIcon: {
+    fontSize: 20,
     marginRight: 12,
   },
   placeholderCard: {

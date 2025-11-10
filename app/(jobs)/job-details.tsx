@@ -363,40 +363,40 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                         onPress={() => handleStatusChange('current', !isCurrent)}
                     >
                         <View style={styles.itemContent}>
-                            <View style={[
-                                styles.checkbox,
-                                styles.checkboxLeading,
-                                isCurrent && styles.checkboxSelected
-                            ]}>
-                                {isCurrent && (
-                                    <IconSymbol name="checkmark" color={Colors.White} size={16} />
-                                )}
-                            </View>
-                            <Text style={[styles.itemText, isCurrent && styles.itemTextSelected]}>
-                                Current
-                            </Text>
+                            <Text style={styles.statusIcon}>👈</Text>
+                        <Text style={[styles.itemText, isCurrent && styles.itemTextSelected]}>
+                            Current
+                        </Text>
                         </View>
-                        <Text style={styles.indicator}>👈</Text>
+                        <View style={[
+                            styles.checkbox,
+                            styles.checkboxTrailing,
+                            isCurrent && styles.checkboxSelected
+                        ]}>
+                            {isCurrent && (
+                                <IconSymbol name="checkmark" color={Colors.White} size={16} />
+                            )}
+                        </View>
                     </Pressable>
                     <Pressable
                         style={styles.listItem}
                         onPress={() => handleStatusChange('complete', !isComplete)}
                     >
                         <View style={styles.itemContent}>
-                            <View style={[
-                                styles.checkbox,
-                                styles.checkboxLeading,
-                                isComplete && styles.checkboxSelected
-                            ]}>
-                                {isComplete && (
-                                    <IconSymbol name="checkmark" color={Colors.White} size={16} />
-                                )}
-                            </View>
+                            <Text style={styles.statusIcon}>✅</Text>
                             <Text style={[styles.itemText, isComplete && styles.itemTextSelected]}>
                                 Complete
                             </Text>
                         </View>
-                        <Text style={styles.indicator}>✅</Text>
+                        <View style={[
+                            styles.checkbox,
+                            styles.checkboxTrailing,
+                            isComplete && styles.checkboxSelected
+                        ]}>
+                            {isComplete && (
+                                <IconSymbol name="checkmark" color={Colors.White} size={16} />
+                            )}
+                        </View>
                     </Pressable>
                 </View>
             </View>
@@ -608,6 +608,10 @@ const styles = StyleSheet.create({
     },
     indicator: {
         fontSize: 20,
+    },
+    statusIcon: {
+        fontSize: 20,
+        marginRight: 12,
     },
     checkbox: {
         width: 24,
