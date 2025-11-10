@@ -749,7 +749,7 @@ const getMessages = async () => {
                         </Text>
                     </Pressable>
 
-                    {/* Details Tab */}
+                    {/* Job Details Tab */}
                     <Pressable
                         style={{
                             flex: 1,
@@ -765,7 +765,7 @@ const getMessages = async () => {
                             fontSize: 16,
                             fontWeight: activeTab === 'details' ? '600' : '400',
                         }}>
-                            Details
+                            Job Details
                         </Text>
                     </Pressable>
                 </View>
