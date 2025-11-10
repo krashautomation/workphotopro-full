@@ -5,6 +5,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import Avatar from '@/components/Avatar';
 import { Colors } from '@/utils/colors';
 import { useOrganization } from '@/context/OrganizationContext';
+import { useJobFilters } from '@/context/JobFilterContext';
 import { tagService } from '@/lib/appwrite/database';
 import { teamService } from '@/lib/appwrite/teams';
 import { TagTemplate } from '@/utils/types';
@@ -18,14 +19,16 @@ const STATUS_OPTIONS: Array<{ id: 'active' | 'completed'; label: string; indicat
 export default function FilterJobs() {
   const router = useRouter();
   const { currentTeam } = useOrganization();
+  const { filters, updateFilters, resetFilters } = useJobFilters();
 
-  const [selectedStatuses, setSelectedStatuses] = React.useState<Array<'active' | 'completed'>>([]);
   const [tagTemplates, setTagTemplates] = React.useState<TagTemplate[]>([]);
-  const [selectedTagIds, setSelectedTagIds] = React.useState<string[]>([]);
   const [teamMembers, setTeamMembers] = React.useState<any[]>([]);
-  const [selectedMemberIds, setSelectedMemberIds] = React.useState<string[]>([]);
   const [isLoadingTags, setIsLoadingTags] = React.useState(true);
   const [isLoadingMembers, setIsLoadingMembers] = React.useState(true);
+
+  const selectedStatuses = filters.statuses;
+  const selectedTagIds = filters.tagIds;
+  const selectedMemberIds = filters.memberIds;
 
   const loadTags = React.useCallback(async () => {
     try {
@@ -65,23 +68,41 @@ export default function FilterJobs() {
     loadTeamMembers();
   }, [loadTeamMembers]);
 
-  const toggleStatus = (statusId: 'active' | 'completed') => {
-    setSelectedStatuses((prev) =>
-      prev.includes(statusId) ? prev.filter((value) => value !== statusId) : [...prev, statusId]
-    );
-  };
+  const toggleStatus = React.useCallback(
+    (statusId: 'active' | 'completed') => {
+      updateFilters((prev) => ({
+        ...prev,
+        statuses: prev.statuses.includes(statusId)
+          ? prev.statuses.filter((value) => value !== statusId)
+          : [...prev.statuses, statusId],
+      }));
+    },
+    [updateFilters]
+  );
 
-  const toggleTag = (tagId: string) => {
-    setSelectedTagIds((prev) =>
-      prev.includes(tagId) ? prev.filter((value) => value !== tagId) : [...prev, tagId]
-    );
-  };
+  const toggleTag = React.useCallback(
+    (tagId: string) => {
+      updateFilters((prev) => ({
+        ...prev,
+        tagIds: prev.tagIds.includes(tagId)
+          ? prev.tagIds.filter((value) => value !== tagId)
+          : [...prev.tagIds, tagId],
+      }));
+    },
+    [updateFilters]
+  );
 
-  const toggleMember = (memberId: string) => {
-    setSelectedMemberIds((prev) =>
-      prev.includes(memberId) ? prev.filter((value) => value !== memberId) : [...prev, memberId]
-    );
-  };
+  const toggleMember = React.useCallback(
+    (memberId: string) => {
+      updateFilters((prev) => ({
+        ...prev,
+        memberIds: prev.memberIds.includes(memberId)
+          ? prev.memberIds.filter((value) => value !== memberId)
+          : [...prev.memberIds, memberId],
+      }));
+    },
+    [updateFilters]
+  );
 
   const getMemberDisplayName = (member: any): string => {
     if (member.userInfo?.name) {
@@ -126,6 +147,10 @@ export default function FilterJobs() {
     router.back();
   }, [router]);
 
+  const handleClearAll = React.useCallback(() => {
+    resetFilters();
+  }, [resetFilters]);
+
   return (
     <BottomModal2
       visible
@@ -144,7 +169,12 @@ export default function FilterJobs() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Filter by Job Status</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Filter by Job Status</Text>
+            <Pressable onPress={handleClearAll} hitSlop={8}>
+              <Text style={styles.clearText}>Clear</Text>
+            </Pressable>
+          </View>
           <View style={styles.card}>
             {STATUS_OPTIONS.map((option, index) => {
               const isSelected = selectedStatuses.includes(option.id);
@@ -235,18 +265,39 @@ export default function FilterJobs() {
           ) : (
             <View style={styles.card}>
               {teamMembers.map((member, index) => {
-                const memberId = member.$id || member.userId || `${index}`;
                 const memberName = getMemberDisplayName(member);
                 const memberProfilePicture = getMemberProfilePicture(member);
                 const memberRole = member.membershipData?.role || member.roles?.[0] || 'member';
-                const isSelected = selectedMemberIds.includes(memberId);
+                const memberFilterId =
+                  member.userId ||
+                  member.membershipData?.userId ||
+                  member.userInfo?.$id ||
+                  null;
+                const memberKey =
+                  member.$id ||
+                  member.membershipData?.$id ||
+                  memberFilterId ||
+                  `${index}`;
+                const isSelected =
+                  memberFilterId !== null
+                    ? selectedMemberIds.includes(memberFilterId)
+                    : false;
                 const showDivider = index < teamMembers.length - 1;
 
                 return (
                   <Pressable
-                    key={memberId}
-                    style={[styles.listItem, showDivider && styles.listItemDivider]}
-                    onPress={() => toggleMember(memberId)}
+                    key={memberKey}
+                    style={[
+                      styles.listItem,
+                      showDivider && styles.listItemDivider,
+                      memberFilterId === null && styles.listItemDisabled,
+                    ]}
+                    onPress={() => {
+                      if (memberFilterId) {
+                        toggleMember(memberFilterId);
+                      }
+                    }}
+                    disabled={memberFilterId === null}
                   >
                     <View style={styles.memberInfo}>
                       <Avatar name={memberName} imageUrl={memberProfilePicture} size={40} />
@@ -299,6 +350,17 @@ const styles = StyleSheet.create({
     color: Colors.Gray,
     marginBottom: 0,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  clearText: {
+    color: Colors.Primary,
+    fontSize: 14,
+    fontWeight: '500',
+  },
   card: {
     backgroundColor: Colors.Secondary,
     borderRadius: 16,
@@ -314,6 +376,9 @@ const styles = StyleSheet.create({
   listItemDivider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.Gray,
+  },
+  listItemDisabled: {
+    opacity: 0.5,
   },
   itemContent: {
     flexDirection: 'row',

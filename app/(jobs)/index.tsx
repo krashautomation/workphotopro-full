@@ -9,6 +9,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Coins, Gem, TableProperties } from 'lucide-react-native';
+import { useJobFilters } from '@/context/JobFilterContext';
 
 export default function Jobs() {
   const { user, isAuthenticated, getUserProfilePicture, getGoogleUserData } = useAuth();
@@ -29,6 +30,11 @@ export default function Jobs() {
     ? `${userRole.charAt(0).toUpperCase()}${userRole.slice(1)}`
     : null;
   const isManagerRole = userRole?.toLowerCase() === 'manager';
+  const { filters } = useJobFilters();
+  const hasActiveFilters =
+    filters.statuses.length > 0 ||
+    filters.tagIds.length > 0 ||
+    filters.memberIds.length > 0;
 
   /**
    * Load user profile picture
@@ -188,15 +194,100 @@ export default function Jobs() {
   useEffect(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    if (!query) {
-      setFilteredJobChats(jobChats);
-      return;
-    }
-
     const nextFiltered = jobChats.filter((job) => {
+      const jobStatusRaw = (job.status ?? 'active').toLowerCase();
+      const jobStatus =
+        jobStatusRaw === 'current'
+          ? 'active'
+          : jobStatusRaw === 'complete'
+          ? 'completed'
+          : jobStatusRaw;
+
+      if (
+        filters.statuses.length > 0 &&
+        !filters.statuses.includes(jobStatus as 'active' | 'completed')
+      ) {
+        return false;
+      }
+
+      const assignedTagsArray = Array.isArray((job as any).assignedTags)
+        ? ((job as any).assignedTags as any[])
+        : [];
+      const tagTemplatesArray = Array.isArray((job as any).tagTemplates)
+        ? ((job as any).tagTemplates as any[])
+        : [];
+
+      if (filters.tagIds.length > 0) {
+        const jobTagIds = new Set<string>();
+
+        assignedTagsArray.forEach((tag) => {
+          if (!tag) {
+            return;
+          }
+          if (typeof tag === 'string') {
+            jobTagIds.add(tag);
+            return;
+          }
+
+          const potentialIds = [
+            tag.$id,
+            tag.tagTemplateId,
+            tag.tagId,
+            tag.id,
+          ];
+          potentialIds.forEach((value) => {
+            if (typeof value === 'string' && value.trim().length > 0) {
+              jobTagIds.add(value);
+            }
+          });
+        });
+
+        tagTemplatesArray.forEach((tag) => {
+          const templateId = tag?.$id || tag?.tagTemplateId || tag?.id;
+          if (typeof templateId === 'string' && templateId.trim().length > 0) {
+            jobTagIds.add(templateId);
+          }
+        });
+
+        const tagIdsField = (job as any).tagIds;
+        if (Array.isArray(tagIdsField)) {
+          tagIdsField.forEach((value) => {
+            if (typeof value === 'string' && value.trim().length > 0) {
+              jobTagIds.add(value);
+            }
+          });
+        }
+
+        const hasMatchingTag = filters.tagIds.some((tagId) =>
+          jobTagIds.has(tagId)
+        );
+
+        if (!hasMatchingTag) {
+          return false;
+        }
+      }
+
+      if (filters.memberIds.length > 0) {
+        const jobCreatorId =
+          job.createdBy ||
+          (job as any).createdById ||
+          (job as any).creatorId ||
+          (job as any).ownerId ||
+          (job as any).userId ||
+          null;
+
+        if (!jobCreatorId || !filters.memberIds.includes(jobCreatorId)) {
+          return false;
+        }
+      }
+
+      if (query.length === 0) {
+        return true;
+      }
+
       const titleMatch = job.title?.toLowerCase().includes(query);
       const descriptionMatch = job.description?.toLowerCase().includes(query);
-      const tagMatch = (job.assignedTags || []).some((tag: any) => {
+      const tagMatch = assignedTagsArray.some((tag: any) => {
         const tagText =
           tag?.name ||
           tag?.title ||
@@ -205,14 +296,16 @@ export default function Jobs() {
           tag?.icon ||
           '';
 
-        return typeof tagText === 'string' && tagText.toLowerCase().includes(query);
+        return (
+          typeof tagText === 'string' && tagText.toLowerCase().includes(query)
+        );
       });
 
-      return titleMatch || descriptionMatch || tagMatch;
+      return Boolean(titleMatch || descriptionMatch || tagMatch);
     });
 
     setFilteredJobChats(nextFiltered);
-  }, [jobChats, searchQuery]);
+  }, [jobChats, searchQuery, filters]);
 
   // Fetch jobs when component mounts or user/team changes
   useEffect(() => {
@@ -356,6 +449,7 @@ export default function Jobs() {
           onPress={() => router.push('/(jobs)/filter-jobs')}
         >
           <TableProperties size={20} color={colors.textSecondary} />
+          {hasActiveFilters && <View style={styles.filterIndicator} />}
         </TouchableOpacity>
       </View>
 
@@ -644,6 +738,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 0,
     borderColor: colors.border,
+    position: 'relative',
+  },
+  filterIndicator: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
   },
   infoContainer: {
     marginTop: 12,
