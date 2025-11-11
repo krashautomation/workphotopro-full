@@ -8,6 +8,8 @@ interface User {
     imageUrl: string;
 }
 
+export type ResolutionPreference = 'standard' | 'hd';
+
 // User preferences for watermark and timestamp
 export interface UserPreferences {
   $id?: string;
@@ -15,6 +17,8 @@ export interface UserPreferences {
   watermarkEnabled: boolean;
   timestampEnabled: boolean;
   timestampFormat?: 'short' | 'long';
+  hdPreferences?: Record<string, ResolutionPreference>;
+  hdPreferencesRaw?: string;
   $createdAt?: string;
   $updatedAt?: string;
 }
@@ -27,6 +31,8 @@ export interface Organization {
   description?: string;
   isActive: boolean;
   settings?: string; // JSON string for organization settings
+  premiumTier?: string;
+  hdCaptureEnabled?: boolean;
   $createdAt: string;
   $updatedAt: string;
   $permissions: string[];
@@ -191,6 +197,9 @@ export interface OrganizationContextType {
   userOrganizations: Organization[];
   userTeams: Team[];
   loading: boolean;
+  currentOrgPremiumTier: string;
+  isCurrentOrgPremium: boolean;
+  isHDCaptureEnabled: boolean;
   loadUserData: () => Promise<void>;
   refreshCurrentTeam: () => Promise<void>;
   switchOrganization: (orgId: string) => Promise<void>;
@@ -203,8 +212,8 @@ export interface OrganizationContextType {
 }
 
 // Role types
-export type TeamRole = 'owner' | 'admin' | 'member';
-export type OrganizationRole = 'owner' | 'admin' | 'member';
+export type TeamRole = 'owner' | 'member';
+export type OrganizationRole = 'owner' | 'member';
 
 // Common API response types
 export interface ApiResponse<T> {

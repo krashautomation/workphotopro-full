@@ -36,9 +36,9 @@ npm run add-team-member <teamId> <userId> [role] [email]
 npm run add-team-member 68f0dc7f002427e257f5 68f43803a43077657a06 member
 ```
 
-**Add user as manager:**
+**Add user as owner:**
 ```bash
-npm run add-team-member 68f0dc7f002427e257f5 68f43803a43077657a06 manager
+npm run add-team-member 68f0dc7f002427e257f5 68f43803a43077657a06 owner
 ```
 
 **Add user with email:**
@@ -52,13 +52,12 @@ npm run add-team-member 68f0dc7f002427e257f5 68f43803a43077657a06 member user@ex
 |----------|----------|-------------|---------|
 | `teamId` | Yes | The ID of the team to add the user to | `68f0dc7f002427e257f5` |
 | `userId` | Yes | The ID of the user to add | `68f43803a43077657a06` |
-| `role` | No | Role: `member`, `manager`, or `owner` (default: `member`) | `member` |
+| `role` | No | Role: `member` or `owner` (default: `member`) | `member` |
 | `email` | No | User email (will be fetched from Appwrite if not provided) | `user@example.com` |
 
 ## Valid Roles
 
 - `member` - Regular team member (default)
-- `manager` - Team manager with elevated permissions
 - `owner` - Team owner (use with caution!)
 
 ## How to Get IDs

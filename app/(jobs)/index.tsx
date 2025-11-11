@@ -29,7 +29,7 @@ export default function Jobs() {
   const roleDisplay = userRole
     ? `${userRole.charAt(0).toUpperCase()}${userRole.slice(1)}`
     : null;
-  const isManagerRole = userRole?.toLowerCase() === 'manager';
+  const isOwnerRole = userRole?.toLowerCase() === 'owner';
   const { filters } = useJobFilters();
   const hasActiveFilters =
     filters.statuses.length > 0 ||
@@ -418,8 +418,8 @@ export default function Jobs() {
             </View>
             <View style={styles.roleSwitchContainer}>
               {roleDisplay && (
-                <View style={[styles.rolePill, isManagerRole && styles.rolePillManager]}>
-                  <Text style={[styles.rolePillText, isManagerRole && styles.rolePillTextManager]}>{roleDisplay}</Text>
+                <View style={[styles.rolePill, isOwnerRole && styles.rolePillOwner]}>
+                  <Text style={[styles.rolePillText, isOwnerRole && styles.rolePillTextOwner]}>{roleDisplay}</Text>
                 </View>
               )}
               <Text style={styles.switchSymbol}>⇄</Text>
@@ -688,7 +688,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 999,
   },
-  rolePillManager: {
+  rolePillOwner: {
     backgroundColor: 'rgba(147, 51, 234, 0.15)',
   },
   rolePillText: {
@@ -698,7 +698,7 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
     letterSpacing: 0.3,
   },
-  rolePillTextManager: {
+  rolePillTextOwner: {
     color: '#9333EA',
   },
   profileButton: {

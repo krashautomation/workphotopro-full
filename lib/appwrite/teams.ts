@@ -16,6 +16,8 @@ export const organizationService = {
         description: description || '',
         isActive: true,
         settings: '{}', // Default empty settings
+        premiumTier: 'free',
+        hdCaptureEnabled: false,
         ...(ownerId && { ownerId })
       };
 

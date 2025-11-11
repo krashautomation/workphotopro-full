@@ -5,6 +5,12 @@ import { Organization, Team, OrganizationContextType } from '@/utils/types';
 
 const OrganizationContext = createContext<OrganizationContextType | undefined>(undefined);
 
+const applyOrgDefaults = (org: Organization): Organization => ({
+  ...org,
+  premiumTier: org.premiumTier || 'free',
+  hdCaptureEnabled: org.hdCaptureEnabled ?? false,
+});
+
 export function OrganizationProvider({ children }: { children: ReactNode }) {
   const { user, isAuthenticated } = useAuth();
   
@@ -46,7 +52,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       let orgs: Organization[] = [];
       try {
         const orgsResponse = await organizationService.listUserOrganizations(user.$id);
-        orgs = orgsResponse.documents;
+        orgs = orgsResponse.documents.map(applyOrgDefaults);
         setUserOrganizations(orgs);
       } catch (orgsError: any) {
         // Permission error when trying to list organizations
@@ -79,8 +85,9 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         );
         
         if (organization) {
-          setUserOrganizations([organization]);
-          setCurrentOrganization(organization);
+          const normalizedOrg = applyOrgDefaults(organization);
+          setUserOrganizations([normalizedOrg]);
+          setCurrentOrganization(normalizedOrg);
         }
         
         if (team) {
@@ -123,7 +130,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
    */
   const switchOrganization = async (orgId: string) => {
     try {
-      const org = await organizationService.getOrganization(orgId);
+      const org = applyOrgDefaults(await organizationService.getOrganization(orgId));
       setCurrentOrganization(org);
       
       // Load teams for this organization
@@ -183,7 +190,9 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         throw new Error('User not authenticated');
       }
 
-      const org = await organizationService.createOrganization(name, description, user.$id);
+      const org = applyOrgDefaults(
+        await organizationService.createOrganization(name, description, user.$id)
+      );
       
       // Add to user's organizations
       setUserOrganizations(prev => [...prev, org]);
@@ -409,7 +418,9 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     if (team?.teamData?.orgId) {
       try {
         console.log('🔍 switchTeamDirect: Fetching organization:', team.teamData.orgId);
-        const org = await organizationService.getOrganization(team.teamData.orgId);
+        const org = applyOrgDefaults(
+          await organizationService.getOrganization(team.teamData.orgId)
+        );
         console.log('🔍 switchTeamDirect: Fetched organization:', org.orgName);
         setCurrentOrganization(org);
       } catch (error) {
@@ -421,12 +432,20 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const currentOrgPremiumTier = currentOrganization?.premiumTier || 'free';
+  const isHDCaptureEnabled = currentOrganization?.hdCaptureEnabled ?? false;
+  const isCurrentOrgPremium =
+    currentOrgPremiumTier !== 'free' || isHDCaptureEnabled;
+
   const value: OrganizationContextType = {
     currentOrganization,
     currentTeam,
     userOrganizations,
     userTeams,
     loading,
+    currentOrgPremiumTier,
+    isCurrentOrgPremium,
+    isHDCaptureEnabled,
     loadUserData,
     refreshCurrentTeam,
     switchOrganization,

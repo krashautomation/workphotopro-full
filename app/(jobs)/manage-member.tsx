@@ -112,7 +112,7 @@ export default function ManageMemberScreen() {
     // Update selectedRole when member data loads
     if (member) {
       const role = getMemberRole();
-      setSelectedRole(role === 'owner' ? 'member' : role); // Don't allow changing owner role
+      setSelectedRole(role);
     }
   }, [member]);
 
@@ -224,9 +224,9 @@ export default function ManageMemberScreen() {
       return;
     }
 
-    // Only allow Member or Manager roles
-    if (newRole !== 'member' && newRole !== 'manager') {
-      Alert.alert('Error', 'Invalid role. Only Member or Manager roles are allowed.');
+    // Only allow Member or Owner roles
+    if (newRole !== 'member' && newRole !== 'owner') {
+      Alert.alert('Error', 'Invalid role. Only Owner or Member roles are allowed.');
       return;
     }
 
@@ -338,18 +338,18 @@ export default function ManageMemberScreen() {
               <Pressable
                 style={[
                   styles.roleOption,
-                  selectedRole === 'manager' && styles.roleOptionSelected
+                  selectedRole === 'owner' && styles.roleOptionSelected
                 ]}
-                onPress={() => handleRoleChange('manager')}
+                onPress={() => handleRoleChange('owner')}
                 disabled={updatingRole}
               >
                 <Text style={[
                   styles.roleOptionText,
-                  selectedRole === 'manager' && styles.roleOptionTextSelected
+                  selectedRole === 'owner' && styles.roleOptionTextSelected
                 ]}>
-                  Manager
+                  Owner
                 </Text>
-                {selectedRole === 'manager' && (
+                {selectedRole === 'owner' && (
                   <IconSymbol name="checkmark.circle.fill" color={Colors.Primary} size={20} />
                 )}
               </Pressable>

@@ -9,10 +9,18 @@ import { useOrganization } from '@/context/OrganizationContext';
 import { Colors } from '@/utils/colors';
 import { IconSymbol } from '@/components/IconSymbol';
 import TagTestComponent from '@/components/TagTestComponent';
+import { userPreferencesService } from '@/lib/appwrite/database';
+import { ResolutionPreference } from '@/utils/types';
+import { organizationService } from '@/lib/appwrite/teams';
 
 export default function ProfileScreen() {
   const { user, getGoogleUserData, signOut } = useAuth();
-  const { currentOrganization } = useOrganization();
+  const {
+    currentOrganization,
+    userOrganizations,
+    userTeams,
+    loadUserData,
+  } = useOrganization();
   const [googleData, setGoogleData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const expoExtra = Constants.expoConfig?.extra as { appVersion?: string } | undefined;
@@ -22,8 +30,52 @@ export default function ProfileScreen() {
   // Settings state
   const [imageTimestamps, setImageTimestamps] = useState(true);
   const [storeImagesLocally, setStoreImagesLocally] = useState(false);
-  const [fullHDImages, setFullHDImages] = useState(true);
+  const [fullHDImages, setFullHDImages] = useState(false);
   const [notifications, setNotifications] = useState(true);
+  const [hdPreferences, setHdPreferences] = useState<Record<string, ResolutionPreference>>({});
+  const [loadingPreferences, setLoadingPreferences] = useState(false);
+  const [savingHdPreference, setSavingHdPreference] = useState(false);
+  const [updatingOrgHd, setUpdatingOrgHd] = useState(false);
+  
+  const ownedOrganizations = React.useMemo(
+    () => userOrganizations.filter(org => org.ownerId === user?.$id),
+    [userOrganizations, user?.$id]
+  );
+
+  const profileOrganization =
+    ownedOrganizations[0] ||
+    (currentOrganization?.ownerId === user?.$id ? currentOrganization : null);
+
+  const ownedTeams = React.useMemo(
+    () =>
+      userTeams.filter(team => {
+        const role = ((team as any)?.membershipRole || '') as string;
+        return role?.toLowerCase() === 'owner';
+      }),
+    [userTeams]
+  );
+
+  const profileTeam = React.useMemo(() => {
+    if (!profileOrganization) return null;
+    return (
+      ownedTeams.find(team => team.teamData?.orgId === profileOrganization.$id) ||
+      ownedTeams[0] ||
+      null
+    );
+  }, [ownedTeams, profileOrganization]);
+
+  const premiumTier = profileOrganization?.premiumTier || 'free';
+  const hasPremium = premiumTier !== 'free';
+  const canManageOrgHd = !!profileOrganization && profileOrganization.ownerId === user?.$id;
+  const orgHdEnabled = profileOrganization?.hdCaptureEnabled ?? false;
+  const switchDisabled =
+    !profileOrganization ||
+    !profileTeam ||
+    loadingPreferences ||
+    savingHdPreference ||
+    updatingOrgHd ||
+    (!hasPremium && !orgHdEnabled) ||
+    (!canManageOrgHd && !orgHdEnabled);
   
   // Test component state
   const [showTagTest, setShowTagTest] = useState(false);
@@ -31,6 +83,51 @@ export default function ProfileScreen() {
   useEffect(() => {
     loadGoogleData();
   }, []);
+
+useEffect(() => {
+  const fetchPreferences = async () => {
+    if (!user?.$id) {
+      setHdPreferences({});
+      setFullHDImages(false);
+      return;
+    }
+    setLoadingPreferences(true);
+    try {
+      const prefs = await userPreferencesService.getUserPreferences(user.$id);
+      if (!prefs) {
+        setHdPreferences({});
+        setFullHDImages(false);
+        return;
+      }
+      const hdPrefs = prefs.hdPreferences || {};
+      setHdPreferences(hdPrefs);
+    } catch (error) {
+      console.error('Error loading user preferences:', error);
+    } finally {
+      setLoadingPreferences(false);
+    }
+  };
+
+  fetchPreferences();
+}, [user?.$id]);
+
+useEffect(() => {
+  if (!profileOrganization?.$id) {
+    setFullHDImages(false);
+    return;
+  }
+
+  const orgPreference = hdPreferences[profileOrganization.$id];
+  const prefersHd = orgPreference === 'hd';
+
+  if (!orgHdEnabled) {
+    if (!updatingOrgHd) {
+      setFullHDImages(false);
+    }
+  } else {
+    setFullHDImages(prefersHd);
+  }
+}, [profileOrganization?.$id, hdPreferences, orgHdEnabled, updatingOrgHd]);
 
   // Refresh data when screen comes into focus (e.g., returning from edit account)
   useFocusEffect(
@@ -69,6 +166,73 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  const handleHdToggle = async (value: boolean) => {
+    if (!user?.$id || !profileOrganization?.$id) {
+      Alert.alert('Error', 'Unable to change HD setting. Please try again later.');
+      return;
+    }
+
+    const orgId = profileOrganization.$id;
+    const previousPreference = hdPreferences[orgId] || 'standard';
+    const previousOrgHd = orgHdEnabled;
+    const revertValue = previousOrgHd && previousPreference === 'hd';
+    const revertState = () => {
+      setFullHDImages(revertValue);
+      setHdPreferences(prev => ({
+        ...prev,
+        [orgId]: previousPreference,
+      }));
+    };
+
+    if (value && !hasPremium) {
+      Alert.alert('Premium Required', 'Upgrade to enable Full HD images for this organization.');
+      revertState();
+      return;
+    }
+
+    if (value && !previousOrgHd && !canManageOrgHd) {
+      Alert.alert(
+        'Owner Required',
+        'Ask an organization owner to enable HD captures for this team.'
+      );
+      revertState();
+      return;
+    }
+
+    const nextPreferences: Record<string, ResolutionPreference> = {
+      ...hdPreferences,
+      [orgId]: value ? 'hd' : 'standard',
+    };
+
+    setFullHDImages(value);
+    setHdPreferences(nextPreferences);
+
+    try {
+      if (value && !previousOrgHd && canManageOrgHd) {
+        setUpdatingOrgHd(true);
+        await organizationService.updateOrganization(orgId, { hdCaptureEnabled: true });
+        await loadUserData();
+      } else if (!value && previousOrgHd && canManageOrgHd) {
+        setUpdatingOrgHd(true);
+        await organizationService.updateOrganization(orgId, { hdCaptureEnabled: false });
+        await loadUserData();
+      }
+
+      setSavingHdPreference(true);
+      await userPreferencesService.updateUserPreferences(user.$id, {
+        hdPreferences: nextPreferences,
+      });
+    } catch (error) {
+      console.error('Error updating HD preference:', error);
+      Alert.alert('Error', 'Failed to update HD setting. Please try again.');
+      revertState();
+      await loadUserData().catch(() => {});
+    } finally {
+      setSavingHdPreference(false);
+      setUpdatingOrgHd(false);
+    }
   };
 
 
@@ -193,9 +357,7 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Organization</Text>
           <Pressable onPress={() => {
             console.log('Edit organization button pressed');
-            console.log('Current organization before navigation:', currentOrganization);
-            console.log('Organization name:', currentOrganization?.orgName);
-            console.log('Organization description:', currentOrganization?.description);
+            console.log('Profile organization before navigation:', profileOrganization);
             router.push('/(jobs)/edit-organization');
           }}>
             <IconSymbol name="pencil" color="#007AFF" size={16} />
@@ -206,14 +368,14 @@ export default function ProfileScreen() {
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Organization</Text>
             <Text style={styles.infoValue}>
-              {currentOrganization?.orgName || 'No Organization'}
+              {profileOrganization?.orgName || 'No Organization'}
             </Text>
           </View>
           
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Description</Text>
             <Text style={styles.infoValue}>
-              {currentOrganization?.description || 'No description available'}
+              {profileOrganization?.description || 'No description available'}
             </Text>
           </View>
         </View>
@@ -251,18 +413,49 @@ export default function ProfileScreen() {
               />
             </Pressable>
             
-            <Pressable style={styles.settingItem}>
+            <Pressable
+              style={styles.settingItem}
+              onPress={() => {
+                if (!profileOrganization || !profileTeam) {
+                  Alert.alert('Unavailable', 'Full HD settings are only available for your own organization.');
+                  return;
+                }
+                if (!hasPremium && !orgHdEnabled) {
+                  Alert.alert('Premium Required', 'Upgrade to enable Full HD images for this organization.');
+                  return;
+                }
+                if (!canManageOrgHd && !orgHdEnabled) {
+                  Alert.alert('Owner Required', 'Ask an organization owner to enable HD captures for this team.');
+                  return;
+                }
+                if (loadingPreferences || savingHdPreference || updatingOrgHd) {
+                  return;
+                }
+                handleHdToggle(!fullHDImages);
+              }}
+            >
               <View style={styles.settingLeft}>
                 <IconSymbol name="4k.tv" color="#22C55E" size={20} />
                 <Text style={styles.settingText}>Full HD images</Text>
               </View>
               <Switch
                 value={fullHDImages}
-                onValueChange={setFullHDImages}
+                onValueChange={handleHdToggle}
                 trackColor={{ false: Colors.Gray, true: "#22C55E" }}
                 thumbColor={Colors.White}
+                disabled={switchDisabled}
               />
             </Pressable>
+            {!hasPremium && (
+              <Text style={styles.disabledHint}>
+                Upgrade this organization to enable HD captures for all members.
+              </Text>
+            )}
+            {hasPremium && !orgHdEnabled && !canManageOrgHd && (
+              <Text style={styles.disabledHint}>
+                Only owners can enable HD captures for this organization.
+              </Text>
+            )}
             
             <Pressable style={styles.settingItem} onPress={() => router.push('/(jobs)/archived-teams')}>
               <View style={styles.settingLeft}>
@@ -446,6 +639,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.Text,
     marginLeft: 12,
+  },
+  disabledHint: {
+    fontSize: 12,
+    color: Colors.Gray,
+    marginTop: -4,
+    marginBottom: 8,
+    marginLeft: 44,
   },
   versionText: {
     fontSize: 14,

@@ -1,6 +1,6 @@
 import { databases } from './client';
 import { ID, Query } from 'react-native-appwrite';
-import { TagTemplate, JobTagAssignment, JobChatWithTags, UserPreferences } from '@/utils/types';
+import { TagTemplate, JobTagAssignment, JobChatWithTags, UserPreferences, ResolutionPreference } from '@/utils/types';
 
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID || '';
 
@@ -527,7 +527,12 @@ export const userPreferencesService = {
       );
 
       if (result.documents.length > 0) {
-        return result.documents[0] as any as UserPreferences;
+        const prefs = result.documents[0] as any as UserPreferences;
+        const hdPreferences = parseHdPreferences(prefs.hdPreferencesRaw);
+        return {
+          ...prefs,
+          hdPreferences,
+        };
       }
 
       // Return default preferences if none exist
@@ -536,6 +541,7 @@ export const userPreferencesService = {
         watermarkEnabled: true,
         timestampEnabled: true,
         timestampFormat: 'short',
+        hdPreferences: {},
       };
     } catch (error: any) {
       console.warn('Collection not found or not accessible. Returning default preferences.', error.message);
@@ -545,6 +551,7 @@ export const userPreferencesService = {
         watermarkEnabled: true,
         timestampEnabled: true,
         timestampFormat: 'short',
+        hdPreferences: {},
       };
     }
   },
@@ -556,6 +563,7 @@ export const userPreferencesService = {
         watermarkEnabled: true,
         timestampEnabled: true,
         timestampFormat: 'short',
+        hdPreferencesRaw: '{}',
       };
 
       const userPreferences = {
@@ -563,7 +571,7 @@ export const userPreferencesService = {
         ...preferences,
       };
 
-      return await databaseService.createDocument(this.COLLECTION_ID, userPreferences) as any;
+      return await databaseService.createDocument(this.COLLECTION_ID, serializePreferences(userPreferences)) as any;
     } catch (error: any) {
       console.warn('Cannot create user preferences. Collection may not exist.', error.message);
       // Return null or defaults if collection doesn't exist
@@ -572,6 +580,7 @@ export const userPreferencesService = {
         watermarkEnabled: true,
         timestampEnabled: true,
         timestampFormat: 'short',
+        hdPreferences: {},
       };
     }
   },
@@ -584,7 +593,7 @@ export const userPreferencesService = {
         return await databaseService.updateDocument(
           this.COLLECTION_ID,
           existing.$id,
-          preferences
+          serializePreferences(preferences)
         ) as any as UserPreferences;
       } else {
         return await this.createUserPreferences(userId, preferences);
@@ -597,7 +606,30 @@ export const userPreferencesService = {
         watermarkEnabled: true,
         timestampEnabled: true,
         timestampFormat: 'short',
+        hdPreferences: {},
       };
     }
   },
 };
+
+function parseHdPreferences(raw?: string | null | undefined) {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, ResolutionPreference>;
+    }
+  } catch (error) {
+    console.warn('Failed to parse hdPreferencesRaw:', error);
+  }
+  return {};
+}
+
+function serializePreferences(preferences: Partial<UserPreferences>) {
+  const serialized = { ...preferences } as any;
+  if (preferences.hdPreferences) {
+    serialized.hdPreferencesRaw = JSON.stringify(preferences.hdPreferences);
+    delete serialized.hdPreferences;
+  }
+  return serialized;
+}

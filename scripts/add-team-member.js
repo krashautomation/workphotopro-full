@@ -9,7 +9,7 @@
  * 
  * Examples:
  *   node scripts/add-team-member.js 68f0dc7f002427e257f5 68f43803a43077657a06 member
- *   node scripts/add-team-member.js 68f0dc7f002427e257f5 68f43803a43077657a06 manager user@example.com
+ *   node scripts/add-team-member.js 68f0dc7f002427e257f5 68f43803a43077657a06 owner user@example.com
  * 
  * Environment Variables Required:
  *   - APPWRITE_ENDPOINT (defaults to EXPO_PUBLIC_APPWRITE_ENDPOINT or https://cloud.appwrite.io/v1)
@@ -62,7 +62,7 @@ async function addUserToTeam(teamId, userId, role = 'member', userEmail = null) 
   }
 
   // Validate role
-  const validRoles = ['member', 'manager', 'owner'];
+  const validRoles = ['member', 'owner'];
   const normalizedRole = role.toLowerCase();
   if (!validRoles.includes(normalizedRole)) {
     console.error(`❌ Invalid role: ${role}`);
@@ -486,7 +486,7 @@ if (args.length < 2) {
   console.error('\n   Arguments:');
   console.error('     teamId  - The ID of the team to add the user to');
   console.error('     userId  - The ID of the user to add');
-  console.error('     role    - Optional. Role: member, manager, or owner (default: member)');
+  console.error('     role    - Optional. Role: member or owner (default: member)');
   console.error('     email   - Optional. User email (will be fetched if not provided)');
   process.exit(1);
 }

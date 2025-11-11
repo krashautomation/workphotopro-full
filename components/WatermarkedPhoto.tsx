@@ -8,24 +8,37 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ViewShot from 'react-native-view-shot';
 
 interface WatermarkedPhotoProps {
-  imageUri: string;
+  image: {
+    uri: string;
+    width: number;
+    height: number;
+  };
   options: WatermarkOptions;
   onDone: (processedImageUri: string) => void;
   onCancel: () => void;
   isCapturing: boolean;
 }
 
-export function WatermarkedPhoto({ imageUri, options, onDone, onCancel, isCapturing }: WatermarkedPhotoProps) {
+export function WatermarkedPhoto({ image, options, onDone, onCancel, isCapturing }: WatermarkedPhotoProps) {
   const insets = useSafeAreaInsets();
   const viewShotRef = useRef<ViewShot>(null);
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [isImageLoaded, setIsImageLoaded] = React.useState(false);
+  const [isHiddenImageLoaded, setIsHiddenImageLoaded] = React.useState(false);
   const [dimensions, setDimensions] = React.useState({ width: 0, height: 0 });
+  const [imageSize, setImageSize] = React.useState<{ width: number; height: number } | null>(
+    image ? { width: image.width, height: image.height } : null
+  );
   const screenDimensions = Dimensions.get('window');
 
-  // Guard against undefined options
+  // Guard against undefined options or image
   if (!options) {
     console.error('❌ WatermarkedPhoto: options is undefined');
+    return null;
+  }
+
+  if (!image?.uri) {
+    console.error('❌ WatermarkedPhoto: image is undefined or missing uri');
     return null;
   }
 
@@ -35,12 +48,35 @@ export function WatermarkedPhoto({ imageUri, options, onDone, onCancel, isCaptur
     setDimensions({ width, height });
   }, []);
 
+  React.useEffect(() => {
+    setIsImageLoaded(false);
+    setIsHiddenImageLoaded(false);
+    if (image?.uri && image.width && image.height) {
+      setImageSize({ width: image.width, height: image.height });
+    } else if (image?.uri) {
+      Image.getSize(
+        image.uri,
+        (width, height) => {
+          setImageSize({ width, height });
+        },
+        (error) => {
+          console.error('❌ Failed to get image size:', error);
+          setImageSize(null);
+        }
+      );
+    } else {
+      setImageSize(null);
+    }
+  }, [image]);
+
   const handleDone = async () => {
     const viewShot = viewShotRef.current;
     
     if (!viewShot || !viewShot.capture) {
       console.error('❌ ViewShot ref not available');
-      onDone(imageUri); // Fallback to original image
+      if (image?.uri) {
+        onDone(image.uri); // Fallback to original image
+      }
       return;
     }
 
@@ -48,7 +84,7 @@ export function WatermarkedPhoto({ imageUri, options, onDone, onCancel, isCaptur
       setIsProcessing(true);
       
       // Wait for image to load if not already loaded
-      if (!isImageLoaded) {
+      if (!isImageLoaded || !isHiddenImageLoaded) {
         console.log('⏳ Waiting for image to load...');
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -56,24 +92,40 @@ export function WatermarkedPhoto({ imageUri, options, onDone, onCancel, isCaptur
       // Wait a bit for the view to be fully rendered
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      console.log('📸 Attempting to capture view...');
+      console.log('📸 Attempting to capture view with dimensions:', {
+        captureWidth,
+        captureHeight,
+        displayWidth,
+        displayHeight,
+      });
       // Capture the view with watermark and timestamp
       const fileUri = await viewShot.capture();
       
       console.log('✅ Captured watermarked image:', fileUri);
+      Image.getSize(
+        fileUri,
+        (width, height) => {
+          console.log('📸 Watermarked image size:', { width, height });
+        },
+        (error) => {
+          console.error('❌ Failed to get watermarked image size:', error);
+        }
+      );
       onDone(fileUri);
     } catch (error) {
       console.error('❌ Error capturing view:', error);
       // If ViewShot fails, just return the original image
       console.log('⚠️ Using original image without watermark');
-      onDone(imageUri);
+      if (image?.uri) {
+        onDone(image.uri);
+      }
     } finally {
       setIsProcessing(false);
     }
   };
 
   console.log('✅ WatermarkedPhoto: Rendering with options:', options);
-  console.log('✅ WatermarkedPhoto: imageUri:', imageUri ? 'exists' : 'missing');
+  console.log('✅ WatermarkedPhoto: imageUri:', image?.uri ? 'exists' : 'missing');
   console.log('🔍 Watermark enabled:', options.watermarkEnabled);
   console.log('🔍 Timestamp enabled:', options.timestampEnabled);
 
@@ -89,56 +141,64 @@ export function WatermarkedPhoto({ imageUri, options, onDone, onCancel, isCaptur
     );
   }
 
+  const captureWidth = imageSize?.width || image?.width || dimensions.width;
+  const captureHeight = imageSize?.height || image?.height || availableHeight;
+  const maxDisplayWidth = dimensions.width;
+  const maxDisplayHeight = availableHeight;
+
+  const aspectRatio = captureWidth / captureHeight || 1;
+
+  let displayWidth = maxDisplayWidth;
+  let displayHeight = displayWidth / aspectRatio;
+
+  if (displayHeight > maxDisplayHeight) {
+    displayHeight = maxDisplayHeight;
+    displayWidth = displayHeight * aspectRatio;
+  }
+
   try {
     return (
       <View style={styles.container}>
         <View style={styles.imageContainer}>
-          <ViewShot 
-            ref={viewShotRef}
-            style={{
-              width: dimensions.width,
-              height: availableHeight,
-            }}
-            options={{
-              format: 'jpg',
-              quality: 1.0,
-              result: 'tmpfile',
-            }}
-          >
-            <Image 
-              source={{ uri: imageUri }} 
-              style={{
-                width: dimensions.width,
-                height: availableHeight,
-              }} 
-              resizeMode="cover"
-              onLoad={() => {
-                console.log('✅ Image loaded successfully');
-                setIsImageLoaded(true);
-              }}
-              onError={(error) => {
-                console.error('❌ Image load error:', error);
-              }}
-            />
-            
-            {/* Watermark at the top */}
-            {options.watermarkEnabled && (
-              <View style={styles.watermarkContainer}>
-                <View style={styles.watermarkBox}>
-                  <Text style={styles.watermarkText}>Work Photo Pro</Text>
-                </View>
-              </View>
-            )}
+          <View style={styles.previewImageArea}>
+            <View
+              style={[
+                styles.previewImageWrapper,
+                { width: displayWidth, height: displayHeight },
+              ]}
+            >
+              <Image
+                source={{ uri: image?.uri }}
+                style={StyleSheet.absoluteFillObject}
+                resizeMode="cover"
+                onLoad={() => {
+                  console.log('✅ Image loaded successfully');
+                  setIsImageLoaded(true);
+                }}
+                onError={(error) => {
+                  console.error('❌ Image load error:', error);
+                }}
+              />
 
-            {/* Timestamp at the bottom - positioned above the footer area */}
-            {options.timestampEnabled && (
-              <View style={styles.timestampContainer}>
-                <Text style={styles.timestampText}>
-                  {getFormattedTimestamp(options.timestampFormat)}
-                </Text>
-              </View>
-            )}
-          </ViewShot>
+              {/* Watermark at the top */}
+              {options.watermarkEnabled && (
+                <View style={styles.watermarkContainer}>
+                  <View style={styles.watermarkBox}>
+                    <Text style={styles.watermarkText}>Work Photo Pro</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Timestamp with emulator mask */}
+              {options.timestampEnabled && (
+                <View style={styles.timestampOverlay}>
+                  <Text style={styles.timestampText}>
+                    {getFormattedTimestamp(options.timestampFormat)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
         </View>
 
         {/* Footer with controls - outside the ViewShot so it doesn't get captured */}
@@ -166,6 +226,57 @@ export function WatermarkedPhoto({ imageUri, options, onDone, onCancel, isCaptur
             <Text style={styles.buttonText}>{isProcessing ? 'Processing...' : 'Done'}</Text>
           </Pressable>
         </View>
+
+        {/* Hidden high-resolution capture view */}
+        <View style={styles.hiddenCaptureContainer} pointerEvents="none">
+          <ViewShot
+            ref={viewShotRef}
+            style={{
+              width: captureWidth,
+              height: captureHeight,
+            }}
+            options={{
+              format: 'jpg',
+              quality: 1.0,
+              result: 'tmpfile',
+              width: captureWidth,
+              height: captureHeight,
+            }}
+            collapsable={false}
+          >
+            <Image
+              source={{ uri: image?.uri }}
+              style={{
+                width: captureWidth,
+                height: captureHeight,
+              }}
+              resizeMode="cover"
+              onLoad={() => {
+                console.log('✅ Hidden capture image loaded');
+                setIsHiddenImageLoaded(true);
+              }}
+              onError={(error) => {
+                console.error('❌ Hidden capture image load error:', error);
+              }}
+            />
+
+            {options.watermarkEnabled && (
+              <View style={styles.watermarkContainer}>
+                <View style={styles.watermarkBox}>
+                  <Text style={styles.watermarkText}>Work Photo Pro</Text>
+                </View>
+              </View>
+            )}
+
+            {options.timestampEnabled && (
+              <View style={styles.timestampOverlay}>
+                <Text style={styles.timestampText}>
+                  {getFormattedTimestamp(options.timestampFormat)}
+                </Text>
+              </View>
+            )}
+          </ViewShot>
+        </View>
       </View>
     );
   } catch (error) {
@@ -187,6 +298,25 @@ const styles = StyleSheet.create({
   imageContainer: {
     flex: 1,
     position: 'relative',
+    backgroundColor: '#000',
+  },
+  previewImageArea: {
+    flex: 1,
+    width: '100%',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewImageWrapper: {
+    overflow: 'hidden',
+    borderRadius: 12,
+    backgroundColor: '#000',
+  },
+  hiddenCaptureContainer: {
+    position: 'absolute',
+    top: -10000,
+    left: -10000,
+    opacity: 0,
   },
   watermarkContainer: {
     position: 'absolute',
@@ -207,17 +337,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  timestampContainer: {
+  timestampOverlay: {
     position: 'absolute',
-    bottom: 20, // Position above the footer buttons
-    left: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)', // Semi-transparent dark background for readability
+    bottom: 16,
+    left: 16,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 0,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderRadius: 4,
   },
   timestampText: {
-    color: '#FF6B35', // Orange color
+    color: 'rgba(255, 107, 53, 0.65)', // Orange color with opacity
     fontSize: 14,
     fontWeight: '600',
     textShadowColor: '#000',
