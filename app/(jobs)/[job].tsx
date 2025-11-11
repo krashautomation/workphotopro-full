@@ -1,4 +1,5 @@
 import BottomModal from '@/components/BottomModal'
+import BottomModal2 from '@/components/BottomModal2'
 import { IconSymbol } from '@/components/IconSymbol'
 import Avatar from '@/components/Avatar'
 import ShareLocation from '@/components/share-location'
@@ -22,6 +23,7 @@ import { StatusBar } from 'expo-status-bar'
 import JobDetails from './job-details'
 import * as SecureStore from 'expo-secure-store'
 import SaveImageModal from '@/components/SaveImageModal'
+import ShareJob from './share-job'
 
 
 export default function Job() {
@@ -65,6 +67,7 @@ export default function Job() {
     const [showSaveImageModal, setShowSaveImageModal] = React.useState(false);
     const [isRefreshing, setIsRefreshing] = React.useState(false);
     const [showShareLocation, setShowShareLocation] = React.useState(false);
+    const [showShareJobModal, setShowShareJobModal] = React.useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
     const [showAttachmentMenu, setShowAttachmentMenu] = React.useState(false);
 
@@ -723,7 +726,13 @@ const getMessages = async () => {
                             >
                                 <IconSymbol name="location" color="#fff" size={20} />
                             </TouchableOpacity>
-                            <TouchableOpacity style={{ padding: 4 }}>
+                            <TouchableOpacity 
+                                style={{ padding: 4 }}
+                                onPress={() => {
+                                    console.log('🔍 Share icon clicked, opening ShareJob modal');
+                                    setShowShareJobModal(true);
+                                }}
+                            >
                                 <IconSymbol name="square.and.arrow.up" color="#fff" size={20} />
                             </TouchableOpacity>
                         </View>
@@ -1314,6 +1323,13 @@ const getMessages = async () => {
                 }}
                 onPostLocation={postLocationToChat}
             />
+            <BottomModal2
+                visible={showShareJobModal}
+                onClose={() => setShowShareJobModal(false)}
+                contentStyle={{ backgroundColor: Colors.Secondary }}
+            >
+                <ShareJob onClose={() => setShowShareJobModal(false)} />
+            </BottomModal2>
             </>
     )
 }
