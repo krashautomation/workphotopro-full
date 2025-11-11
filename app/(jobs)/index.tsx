@@ -499,9 +499,9 @@ export default function Jobs() {
                 style={styles.emptyImage}
                 resizeMode="contain"
               />
-              <Text style={styles.emptyText}>No jobs yet</Text>
+              <Text style={styles.emptyText}>No jobs in the list</Text>
               <Text style={styles.emptySubtext}>
-                Create your first job to start organizing your work photos
+                Create a new job or change your jobs filter and organize your work photos
               </Text>
               
               <TouchableOpacity style={globalStyles.button}>

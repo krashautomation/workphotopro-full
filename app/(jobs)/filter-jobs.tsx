@@ -171,9 +171,14 @@ export default function FilterJobs() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Filter by Job Status</Text>
-            <Pressable onPress={handleClearAll} hitSlop={8}>
-              <Text style={styles.clearText}>Clear</Text>
-            </Pressable>
+            <View style={styles.sectionActions}>
+              <Pressable onPress={handleClearAll} hitSlop={8} style={styles.clearButton}>
+                <Text style={styles.clearText}>Clear</Text>
+              </Pressable>
+              <Pressable onPress={handleClose} hitSlop={8} style={styles.closeButton}>
+                <IconSymbol name="xmark.circle.fill" color={Colors.Gray} size={24} />
+              </Pressable>
+            </View>
           </View>
           <View style={styles.card}>
             {STATUS_OPTIONS.map((option, index) => {
@@ -324,12 +329,13 @@ const styles = StyleSheet.create({
   topBar: {
     alignItems: 'center',
     marginBottom: 10,
+    paddingTop: 0,
   },
   topBorder: {
     width: '100%',
     height: StyleSheet.hairlineWidth,
     backgroundColor: Colors.Gray,
-    marginBottom: 2
+    marginBottom: 2,
   },
   handle: {
     width: 80,
@@ -337,6 +343,17 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: Colors.Gray,
     marginTop: 1,
+  },
+  sectionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  clearButton: {
+    marginRight: 8,
+  },
+  closeButton: {
+    padding: 4,
+    marginLeft: 8,
   },
   scrollContent: {
     paddingBottom: 40,
