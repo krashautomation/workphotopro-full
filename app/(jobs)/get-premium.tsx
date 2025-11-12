@@ -160,6 +160,11 @@ export default function GetPremium() {
         <Text style={styles.subtitle}>
           Get access to all advanced features to supercharge your productivity and manage your work photos with ease.
         </Text>
+        <View style={styles.featureList}>
+          <Text style={styles.featureItem}>- High res images</Text>
+          <Text style={styles.featureItem}>- Disable watermarks</Text>
+          <Text style={styles.featureItem}>- Integrations:</Text>
+        </View>
       </LinearGradient>
 
       {/* Tabs */}
@@ -254,6 +259,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     opacity: 0.9,
     lineHeight: 22,
+  },
+  featureList: {
+    marginTop: 16,
+  },
+  featureItem: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.95,
+    lineHeight: 20,
   },
   tabContainer: {
     flexDirection: 'row',
