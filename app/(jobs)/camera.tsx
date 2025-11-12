@@ -13,13 +13,14 @@ import { useAuth } from '@/context/AuthContext'
 import { userPreferencesService } from '@/lib/appwrite/database'
 import { organizationService } from '@/lib/appwrite/teams'
 import { useOrganization } from '@/context/OrganizationContext'
-import { ResolutionPreference } from '@/utils/types'
+import { ResolutionPreference, TimestampPreference, JobChat, Organization } from '@/utils/types'
 import * as ImageManipulator from 'expo-image-manipulator'
+import { appwriteConfig, db } from '@/utils/appwrite'
 
 export default function CameraPage() {
     const { jobId } = useLocalSearchParams()
     const { user } = useAuth()
-    const { currentOrganization, isHDCaptureEnabled } = useOrganization()
+    const { currentOrganization, isHDCaptureEnabled, loadUserData } = useOrganization()
     const [facing, setFacing] = React.useState<CameraType>('back')
     const [permission, requestPermission] = useCameraPermissions()
     const [isCapturing, setIsCapturing] = React.useState(false)
@@ -32,12 +33,74 @@ export default function CameraPage() {
     const [capturedPhoto, setCapturedPhoto] = React.useState<CapturedImage | null>(null)
     const [watermarkOptions, setWatermarkOptions] = React.useState<WatermarkOptions>(getDefaultWatermarkPreferences())
     const [hdPreferences, setHdPreferences] = React.useState<Record<string, ResolutionPreference>>({})
+    const [timestampPreferences, setTimestampPreferences] = React.useState<Record<string, TimestampPreference>>({})
     const [orgCapturePreference, setOrgCapturePreference] = React.useState<ResolutionPreference>('standard')
+    const [orgTimestampEnabled, setOrgTimestampEnabled] = React.useState<boolean>(true)
+    const [jobOrganization, setJobOrganization] = React.useState<Organization | null>(null)
     const cameraRef = React.useRef<any>(null)
     const insets = useSafeAreaInsets()
     const router = useRouter()
+    const activeOrganization = React.useMemo(
+        () => jobOrganization ?? currentOrganization,
+        [jobOrganization, currentOrganization]
+    )
 
-    // Load user preferences on mount
+    React.useEffect(() => {
+        let isMounted = true
+
+        const resolveJobOrganization = async () => {
+            if (!jobId || typeof jobId !== 'string') {
+                if (isMounted) {
+                    setJobOrganization(null)
+                }
+                return
+            }
+
+            try {
+                const jobDoc = await db.getDocument<JobChat>(
+                    appwriteConfig.db,
+                    appwriteConfig.col.jobchat,
+                    jobId as string
+                )
+
+                if (!isMounted) {
+                    return
+                }
+
+                const jobOrgId = jobDoc?.orgId
+
+                if (!jobOrgId) {
+                    setJobOrganization(null)
+                    return
+                }
+
+                if (currentOrganization?.$id === jobOrgId) {
+                    setJobOrganization(currentOrganization)
+                    return
+                }
+
+                try {
+                    const organization = await organizationService.getOrganization(jobOrgId)
+                    if (!isMounted) {
+                        return
+                    }
+                    setJobOrganization(organization)
+                } catch (orgError) {
+                    console.warn('Failed to load job organization:', orgError)
+                }
+            } catch (error) {
+                console.error('Error resolving job organization:', error)
+            }
+        }
+
+        resolveJobOrganization()
+
+        return () => {
+            isMounted = false
+        }
+    }, [jobId, currentOrganization])
+
+    // Load user preferences on mount and when active organization changes
     React.useEffect(() => {
         const loadPreferences = async () => {
             if (user?.$id) {
@@ -51,14 +114,39 @@ export default function CameraPage() {
                         }
                         setWatermarkOptions(nextWatermarkOptions)
                         const nextHdPreferences = prefs.hdPreferences || {}
+                        const nextTimestampPreferences = prefs.timestampPreferences || {}
                         setHdPreferences(nextHdPreferences)
-                        const orgId = currentOrganization?.$id
-                        const orgHdEnabled = currentOrganization?.hdCaptureEnabled ?? isHDCaptureEnabled
+                        setTimestampPreferences(nextTimestampPreferences)
+                        const orgId = activeOrganization?.$id
+                        const orgHdEnabled =
+                            activeOrganization?.hdCaptureEnabled ?? isHDCaptureEnabled
                         if (orgId) {
                             const orgPref = nextHdPreferences[orgId]
                             setOrgCapturePreference(orgPref ?? (orgHdEnabled ? 'hd' : 'standard'))
+
+                            const orgTimestampPref = nextTimestampPreferences[orgId]
+                            const baseTimestampEnabled =
+                                activeOrganization?.timestampEnabled ?? prefs.timestampEnabled ?? true
+                            const derivedTimestampEnabled =
+                                orgTimestampPref === 'off'
+                                    ? false
+                                    : orgTimestampPref === 'on'
+                                    ? true
+                                    : baseTimestampEnabled
+
+                            setOrgTimestampEnabled(baseTimestampEnabled)
+                            setWatermarkOptions(prev => ({
+                                ...prev,
+                                timestampEnabled: derivedTimestampEnabled,
+                            }))
                         } else {
                             setOrgCapturePreference(orgHdEnabled ? 'hd' : 'standard')
+                            const timestampsEnabled = prefs.timestampEnabled ?? true
+                            setOrgTimestampEnabled(timestampsEnabled)
+                            setWatermarkOptions(prev => ({
+                                ...prev,
+                                timestampEnabled: timestampsEnabled,
+                            }))
                         }
                     }
                 } catch (error) {
@@ -67,7 +155,7 @@ export default function CameraPage() {
             }
         }
         loadPreferences()
-    }, [user])
+    }, [user, activeOrganization, isHDCaptureEnabled])
 
     const toggleCameraFacing = () => {
         setFacing(current => (current === 'back' ? 'front' : 'back'))
@@ -193,7 +281,7 @@ export default function CameraPage() {
     )
 
     const loadLatestPreferences = React.useCallback(
-        async (orgHdEnabledOverride?: boolean) => {
+        async (orgHdEnabledOverride?: boolean, orgTimestampEnabledOverride?: boolean) => {
             if (!user?.$id) return null
 
             try {
@@ -206,30 +294,51 @@ export default function CameraPage() {
                     }
                     setWatermarkOptions(nextWatermarkOptions)
                     const nextHdPreferences = prefs.hdPreferences || {}
+                    const nextTimestampPreferences = prefs.timestampPreferences || {}
                     setHdPreferences(nextHdPreferences)
+                    setTimestampPreferences(nextTimestampPreferences)
 
-                    const orgId = currentOrganization?.$id
+                    const orgId = activeOrganization?.$id
                     const hdEnabled =
                         orgHdEnabledOverride ??
-                        currentOrganization?.hdCaptureEnabled ??
+                        activeOrganization?.hdCaptureEnabled ??
                         isHDCaptureEnabled
+                    const timestampEnabledOverride =
+                        orgTimestampEnabledOverride ??
+                        activeOrganization?.timestampEnabled ??
+                        prefs.timestampEnabled ??
+                        true
 
                     let derivedPreference: ResolutionPreference = hdEnabled ? 'hd' : 'standard'
+                    let derivedTimestampEnabled = timestampEnabledOverride
 
                     if (orgId) {
                         const orgPref = nextHdPreferences[orgId]
                         if (orgPref) {
                             derivedPreference = orgPref
                         }
+                        const orgTimestampPref = nextTimestampPreferences[orgId]
+                        if (orgTimestampPref === 'off') {
+                            derivedTimestampEnabled = false
+                        } else if (orgTimestampPref === 'on') {
+                            derivedTimestampEnabled = true
+                        }
                     }
 
                     if (orgCapturePreference !== derivedPreference) {
                         setOrgCapturePreference(derivedPreference)
                     }
+                    setOrgTimestampEnabled(timestampEnabledOverride)
+                    setWatermarkOptions(prev => ({
+                        ...prev,
+                        timestampEnabled: derivedTimestampEnabled,
+                    }))
 
                     return {
                         hdPreferences: nextHdPreferences,
+                        timestampPreferences: nextTimestampPreferences,
                         capturePreference: derivedPreference,
+                        timestampEnabled: derivedTimestampEnabled,
                     }
                 }
             } catch (error) {
@@ -239,44 +348,109 @@ export default function CameraPage() {
         },
         [
             user?.$id,
-            currentOrganization?.$id,
-            currentOrganization?.hdCaptureEnabled,
+            activeOrganization?.$id,
+            activeOrganization?.hdCaptureEnabled,
+            activeOrganization?.timestampEnabled,
             isHDCaptureEnabled,
             orgCapturePreference,
+            orgTimestampEnabled,
         ]
     )
+
+    React.useEffect(() => {
+        const orgId = activeOrganization?.$id
+
+        if (!orgId) {
+            setOrgTimestampEnabled(true)
+            setWatermarkOptions(prev =>
+                prev.timestampEnabled === true ? prev : { ...prev, timestampEnabled: true }
+            )
+            return
+        }
+
+        const baseTimestampEnabled = activeOrganization?.timestampEnabled ?? true
+        setOrgTimestampEnabled(baseTimestampEnabled)
+
+        const memberPref = timestampPreferences[orgId]
+        let derived = baseTimestampEnabled
+        if (memberPref === 'off') {
+            derived = false
+        } else if (memberPref === 'on') {
+            derived = true
+        }
+
+        setWatermarkOptions(prev =>
+            prev.timestampEnabled === derived ? prev : { ...prev, timestampEnabled: derived }
+        )
+    }, [
+        activeOrganization?.$id,
+        activeOrganization?.timestampEnabled,
+        timestampPreferences,
+        orgTimestampEnabled,
+        watermarkOptions.timestampEnabled,
+    ])
 
     const takePicture = async () => {
         if (cameraRef.current && !isCapturing) {
             try {
                 setIsCapturing(true)
-                const orgId = currentOrganization?.$id
-                let organizationHdEnabled = isHDCaptureEnabled
+                const orgId = activeOrganization?.$id
+                let organizationHdEnabled =
+                    activeOrganization?.hdCaptureEnabled ?? isHDCaptureEnabled
+                let latestOrg: any = null
+
+                try {
+                    await loadUserData()
+                } catch (refreshError) {
+                    console.warn('Failed to refresh organization context before capture:', refreshError)
+                }
 
                 if (orgId) {
                     try {
-                        const latestOrg = await organizationService.getOrganization(orgId)
+                        latestOrg = await organizationService.getOrganization(orgId)
                         if (latestOrg) {
                             organizationHdEnabled = !!latestOrg.hdCaptureEnabled
+                            setJobOrganization(latestOrg)
                         }
                     } catch (orgError) {
                         console.warn('Failed to fetch latest organization data:', orgError)
                     }
                 }
 
-                const refreshedPrefs = await loadLatestPreferences(organizationHdEnabled)
+                let organizationTimestampEnabled =
+                    latestOrg?.timestampEnabled ?? activeOrganization?.timestampEnabled ?? true
+
+                const refreshedPrefs = await loadLatestPreferences(
+                    organizationHdEnabled,
+                    organizationTimestampEnabled
+                )
                 const effectiveHdPreferences = refreshedPrefs?.hdPreferences || hdPreferences
+                const effectiveTimestampPreferences =
+                    refreshedPrefs?.timestampPreferences || timestampPreferences
 
                 let captureMode: ResolutionPreference =
                     refreshedPrefs?.capturePreference ??
                     (organizationHdEnabled ? 'hd' : 'standard')
+                let effectiveTimestampEnabled =
+                    refreshedPrefs?.timestampEnabled ?? organizationTimestampEnabled
 
                 if (orgId) {
                     const latestPreference = effectiveHdPreferences[orgId]
                     if (latestPreference) {
                         captureMode = latestPreference
                     }
+                    const latestTimestampPref = effectiveTimestampPreferences[orgId]
+                    if (latestTimestampPref === 'off') {
+                        effectiveTimestampEnabled = false
+                    } else if (latestTimestampPref === 'on') {
+                        effectiveTimestampEnabled = true
+                    }
                 }
+
+                setWatermarkOptions(prev => ({
+                    ...prev,
+                    timestampEnabled: effectiveTimestampEnabled,
+                }))
 
                 const photo = await cameraRef.current.takePictureAsync({
                     quality: captureMode === 'hd' ? 1 : 0.7,
@@ -568,3 +742,4 @@ const styles = StyleSheet.create({
         height: '100%',
     },
 })
+

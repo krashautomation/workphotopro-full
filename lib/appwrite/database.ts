@@ -1,6 +1,6 @@
 import { databases } from './client';
 import { ID, Query } from 'react-native-appwrite';
-import { TagTemplate, JobTagAssignment, JobChatWithTags, UserPreferences, ResolutionPreference } from '@/utils/types';
+import { TagTemplate, JobTagAssignment, JobChatWithTags, UserPreferences, ResolutionPreference, TimestampPreference } from '@/utils/types';
 
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID || '';
 
@@ -529,9 +529,11 @@ export const userPreferencesService = {
       if (result.documents.length > 0) {
         const prefs = result.documents[0] as any as UserPreferences;
         const hdPreferences = parseHdPreferences(prefs.hdPreferencesRaw);
+        const timestampPreferences = parseTimestampPreferences((prefs as any).timestampPreferences);
         return {
           ...prefs,
           hdPreferences,
+          timestampPreferences,
         };
       }
 
@@ -542,6 +544,7 @@ export const userPreferencesService = {
         timestampEnabled: true,
         timestampFormat: 'short',
         hdPreferences: {},
+        timestampPreferences: {},
       };
     } catch (error: any) {
       console.warn('Collection not found or not accessible. Returning default preferences.', error.message);
@@ -552,6 +555,7 @@ export const userPreferencesService = {
         timestampEnabled: true,
         timestampFormat: 'short',
         hdPreferences: {},
+        timestampPreferences: {},
       };
     }
   },
@@ -564,6 +568,7 @@ export const userPreferencesService = {
         timestampEnabled: true,
         timestampFormat: 'short',
         hdPreferencesRaw: '{}',
+        timestampPreferences: {},
       };
 
       const userPreferences = {
@@ -581,6 +586,7 @@ export const userPreferencesService = {
         timestampEnabled: true,
         timestampFormat: 'short',
         hdPreferences: {},
+        timestampPreferences: {},
       };
     }
   },
@@ -607,20 +613,48 @@ export const userPreferencesService = {
         timestampEnabled: true,
         timestampFormat: 'short',
         hdPreferences: {},
+        timestampPreferences: {},
       };
     }
   },
 };
 
-function parseHdPreferences(raw?: string | null | undefined) {
+function parseHdPreferences(raw?: string | Record<string, ResolutionPreference> | null | undefined) {
   if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as Record<string, ResolutionPreference>;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, ResolutionPreference>;
+      }
+    } catch (error) {
+      console.warn('Failed to parse hdPreferencesRaw:', error);
     }
-  } catch (error) {
-    console.warn('Failed to parse hdPreferencesRaw:', error);
+    return {};
+  }
+  if (typeof raw === 'object' && !Array.isArray(raw)) {
+    return raw as Record<string, ResolutionPreference>;
+  }
+  return {};
+}
+
+function parseTimestampPreferences(
+  raw?: string | Record<string, TimestampPreference> | null | undefined
+) {
+  if (!raw) return {};
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, TimestampPreference>;
+      }
+    } catch (error) {
+      console.warn('Failed to parse timestampPreferences:', error);
+    }
+    return {};
+  }
+  if (typeof raw === 'object' && !Array.isArray(raw)) {
+    return raw as Record<string, TimestampPreference>;
   }
   return {};
 }
@@ -630,6 +664,9 @@ function serializePreferences(preferences: Partial<UserPreferences>) {
   if (preferences.hdPreferences) {
     serialized.hdPreferencesRaw = JSON.stringify(preferences.hdPreferences);
     delete serialized.hdPreferences;
+  }
+  if (preferences.timestampPreferences) {
+    serialized.timestampPreferences = JSON.stringify(preferences.timestampPreferences);
   }
   return serialized;
 }

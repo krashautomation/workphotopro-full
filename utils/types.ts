@@ -9,6 +9,7 @@ interface User {
 }
 
 export type ResolutionPreference = 'standard' | 'hd';
+export type TimestampPreference = 'on' | 'off';
 
 // User preferences for watermark and timestamp
 export interface UserPreferences {
@@ -19,6 +20,7 @@ export interface UserPreferences {
   timestampFormat?: 'short' | 'long';
   hdPreferences?: Record<string, ResolutionPreference>;
   hdPreferencesRaw?: string;
+  timestampPreferences?: Record<string, TimestampPreference>;
   $createdAt?: string;
   $updatedAt?: string;
 }
@@ -33,6 +35,7 @@ export interface Organization {
   settings?: string; // JSON string for organization settings
   premiumTier?: string;
   hdCaptureEnabled?: boolean;
+  timestampEnabled?: boolean;
   $createdAt: string;
   $updatedAt: string;
   $permissions: string[];

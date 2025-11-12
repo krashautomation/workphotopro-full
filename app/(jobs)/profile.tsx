@@ -10,7 +10,7 @@ import { Colors } from '@/utils/colors';
 import { IconSymbol } from '@/components/IconSymbol';
 import TagTestComponent from '@/components/TagTestComponent';
 import { userPreferencesService } from '@/lib/appwrite/database';
-import { ResolutionPreference } from '@/utils/types';
+import { ResolutionPreference, TimestampPreference } from '@/utils/types';
 import { organizationService } from '@/lib/appwrite/teams';
 
 export default function ProfileScreen() {
@@ -33,9 +33,12 @@ export default function ProfileScreen() {
   const [fullHDImages, setFullHDImages] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [hdPreferences, setHdPreferences] = useState<Record<string, ResolutionPreference>>({});
+  const [timestampPreferences, setTimestampPreferences] = useState<Record<string, TimestampPreference>>({});
   const [loadingPreferences, setLoadingPreferences] = useState(false);
   const [savingHdPreference, setSavingHdPreference] = useState(false);
   const [updatingOrgHd, setUpdatingOrgHd] = useState(false);
+  const [savingTimestampPreference, setSavingTimestampPreference] = useState(false);
+  const [updatingOrgTimestamp, setUpdatingOrgTimestamp] = useState(false);
   
   const ownedOrganizations = React.useMemo(
     () => userOrganizations.filter(org => org.ownerId === user?.$id),
@@ -74,8 +77,17 @@ export default function ProfileScreen() {
     loadingPreferences ||
     savingHdPreference ||
     updatingOrgHd ||
-    (!hasPremium && !orgHdEnabled) ||
+    !hasPremium ||
     (!canManageOrgHd && !orgHdEnabled);
+  const orgTimestampEnabled = profileOrganization?.timestampEnabled ?? true;
+  const timestampSwitchDisabled =
+    !profileOrganization ||
+    !profileTeam ||
+    loadingPreferences ||
+    savingTimestampPreference ||
+    updatingOrgTimestamp ||
+    !hasPremium ||
+    (!canManageOrgHd && !orgTimestampEnabled);
   
   // Test component state
   const [showTagTest, setShowTagTest] = useState(false);
@@ -89,6 +101,8 @@ useEffect(() => {
     if (!user?.$id) {
       setHdPreferences({});
       setFullHDImages(false);
+    setTimestampPreferences({});
+    setImageTimestamps(true);
       return;
     }
     setLoadingPreferences(true);
@@ -96,13 +110,18 @@ useEffect(() => {
       const prefs = await userPreferencesService.getUserPreferences(user.$id);
       if (!prefs) {
         setHdPreferences({});
+        setTimestampPreferences({});
         setFullHDImages(false);
+        setImageTimestamps(true);
         return;
       }
       const hdPrefs = prefs.hdPreferences || {};
+      const timestampPrefs = prefs.timestampPreferences || {};
       setHdPreferences(hdPrefs);
+      setTimestampPreferences(timestampPrefs);
     } catch (error) {
       console.error('Error loading user preferences:', error);
+      setTimestampPreferences({});
     } finally {
       setLoadingPreferences(false);
     }
@@ -112,22 +131,43 @@ useEffect(() => {
 }, [user?.$id]);
 
 useEffect(() => {
+  if (updatingOrgHd || savingHdPreference || updatingOrgTimestamp || savingTimestampPreference) {
+    return;
+  }
+
   if (!profileOrganization?.$id) {
     setFullHDImages(false);
+    setImageTimestamps(true);
     return;
   }
 
   const orgPreference = hdPreferences[profileOrganization.$id];
-  const prefersHd = orgPreference === 'hd';
+  const prefersHd = orgPreference
+    ? orgPreference === 'hd'
+    : (profileOrganization.hdCaptureEnabled ?? orgHdEnabled);
 
-  if (!orgHdEnabled) {
-    if (!updatingOrgHd) {
-      setFullHDImages(false);
-    }
-  } else {
-    setFullHDImages(prefersHd);
-  }
-}, [profileOrganization?.$id, hdPreferences, orgHdEnabled, updatingOrgHd]);
+  setFullHDImages(orgHdEnabled && prefersHd);
+
+  const orgPref = timestampPreferences[profileOrganization.$id];
+  const derivedTimestamp = hasPremium
+    ? orgPref
+      ? orgPref === 'on'
+      : (profileOrganization.timestampEnabled ?? orgTimestampEnabled)
+    : orgTimestampEnabled;
+
+  setImageTimestamps(derivedTimestamp);
+}, [
+  profileOrganization?.$id,
+  hdPreferences,
+  orgHdEnabled,
+  timestampPreferences,
+  orgTimestampEnabled,
+  hasPremium,
+  updatingOrgHd,
+  savingHdPreference,
+  updatingOrgTimestamp,
+  savingTimestampPreference,
+]);
 
   // Refresh data when screen comes into focus (e.g., returning from edit account)
   useFocusEffect(
@@ -232,6 +272,102 @@ useEffect(() => {
     } finally {
       setSavingHdPreference(false);
       setUpdatingOrgHd(false);
+    }
+  };
+
+  const handleTimestampToggle = async (value: boolean) => {
+    if (!user?.$id || !profileOrganization?.$id) {
+      Alert.alert('Error', 'Unable to change timestamp setting. Please try again later.');
+      return;
+    }
+
+    const orgId = profileOrganization.$id;
+    const hadOverride = Object.prototype.hasOwnProperty.call(timestampPreferences, orgId);
+    const previousOrgTimestamp = orgTimestampEnabled;
+    const previousPreference: TimestampPreference = hadOverride
+      ? timestampPreferences[orgId]
+      : previousOrgTimestamp
+      ? 'on'
+      : 'off';
+
+    const revertValue = hasPremium ? previousPreference !== 'off' : orgTimestampEnabled;
+
+    const revertState = () => {
+      setImageTimestamps(revertValue);
+      setTimestampPreferences(prev => {
+        const next = { ...prev };
+        if (hadOverride) {
+          if (hasPremium) {
+            next[orgId] = previousPreference;
+          } else {
+            delete next[orgId];
+          }
+        }
+        return next;
+      });
+    };
+
+    if (!hasPremium) {
+      Alert.alert('Premium Required', 'Upgrade to enable timestamp overlays for this organization.');
+      revertState();
+      return;
+    }
+
+    if (value && !previousOrgTimestamp && !canManageOrgHd) {
+      Alert.alert(
+        'Owner Required',
+        'Ask an organization owner to enable timestamps for this team.'
+      );
+      revertState();
+      return;
+    }
+
+    const nextPreferences: Record<string, TimestampPreference> = (() => {
+      if (!hasPremium) {
+        return { ...timestampPreferences };
+      }
+      if (value) {
+        return {
+          ...timestampPreferences,
+          [orgId]: 'on',
+        };
+      } else {
+        const next = { ...timestampPreferences };
+        if (hadOverride) {
+          delete next[orgId];
+        } else {
+          next[orgId] = 'off';
+        }
+        return next;
+      }
+    })();
+
+    setImageTimestamps(value);
+    setTimestampPreferences(nextPreferences);
+
+    try {
+      if (value && !previousOrgTimestamp && canManageOrgHd) {
+        setUpdatingOrgTimestamp(true);
+        await organizationService.updateOrganization(orgId, { timestampEnabled: true });
+        await loadUserData();
+      } else if (!value && previousOrgTimestamp && canManageOrgHd) {
+        setUpdatingOrgTimestamp(true);
+        await organizationService.updateOrganization(orgId, { timestampEnabled: false });
+        await loadUserData();
+      }
+
+      setSavingTimestampPreference(true);
+      await userPreferencesService.updateUserPreferences(user.$id, {
+        timestampPreferences: nextPreferences,
+      });
+    } catch (error) {
+      console.error('Error updating timestamp preference:', error);
+      Alert.alert('Error', 'Failed to update timestamp setting. Please try again.');
+      revertState();
+      await loadUserData().catch(() => {});
+    } finally {
+      setSavingTimestampPreference(false);
+      setUpdatingOrgTimestamp(false);
     }
   };
 
@@ -354,7 +490,7 @@ useEffect(() => {
 
         {/* Organization Section */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Organization</Text>
+          <Text style={styles.sectionTitle}>Your Organization</Text>
           <Pressable onPress={() => {
             console.log('Edit organization button pressed');
             console.log('Profile organization before navigation:', profileOrganization);
@@ -383,22 +519,41 @@ useEffect(() => {
         {/* Settings Section */}
         <View style={styles.settingsSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Settings</Text>
+            <Text style={styles.sectionTitle}>Your Organization Settings</Text>
           </View>
           
           <View style={styles.settingsCard}>
-            <Pressable style={styles.settingItem}>
+            <Pressable
+              style={styles.settingItem}
+              disabled={hasPremium}
+              onPress={() => {
+                if (!hasPremium) {
+                  Alert.alert('Premium Required', 'Upgrade to enable timestamp overlays for this organization.');
+                }
+              }}
+            >
               <View style={styles.settingLeft}>
                 <IconSymbol name="clock.badge.checkmark" color="#22C55E" size={20} />
                 <Text style={styles.settingText}>Image timestamps</Text>
               </View>
               <Switch
                 value={imageTimestamps}
-                onValueChange={setImageTimestamps}
+                onValueChange={handleTimestampToggle}
                 trackColor={{ false: Colors.Gray, true: "#22C55E" }}
                 thumbColor={Colors.White}
+                disabled={timestampSwitchDisabled}
               />
             </Pressable>
+            {!hasPremium && (
+              <Text style={styles.disabledHint}>
+                Upgrade this organization to enable timestamp overlays for all members.
+              </Text>
+            )}
+            {hasPremium && !orgTimestampEnabled && !canManageOrgHd && (
+              <Text style={styles.disabledHint}>
+                Only owners can enable timestamps for this organization.
+              </Text>
+            )}
             
             <Pressable style={styles.settingItem}>
               <View style={styles.settingLeft}>
@@ -415,23 +570,11 @@ useEffect(() => {
             
             <Pressable
               style={styles.settingItem}
+              disabled={hasPremium}
               onPress={() => {
-                if (!profileOrganization || !profileTeam) {
-                  Alert.alert('Unavailable', 'Full HD settings are only available for your own organization.');
-                  return;
-                }
-                if (!hasPremium && !orgHdEnabled) {
+                if (!hasPremium) {
                   Alert.alert('Premium Required', 'Upgrade to enable Full HD images for this organization.');
-                  return;
                 }
-                if (!canManageOrgHd && !orgHdEnabled) {
-                  Alert.alert('Owner Required', 'Ask an organization owner to enable HD captures for this team.');
-                  return;
-                }
-                if (loadingPreferences || savingHdPreference || updatingOrgHd) {
-                  return;
-                }
-                handleHdToggle(!fullHDImages);
               }}
             >
               <View style={styles.settingLeft}>

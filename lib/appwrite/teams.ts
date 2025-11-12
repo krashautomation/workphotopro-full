@@ -145,9 +145,9 @@ export const teamService = {
       // Try to get from Appwrite first
       const appwriteTeam = await teams.get(teamId);
       
-      // Get our custom team data
+      // Get our custom team data (prefer lookup by Appwrite team ID)
       const teamData = await databaseService.listDocuments('teams', [
-        Query.equal('teamName', appwriteTeam.name)
+        Query.equal('appwriteTeamId', appwriteTeam.$id)
       ]);
 
       return {
@@ -224,9 +224,14 @@ export const teamService = {
         appwriteTeams.teams.map(async (team) => {
           try {
             // Get team data from our database
-            const teamData = await databaseService.listDocuments('teams', [
-              Query.equal('teamName', team.name)
+            let teamData = await databaseService.listDocuments('teams', [
+              Query.equal('appwriteTeamId', team.$id)
             ]);
+            if (!teamData.documents || teamData.documents.length === 0) {
+              teamData = await databaseService.listDocuments('teams', [
+                Query.equal('teamName', team.name)
+              ]);
+            }
             
             // Only return teams that exist in our database
             if (!teamData.documents || teamData.documents.length === 0) {
@@ -346,9 +351,15 @@ export const teamService = {
       const appwriteTeam = await teams.updateName(teamId, name);
       
       // Update our custom team data
-      const teamData = await databaseService.listDocuments('teams', [
-        Query.equal('teamName', name) // Find by current name first
+      let teamData = await databaseService.listDocuments('teams', [
+        Query.equal('appwriteTeamId', teamId)
       ]);
+
+      if (!teamData.documents || teamData.documents.length === 0) {
+        teamData = await databaseService.listDocuments('teams', [
+          Query.equal('teamName', name)
+        ]);
+      }
 
       if (teamData.documents.length > 0) {
         const updateData: any = { teamName: name };
@@ -384,9 +395,14 @@ export const teamService = {
       
       // Find the team in our database by matching the current Appwrite team name
       // We need to find it by name before updating, because we need the database document ID
-      const teamDataQuery = await databaseService.listDocuments('teams', [
-        Query.equal('teamName', appwriteTeam.name)
+      let teamDataQuery = await databaseService.listDocuments('teams', [
+        Query.equal('appwriteTeamId', teamId)
       ]);
+      if (!teamDataQuery.documents || teamDataQuery.documents.length === 0) {
+        teamDataQuery = await databaseService.listDocuments('teams', [
+          Query.equal('teamName', appwriteTeam.name)
+        ]);
+      }
       
       if (!teamDataQuery.documents || teamDataQuery.documents.length === 0) {
         throw new Error('Team data not found in database');

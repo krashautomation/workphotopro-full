@@ -9,6 +9,7 @@ const applyOrgDefaults = (org: Organization): Organization => ({
   ...org,
   premiumTier: org.premiumTier || 'free',
   hdCaptureEnabled: org.hdCaptureEnabled ?? false,
+  timestampEnabled: org.timestampEnabled ?? true,
 });
 
 export function OrganizationProvider({ children }: { children: ReactNode }) {
@@ -162,7 +163,6 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         if (!user?.$id) {
           throw new Error('User not authenticated');
         }
-        const orgsResponse = await organizationService.listUserOrganizations(user.$id);
         const teamsResponse = await teamService.listTeams(user.$id);
         const teams = teamsResponse.teams;
         setUserTeams(teams);
@@ -174,7 +174,27 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      setCurrentTeam(team);
+      // Fetch detailed team info (ensures teamData with orgId)
+      const detailedTeam = await teamService.getTeam(team.$id);
+      const mergedTeam = {
+        ...detailedTeam,
+        membershipRole: (team as any).membershipRole ?? (detailedTeam as any).membershipRole ?? null,
+      } as unknown as Team;
+      setCurrentTeam(mergedTeam);
+
+      let orgId = detailedTeam.teamData?.orgId;
+
+      if (!orgId) {
+        console.warn('Unable to determine organization for team:', detailedTeam.$id);
+        return;
+      }
+
+      try {
+        const org = applyOrgDefaults(await organizationService.getOrganization(orgId));
+        setCurrentOrganization(org);
+      } catch (error) {
+        console.error('Error loading organization for team:', error);
+      }
     } catch (error) {
       console.error('Error switching team:', error);
       throw error;
