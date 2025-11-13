@@ -32,6 +32,7 @@ export default function ProfileScreen() {
   const [storeImagesLocally, setStoreImagesLocally] = useState(false);
   const [fullHDImages, setFullHDImages] = useState(false);
   const [notifications, setNotifications] = useState(true);
+  const [imageWatermark, setImageWatermark] = useState(true);
   const [hdPreferences, setHdPreferences] = useState<Record<string, ResolutionPreference>>({});
   const [timestampPreferences, setTimestampPreferences] = useState<Record<string, TimestampPreference>>({});
   const [loadingPreferences, setLoadingPreferences] = useState(false);
@@ -554,6 +555,19 @@ useEffect(() => {
                 Only owners can enable timestamps for this organization.
               </Text>
             )}
+            
+            <Pressable style={styles.settingItem}>
+              <View style={styles.settingLeft}>
+                <IconSymbol name="photo" color="#22C55E" size={20} />
+                <Text style={styles.settingText}>Image watermark</Text>
+              </View>
+              <Switch
+                value={imageWatermark}
+                onValueChange={setImageWatermark}
+                trackColor={{ false: Colors.Gray, true: "#22C55E" }}
+                thumbColor={Colors.White}
+              />
+            </Pressable>
             
             <Pressable style={styles.settingItem}>
               <View style={styles.settingLeft}>
