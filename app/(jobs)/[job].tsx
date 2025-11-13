@@ -21,6 +21,7 @@ import ImageViewing from 'react-native-image-viewing'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import JobDetails from './job-details'
+import JobPhotos from './job-photos'
 import * as SecureStore from 'expo-secure-store'
 import SaveImageModal from '@/components/SaveImageModal'
 import ShareJob from './share-job'
@@ -50,7 +51,7 @@ export default function Job() {
 
     const [messageContent, setMessageContent] = React.useState('');
     const [jobChat, setJobChat] = React.useState<JobChat | null>(null);
-    const [activeTab, setActiveTab] = React.useState<'chat' | 'details'>('chat');
+    const [activeTab, setActiveTab] = React.useState<'chat' | 'details' | 'photos'>('chat');
 
     const [messages, setMessages] = React.useState<Message[]>([]);
     const [isLoading, setIsLoading] = React.useState(false);
@@ -793,6 +794,26 @@ const getMessages = async () => {
                             Job Details
                         </Text>
                     </Pressable>
+
+                    {/* Photos Tab */}
+                    <Pressable
+                        style={{
+                            flex: 1,
+                            paddingVertical: 16,
+                            alignItems: 'center',
+                            borderBottomWidth: 3,
+                            borderBottomColor: activeTab === 'photos' ? Colors.Success : 'transparent',
+                        }}
+                        onPress={() => setActiveTab('photos')}
+                    >
+                        <Text style={{
+                            color: activeTab === 'photos' ? Colors.Success : Colors.Gray,
+                            fontSize: 16,
+                            fontWeight: activeTab === 'photos' ? '600' : '400',
+                        }}>
+                            Photos
+                        </Text>
+                    </Pressable>
                 </View>
 
                 {/* Tab Content */}
@@ -1203,12 +1224,20 @@ const getMessages = async () => {
                             </View>
                         </View>
                     </KeyboardAvoidingView>
-                ) : (
+                ) : activeTab === 'details' ? (
                     <JobDetails 
                         jobId={jobId as string}
                         jobChat={jobChat}
                         onJobDeleted={handleJobDeleted}
                         onStatusUpdate={updateJobStatus}
+                    />
+                ) : (
+                    <JobPhotos
+                        messages={messages}
+                        onImagePress={uri => {
+                            setFullScreenImage(uri)
+                            setIsImageViewVisible(true)
+                        }}
                     />
                 )}
             </View>
