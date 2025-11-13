@@ -10,6 +10,7 @@ const applyOrgDefaults = (org: Organization): Organization => ({
   premiumTier: org.premiumTier || 'free',
   hdCaptureEnabled: org.hdCaptureEnabled ?? false,
   timestampEnabled: org.timestampEnabled ?? true,
+  watermarkEnabled: org.watermarkEnabled ?? true,
 });
 
 export function OrganizationProvider({ children }: { children: ReactNode }) {

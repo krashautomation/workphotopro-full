@@ -107,47 +107,47 @@ export default function CameraPage() {
                 try {
                     const prefs = await userPreferencesService.getUserPreferences(user.$id)
                     if (prefs) {
-                        const nextWatermarkOptions = {
-                            watermarkEnabled: prefs.watermarkEnabled,
-                            timestampEnabled: prefs.timestampEnabled,
-                            timestampFormat: prefs.timestampFormat || 'short',
-                        }
-                        setWatermarkOptions(nextWatermarkOptions)
                         const nextHdPreferences = prefs.hdPreferences || {}
                         const nextTimestampPreferences = prefs.timestampPreferences || {}
-                        setHdPreferences(nextHdPreferences)
-                        setTimestampPreferences(nextTimestampPreferences)
                         const orgId = activeOrganization?.$id
                         const orgHdEnabled =
                             activeOrganization?.hdCaptureEnabled ?? isHDCaptureEnabled
+                        const baseTimestampEnabled =
+                            activeOrganization?.timestampEnabled ?? prefs.timestampEnabled ?? true
+                        const baseWatermark =
+                            activeOrganization?.watermarkEnabled ?? true
+
+                        setHdPreferences(nextHdPreferences)
+                        setTimestampPreferences(nextTimestampPreferences)
+
+                        let derivedCapturePreference: ResolutionPreference =
+                            orgHdEnabled ? 'hd' : 'standard'
+                        let derivedTimestampEnabled = baseTimestampEnabled
+                        let derivedWatermarkEnabled = baseWatermark
+
                         if (orgId) {
                             const orgPref = nextHdPreferences[orgId]
-                            setOrgCapturePreference(orgPref ?? (orgHdEnabled ? 'hd' : 'standard'))
+                            if (orgPref) {
+                                derivedCapturePreference = orgPref
+                            }
 
                             const orgTimestampPref = nextTimestampPreferences[orgId]
-                            const baseTimestampEnabled =
-                                activeOrganization?.timestampEnabled ?? prefs.timestampEnabled ?? true
-                            const derivedTimestampEnabled =
-                                orgTimestampPref === 'off'
-                                    ? false
-                                    : orgTimestampPref === 'on'
-                                    ? true
-                                    : baseTimestampEnabled
+                            if (orgTimestampPref === 'off') {
+                                derivedTimestampEnabled = false
+                            } else if (orgTimestampPref === 'on') {
+                                derivedTimestampEnabled = true
+                            }
 
-                            setOrgTimestampEnabled(baseTimestampEnabled)
-                            setWatermarkOptions(prev => ({
-                                ...prev,
-                                timestampEnabled: derivedTimestampEnabled,
-                            }))
-                        } else {
-                            setOrgCapturePreference(orgHdEnabled ? 'hd' : 'standard')
-                            const timestampsEnabled = prefs.timestampEnabled ?? true
-                            setOrgTimestampEnabled(timestampsEnabled)
-                            setWatermarkOptions(prev => ({
-                                ...prev,
-                                timestampEnabled: timestampsEnabled,
-                            }))
+                            derivedWatermarkEnabled = activeOrganization?.watermarkEnabled ?? true
                         }
+
+                        setOrgCapturePreference(derivedCapturePreference)
+                        setOrgTimestampEnabled(baseTimestampEnabled)
+                        setWatermarkOptions({
+                            watermarkEnabled: derivedWatermarkEnabled,
+                            timestampEnabled: derivedTimestampEnabled,
+                            timestampFormat: prefs.timestampFormat || 'short',
+                        })
                     }
                 } catch (error) {
                     console.error('Error loading user preferences:', error)
@@ -287,17 +287,8 @@ export default function CameraPage() {
             try {
                 const prefs = await userPreferencesService.getUserPreferences(user.$id)
                 if (prefs) {
-                    const nextWatermarkOptions = {
-                        watermarkEnabled: prefs.watermarkEnabled,
-                        timestampEnabled: prefs.timestampEnabled,
-                        timestampFormat: prefs.timestampFormat || 'short',
-                    }
-                    setWatermarkOptions(nextWatermarkOptions)
                     const nextHdPreferences = prefs.hdPreferences || {}
                     const nextTimestampPreferences = prefs.timestampPreferences || {}
-                    setHdPreferences(nextHdPreferences)
-                    setTimestampPreferences(nextTimestampPreferences)
-
                     const orgId = activeOrganization?.$id
                     const hdEnabled =
                         orgHdEnabledOverride ??
@@ -308,9 +299,15 @@ export default function CameraPage() {
                         activeOrganization?.timestampEnabled ??
                         prefs.timestampEnabled ??
                         true
+                    const baseWatermark =
+                        activeOrganization?.watermarkEnabled ?? true
+
+                    setHdPreferences(nextHdPreferences)
+                    setTimestampPreferences(nextTimestampPreferences)
 
                     let derivedPreference: ResolutionPreference = hdEnabled ? 'hd' : 'standard'
                     let derivedTimestampEnabled = timestampEnabledOverride
+                    let derivedWatermarkEnabled = baseWatermark
 
                     if (orgId) {
                         const orgPref = nextHdPreferences[orgId]
@@ -323,22 +320,25 @@ export default function CameraPage() {
                         } else if (orgTimestampPref === 'on') {
                             derivedTimestampEnabled = true
                         }
+                        derivedWatermarkEnabled = activeOrganization?.watermarkEnabled ?? true
                     }
 
                     if (orgCapturePreference !== derivedPreference) {
                         setOrgCapturePreference(derivedPreference)
                     }
                     setOrgTimestampEnabled(timestampEnabledOverride)
-                    setWatermarkOptions(prev => ({
-                        ...prev,
+                    setWatermarkOptions({
+                        watermarkEnabled: derivedWatermarkEnabled,
                         timestampEnabled: derivedTimestampEnabled,
-                    }))
+                        timestampFormat: prefs.timestampFormat || 'short',
+                    })
 
                     return {
                         hdPreferences: nextHdPreferences,
                         timestampPreferences: nextTimestampPreferences,
                         capturePreference: derivedPreference,
                         timestampEnabled: derivedTimestampEnabled,
+                        watermarkEnabled: derivedWatermarkEnabled,
                     }
                 }
             } catch (error) {
@@ -390,6 +390,13 @@ export default function CameraPage() {
         watermarkOptions.timestampEnabled,
     ])
 
+    React.useEffect(() => {
+        const enabled = activeOrganization?.watermarkEnabled ?? true
+        setWatermarkOptions(prev =>
+            prev.watermarkEnabled === enabled ? prev : { ...prev, watermarkEnabled: enabled }
+        )
+    }, [activeOrganization?.$id, activeOrganization?.watermarkEnabled])
+
     const takePicture = async () => {
         if (cameraRef.current && !isCapturing) {
             try {
@@ -433,6 +440,11 @@ export default function CameraPage() {
                     (organizationHdEnabled ? 'hd' : 'standard')
                 let effectiveTimestampEnabled =
                     refreshedPrefs?.timestampEnabled ?? organizationTimestampEnabled
+                let effectiveWatermarkEnabled =
+                    refreshedPrefs?.watermarkEnabled ??
+                    latestOrg?.watermarkEnabled ??
+                    activeOrganization?.watermarkEnabled ??
+                    true
 
                 if (orgId) {
                     const latestPreference = effectiveHdPreferences[orgId]
@@ -450,6 +462,7 @@ export default function CameraPage() {
                 setWatermarkOptions(prev => ({
                     ...prev,
                     timestampEnabled: effectiveTimestampEnabled,
+                    watermarkEnabled: effectiveWatermarkEnabled,
                 }))
 
                 const photo = await cameraRef.current.takePictureAsync({

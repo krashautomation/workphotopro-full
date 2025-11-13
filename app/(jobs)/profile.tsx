@@ -33,6 +33,7 @@ export default function ProfileScreen() {
   const [fullHDImages, setFullHDImages] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [imageWatermark, setImageWatermark] = useState(true);
+  const [updatingOrgWatermark, setUpdatingOrgWatermark] = useState(false);
   const [hdPreferences, setHdPreferences] = useState<Record<string, ResolutionPreference>>({});
   const [timestampPreferences, setTimestampPreferences] = useState<Record<string, TimestampPreference>>({});
   const [loadingPreferences, setLoadingPreferences] = useState(false);
@@ -72,6 +73,7 @@ export default function ProfileScreen() {
   const hasPremium = premiumTier !== 'free';
   const canManageOrgHd = !!profileOrganization && profileOrganization.ownerId === user?.$id;
   const orgHdEnabled = profileOrganization?.hdCaptureEnabled ?? false;
+  const orgWatermarkEnabled = profileOrganization?.watermarkEnabled ?? true;
   const switchDisabled =
     !profileOrganization ||
     !profileTeam ||
@@ -80,6 +82,13 @@ export default function ProfileScreen() {
     updatingOrgHd ||
     !hasPremium ||
     (!canManageOrgHd && !orgHdEnabled);
+  const watermarkSwitchDisabled =
+    !profileOrganization ||
+    !profileTeam ||
+    loadingPreferences ||
+    updatingOrgWatermark ||
+    !hasPremium ||
+    !canManageOrgHd;
   const orgTimestampEnabled = profileOrganization?.timestampEnabled ?? true;
   const timestampSwitchDisabled =
     !profileOrganization ||
@@ -102,8 +111,8 @@ useEffect(() => {
     if (!user?.$id) {
       setHdPreferences({});
       setFullHDImages(false);
-    setTimestampPreferences({});
-    setImageTimestamps(true);
+      setTimestampPreferences({});
+      setImageTimestamps(true);
       return;
     }
     setLoadingPreferences(true);
@@ -157,6 +166,7 @@ useEffect(() => {
     : orgTimestampEnabled;
 
   setImageTimestamps(derivedTimestamp);
+
 }, [
   profileOrganization?.$id,
   hdPreferences,
@@ -169,6 +179,15 @@ useEffect(() => {
   updatingOrgTimestamp,
   savingTimestampPreference,
 ]);
+
+useEffect(() => {
+  if (!profileOrganization?.$id) {
+    setImageWatermark(true);
+    return;
+  }
+
+  setImageWatermark(profileOrganization.watermarkEnabled ?? true);
+}, [profileOrganization?.$id, profileOrganization?.watermarkEnabled]);
 
   // Refresh data when screen comes into focus (e.g., returning from edit account)
   useFocusEffect(
@@ -372,6 +391,41 @@ useEffect(() => {
     }
   };
 
+  const handleWatermarkToggle = async (value: boolean) => {
+    if (!user?.$id || !profileOrganization?.$id) {
+      Alert.alert('Error', 'Unable to change watermark setting. Please try again later.');
+      return;
+    }
+
+    if (!hasPremium) {
+      Alert.alert('Premium Required', 'Upgrade to enable watermarks for this organization.');
+      return;
+    }
+
+    if (!canManageOrgHd) {
+      Alert.alert('Owner Required', 'Only organization owners can change watermark settings.');
+      return;
+    }
+
+    const orgId = profileOrganization.$id;
+    const previousValue = orgWatermarkEnabled;
+
+    setImageWatermark(value);
+
+    try {
+      setUpdatingOrgWatermark(true);
+      await organizationService.updateOrganization(orgId, { watermarkEnabled: value });
+      await loadUserData();
+    } catch (error) {
+      console.error('Error updating watermark preference:', error);
+      Alert.alert('Error', 'Failed to update watermark setting. Please try again.');
+      setImageWatermark(previousValue);
+      await loadUserData().catch(() => {});
+    } finally {
+      setUpdatingOrgWatermark(false);
+    }
+  };
+
 
   const handleContactUs = () => {
     Linking.openURL('https://workphotopro.com/contact');
@@ -556,18 +610,37 @@ useEffect(() => {
               </Text>
             )}
             
-            <Pressable style={styles.settingItem}>
+            <Pressable
+              style={styles.settingItem}
+              disabled={hasPremium}
+              onPress={() => {
+                if (!hasPremium) {
+                  Alert.alert('Premium Required', 'Upgrade to enable watermarks for this organization.');
+                }
+              }}
+            >
               <View style={styles.settingLeft}>
                 <IconSymbol name="photo" color="#22C55E" size={20} />
                 <Text style={styles.settingText}>Image watermark</Text>
               </View>
               <Switch
                 value={imageWatermark}
-                onValueChange={setImageWatermark}
+                onValueChange={handleWatermarkToggle}
                 trackColor={{ false: Colors.Gray, true: "#22C55E" }}
                 thumbColor={Colors.White}
+                disabled={watermarkSwitchDisabled}
               />
             </Pressable>
+            {!hasPremium && (
+              <Text style={styles.disabledHint}>
+                Upgrade this organization to enable watermark overlays for all members.
+              </Text>
+            )}
+            {hasPremium && !canManageOrgHd && (
+              <Text style={styles.disabledHint}>
+                Only owners can change watermark settings for this organization.
+              </Text>
+            )}
             
             <Pressable style={styles.settingItem}>
               <View style={styles.settingLeft}>

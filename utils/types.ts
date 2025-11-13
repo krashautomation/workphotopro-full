@@ -15,7 +15,6 @@ export type TimestampPreference = 'on' | 'off';
 export interface UserPreferences {
   $id?: string;
   userId: string; // References Appwrite Users
-  watermarkEnabled: boolean;
   timestampEnabled: boolean;
   timestampFormat?: 'short' | 'long';
   hdPreferences?: Record<string, ResolutionPreference>;
@@ -36,6 +35,7 @@ export interface Organization {
   premiumTier?: string;
   hdCaptureEnabled?: boolean;
   timestampEnabled?: boolean;
+  watermarkEnabled?: boolean;
   $createdAt: string;
   $updatedAt: string;
   $permissions: string[];

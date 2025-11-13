@@ -2,8 +2,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { globalStyles, colors } from '@/styles/globalStyles';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Text, View, TouchableOpacity, StyleSheet, Switch, ScrollView, Image } from 'react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { Text, View, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
+import { useCallback } from 'react';
 
 import { IconSymbol } from '@/components/IconSymbol';
 
@@ -12,8 +12,6 @@ export default function EditTeam() {
   const { currentTeam, refreshCurrentTeam } = useOrganization();
   const router = useRouter();
   
-  const [imageWatermarksEnabled, setImageWatermarksEnabled] = useState(true);
-
   // Refresh team data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
@@ -153,24 +151,6 @@ export default function EditTeam() {
 
       {/* Settings Section */}
       <View style={styles.settingsSection}>
-        {/* Image Watermarks */}
-        <View style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <IconSymbol
-              name="photo"
-              size={20}
-              color={colors.textSecondary}
-            />
-            <Text style={styles.settingText}>Image Watermarks</Text>
-          </View>
-          <Switch
-            value={imageWatermarksEnabled}
-            onValueChange={setImageWatermarksEnabled}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor={imageWatermarksEnabled ? colors.text : colors.textSecondary}
-          />
-        </View>
-
         {/* Edit Team */}
         <TouchableOpacity style={styles.settingItem} onPress={handleEditTeam}>
           <View style={styles.settingLeft}>

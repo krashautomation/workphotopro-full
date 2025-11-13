@@ -540,7 +540,6 @@ export const userPreferencesService = {
       // Return default preferences if none exist
       return {
         userId,
-        watermarkEnabled: true,
         timestampEnabled: true,
         timestampFormat: 'short',
         hdPreferences: {},
@@ -551,7 +550,6 @@ export const userPreferencesService = {
       // Return defaults on error (collection doesn't exist yet)
       return {
         userId,
-        watermarkEnabled: true,
         timestampEnabled: true,
         timestampFormat: 'short',
         hdPreferences: {},
@@ -564,7 +562,6 @@ export const userPreferencesService = {
     try {
       const defaultPreferences: Omit<UserPreferences, '$id' | '$createdAt' | '$updatedAt'> = {
         userId,
-        watermarkEnabled: true,
         timestampEnabled: true,
         timestampFormat: 'short',
         hdPreferencesRaw: '{}',
@@ -582,7 +579,6 @@ export const userPreferencesService = {
       // Return null or defaults if collection doesn't exist
       return {
         userId,
-        watermarkEnabled: true,
         timestampEnabled: true,
         timestampFormat: 'short',
         hdPreferences: {},
@@ -609,7 +605,6 @@ export const userPreferencesService = {
       // Return defaults on error
       return {
         userId,
-        watermarkEnabled: true,
         timestampEnabled: true,
         timestampFormat: 'short',
         hdPreferences: {},
