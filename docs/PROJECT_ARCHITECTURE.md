@@ -47,7 +47,8 @@ app/
     ├── _layout.tsx      # Jobs layout with auth guards
     ├── index.tsx        # Jobs list screen
     ├── new-job.tsx      # Create new job screen
-    ├── profile.tsx      # User profile
+    ├── profile-settings.tsx      # User profile
+    ├── user-profile.tsx      # Per-user display
     ├── [job].tsx        # Dynamic job chat screen
     └── settings/        # Job settings
         └── [job].tsx    # Dynamic job settings screen

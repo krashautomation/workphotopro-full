@@ -121,7 +121,8 @@ WorkPhotoProV2/
 │       ├── _layout.tsx
 │       ├── index.tsx            # Jobs list
 │       ├── new-job.tsx          # Create new job
-│       ├── profile.tsx          # User profile
+│       ├── profile-settings.tsx # User profile & settings
+│       ├── user-profile.tsx     # Per-user profile display
 │       ├── [job].tsx            # Job chat screen
 │       └── settings/
 │           └── [job].tsx        # Job settings

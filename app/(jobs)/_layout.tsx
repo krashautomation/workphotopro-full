@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useOrganization } from '@/context/OrganizationContext';
 import { JobFilterProvider } from '@/context/JobFilterContext';
 import { Redirect, Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
@@ -12,6 +13,7 @@ import { colors } from '@/styles/globalStyles';
 function HeaderRight() {
   const router = useRouter();
   const { getUserProfilePicture, getGoogleUserData, user } = useAuth();
+  const { currentOrganization } = useOrganization();
   const [profilePicture, setProfilePicture] = React.useState<string | null>(null);
   const [googleData, setGoogleData] = React.useState<any>(null);
 
@@ -55,7 +57,13 @@ function HeaderRight() {
       </TouchableOpacity>
       
       <TouchableOpacity 
-        onPress={() => router.push('/(jobs)/profile')}
+        onPress={() => {
+          const params: Record<string, string> = {};
+          if (displayName) params.name = displayName;
+          if (currentOrganization?.orgName) params.organization = currentOrganization.orgName;
+          if (profilePicture) params.imageUrl = profilePicture;
+          router.push({ pathname: '/(jobs)/user-profile', params });
+        }}
       >
         <Avatar
           name={displayName}
@@ -105,10 +113,19 @@ export default function JobsLayout() {
           }}
         />
         <Stack.Screen
-          name="profile"
+          name="profile-settings"
           options={{
             headerShown: true,
             title: 'Profile',
+            headerStyle: { backgroundColor: '#1a1a1a' },
+            headerTintColor: '#fff',
+          }}
+        />
+        <Stack.Screen
+          name="user-profile"
+          options={{
+            headerShown: true,
+            title: 'User Profile',
             headerStyle: { backgroundColor: '#1a1a1a' },
             headerTintColor: '#fff',
           }}

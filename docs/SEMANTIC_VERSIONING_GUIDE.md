@@ -21,7 +21,7 @@ Source Of Truth
 - Maintain the canonical version string in `package.json` (`"version": "0.1.0-alpha"`).
 - Mirror the same value in `.env` as `APP_VERSION=0.1.0-alpha` only when overriding a build; the Expo config reads `.env` first and falls back to `package.json`.
 - In `app.config.js`, Expo loads dotenv, derives `version` from `process.env.APP_VERSION ?? pkg.version`, and exposes `extra.appVersion` so the runtime can read the same value.
-- UI surfaces (e.g. `app/(jobs)/profile.tsx`) consume the runtime value via `expo-constants`, ensuring what users see matches the release.
+- UI surfaces (e.g. `app/(jobs)/profile-settings.tsx`) consume the runtime value via `expo-constants`, ensuring what users see matches the release.
 
 Releasing & Tagging
 -------------------

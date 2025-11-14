@@ -12,6 +12,7 @@ import TagTestComponent from '@/components/TagTestComponent';
 import { userPreferencesService } from '@/lib/appwrite/database';
 import { ResolutionPreference, TimestampPreference } from '@/utils/types';
 import { organizationService } from '@/lib/appwrite/teams';
+import { UserPlus } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const { user, getGoogleUserData, signOut } = useAuth();
@@ -494,6 +495,25 @@ useEffect(() => {
           </View>
         </View>
 
+        {/* Manage Contacts Section */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Manage Contacts</Text>
+        </View>
+        <View style={styles.settingsCard}>
+          <Pressable
+            style={styles.settingItem}
+            onPress={() => router.push('/(jobs)/invite-contacts')}
+          >
+            <View style={styles.settingLeft}>
+              <View style={styles.settingIconWrapper}>
+                <UserPlus color={Colors.Text} size={18} strokeWidth={2} />
+              </View>
+              <Text style={styles.settingText}>Invite contacts</Text>
+            </View>
+            <IconSymbol name="chevron.right" color={Colors.Gray} size={16} />
+          </Pressable>
+        </View>
+
         {/* User Information Section */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Account</Text>
@@ -702,6 +722,7 @@ useEffect(() => {
               </View>
               <IconSymbol name="chevron.right" color={Colors.Gray} size={16} />
             </Pressable>
+
             
             <Pressable style={styles.settingItem}>
               <View style={styles.settingLeft}>
@@ -876,6 +897,14 @@ const styles = StyleSheet.create({
     marginTop: -4,
     marginBottom: 8,
     marginLeft: 44,
+  },
+  settingIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#22C55E20',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   versionText: {
     fontSize: 14,

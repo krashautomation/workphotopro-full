@@ -2,7 +2,7 @@ import { useAuth } from '@/context/AuthContext';
 import { globalStyles } from '@/styles/globalStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, Redirect } from 'expo-router';
-import { Camera } from 'lucide-react-native';
+import { Camera, UserCircle } from 'lucide-react-native';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 
 export default function Index() {
@@ -22,6 +22,22 @@ export default function Index() {
 
   return (
     <View style={globalStyles.welcomeContainer}>
+      <View style={{ width: '100%', alignItems: 'flex-end' }}>
+        <Link href="/(jobs)/user-profile" asChild>
+          <TouchableOpacity
+            style={{
+              padding: 8,
+              borderRadius: 999,
+              backgroundColor: 'rgba(255,255,255,0.06)',
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Open user profile"
+          >
+            <UserCircle size={28} color="#fff" />
+          </TouchableOpacity>
+        </Link>
+      </View>
+
       {/* Logo Section */}
       <View style={globalStyles.logoContainer}>
         <LinearGradient

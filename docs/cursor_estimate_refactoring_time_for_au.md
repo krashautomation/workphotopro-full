@@ -78,21 +78,26 @@ Based on my analysis of your codebase, here's a comprehensive breakdown:
     - Access `user.imageUrl` → `user.prefs.avatar` or similar
     - **Effort:** 30 mins
 
-11. **`app/(jobs)/profile.tsx`**
+11. **`app/(jobs)/profile-settings.tsx`**
     - Replace `useUser()` with Appwrite user data
     - User structure is different (no `fullName`, need to access `name`)
     - **Effort:** 30 mins
 
-12. **`app/(jobs)/[job].tsx`**
+12. **`app/(jobs)/user-profile.tsx`**
+    - Display-only profile details fed by route params/Appwrite data
+    - Needs Appwrite-backed user + organization fetching
+    - **Effort:** 20 mins
+
+13. **`app/(jobs)/[job].tsx`**
     - Replace `useUser()` with Appwrite context
     - **Effort:** 15 mins
 
-13. **`app/(jobs)/index.tsx`**
+14. **`app/(jobs)/index.tsx`**
     - Replace `SignedIn`/`SignedOut` components with custom equivalent
     - Replace `useUser()` hook
     - **Effort:** 30 mins
 
-14. **`app/index.tsx`**
+15. **`app/index.tsx`**
     - Replace `SignedIn`/`SignedOut` components
     - **Effort:** 15 mins
 
@@ -1077,7 +1082,8 @@ WorkPhotoProV2/
 │   │   │   │   ├── teams.tsx          # Team management
 │   │   │   │   ├── members.tsx        # Member management
 │   │   │   │   └── settings.tsx       # Org settings
-│   │   └── profile.tsx
+│   │   ├── profile-settings.tsx
+│   │   └── user-profile.tsx
 │   
 ├── lib/
 │   ├── appwrite/
@@ -1451,7 +1457,8 @@ WorkPhotoProV2/
 │   │   │   │   ├── teams.tsx          # Team management
 │   │   │   │   ├── members.tsx        # Member management
 │   │   │   │   └── settings.tsx       # Org settings
-│   │   └── profile.tsx
+│   │   ├── profile-settings.tsx
+│   │   └── user-profile.tsx
 │   
 ├── lib/
 │   ├── appwrite/
@@ -4963,7 +4970,8 @@ WorkPhotoProV2/
 │   └── (app)/                   # App screens (authenticated)
 │       ├── _layout.tsx
 │       ├── jobs.tsx             # Jobs list
-│       └── profile.tsx          # User profile
+│       ├── profile-settings.tsx          # User profile
+│       └── user-profile.tsx              # Per-user display
 │
 ├── lib/                         # Appwrite SDK & services
 │   └── appwrite/
