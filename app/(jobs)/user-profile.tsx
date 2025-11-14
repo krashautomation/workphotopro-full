@@ -8,13 +8,16 @@ import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/globalStyles';
+import { jobChatService } from '@/lib/appwrite/database';
 
 export default function UserProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { user, getGoogleUserData } = useAuth();
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization, userTeams } = useOrganization();
   const [googleData, setGoogleData] = React.useState<any>(null);
+  const [ownedJobsCount, setOwnedJobsCount] = React.useState<number | null>(null);
+  const [loadingJobCounts, setLoadingJobCounts] = React.useState(false);
 
   const getParamString = React.useCallback((value: string | string[] | undefined) => {
     if (Array.isArray(value)) {
@@ -85,6 +88,67 @@ export default function UserProfileScreen() {
     return 0;
   }, [contactsCountParam]);
 
+  const ownedTeams = React.useMemo(
+    () =>
+      userTeams.filter(team => {
+        const role = ((team as any)?.membershipRole || '') as string;
+        return role.toLowerCase() === 'owner';
+      }),
+    [userTeams]
+  );
+
+  const membershipsCount = userTeams.length;
+  const ownedTeamsCount = ownedTeams.length;
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const loadJobCounts = async () => {
+      if (ownedTeams.length === 0) {
+        setOwnedJobsCount(0);
+        return;
+      }
+
+      const teamIds = Array.from(new Set(ownedTeams.map(team => team.$id))).filter(Boolean);
+      if (teamIds.length === 0) {
+        setOwnedJobsCount(0);
+        return;
+      }
+
+      setLoadingJobCounts(true);
+      try {
+        const results = await Promise.all(
+          teamIds.map(teamId => jobChatService.listJobChats(teamId))
+        );
+        const total = results.reduce((sum, result) => {
+          const count = typeof result?.total === 'number'
+            ? result.total
+            : Array.isArray(result?.documents)
+            ? result.documents.length
+            : 0;
+          return sum + count;
+        }, 0);
+        if (!cancelled) {
+          setOwnedJobsCount(total);
+        }
+      } catch (error) {
+        console.error('Failed to load job counts for owned teams', error);
+        if (!cancelled) {
+          setOwnedJobsCount(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingJobCounts(false);
+        }
+      }
+    };
+
+    loadJobCounts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ownedTeams]);
+
   const statBadges = React.useMemo(
     () => [
       { key: 'trophy', label: 'Trophy', Icon: Trophy },
@@ -125,6 +189,22 @@ export default function UserProfileScreen() {
             <Users size={16} color="#fff" strokeWidth={2} />
             <Text style={styles.contactPillText}>Contacts {contactsCount}</Text>
           </Pressable>
+          <View style={styles.quickStats}>
+            <View style={styles.quickStat}>
+              <Text style={styles.quickStatValue}>{ownedTeamsCount}</Text>
+              <Text style={styles.quickStatLabel}>Teams</Text>
+            </View>
+            <View style={styles.quickStat}>
+              <Text style={styles.quickStatValue}>{membershipsCount}</Text>
+              <Text style={styles.quickStatLabel}>Memberships</Text>
+            </View>
+            <View style={styles.quickStat}>
+              <Text style={styles.quickStatValue}>
+                {loadingJobCounts ? '…' : ownedJobsCount ?? '—'}
+              </Text>
+              <Text style={styles.quickStatLabel}>Jobs</Text>
+            </View>
+          </View>
           <View style={styles.badgeRow}>
             {statBadges.map(({ key, label, Icon }) => (
               <View key={key} style={styles.badgeItem}>
@@ -253,6 +333,29 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 13,
     fontWeight: '600',
+  },
+  quickStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 20,
+    paddingHorizontal: 8,
+  },
+  quickStat: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  quickStatValue: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  quickStatLabel: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   badgeRow: {
     flexDirection: 'row',
