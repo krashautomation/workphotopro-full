@@ -71,7 +71,7 @@ export default function UserProfileScreen() {
   const contactsHref =
     typeof contactsParam === 'string' && contactsParam.length > 0
       ? contactsParam
-      : '/(jobs)/invite';
+      : '/(jobs)/contacts';
 
   const handleContactsPress = () => {
     router.push(contactsHref as any);
@@ -121,10 +121,10 @@ export default function UserProfileScreen() {
           <Avatar name={displayName} imageUrl={profileImage || undefined} size={80} />
           <Text style={styles.name}>{displayName}</Text>
           <Text style={styles.role}>Member</Text>
-          <View style={styles.contactPill}>
+          <Pressable style={styles.contactPill} onPress={handleContactsPress}>
             <Users size={16} color="#fff" strokeWidth={2} />
             <Text style={styles.contactPillText}>Contacts {contactsCount}</Text>
-          </View>
+          </Pressable>
           <View style={styles.badgeRow}>
             {statBadges.map(({ key, label, Icon }) => (
               <View key={key} style={styles.badgeItem}>
