@@ -42,6 +42,10 @@ export default function ProfileScreen() {
   const [updatingOrgHd, setUpdatingOrgHd] = useState(false);
   const [savingTimestampPreference, setSavingTimestampPreference] = useState(false);
   const [updatingOrgTimestamp, setUpdatingOrgTimestamp] = useState(false);
+  const [videoRecordingEnabled, setVideoRecordingEnabled] = useState(false);
+  const [hdVideoEnabled, setHdVideoEnabled] = useState(false);
+  const [updatingOrgVideoRecording, setUpdatingOrgVideoRecording] = useState(false);
+  const [updatingOrgHdVideo, setUpdatingOrgHdVideo] = useState(false);
   
   const ownedOrganizations = React.useMemo(
     () => userOrganizations.filter(org => org.ownerId === user?.$id),
@@ -75,6 +79,8 @@ export default function ProfileScreen() {
   const canManageOrgHd = !!profileOrganization && profileOrganization.ownerId === user?.$id;
   const orgHdEnabled = profileOrganization?.hdCaptureEnabled ?? false;
   const orgWatermarkEnabled = profileOrganization?.watermarkEnabled ?? true;
+  const orgVideoRecordingEnabled = profileOrganization?.videoRecordingEnabled ?? false;
+  const orgHdVideoEnabled = profileOrganization?.hdVideoEnabled ?? false;
   const switchDisabled =
     !profileOrganization ||
     !profileTeam ||
@@ -99,6 +105,21 @@ export default function ProfileScreen() {
     updatingOrgTimestamp ||
     !hasPremium ||
     (!canManageOrgHd && !orgTimestampEnabled);
+  const videoRecordingSwitchDisabled =
+    !profileOrganization ||
+    !profileTeam ||
+    loadingPreferences ||
+    updatingOrgVideoRecording ||
+    !hasPremium ||
+    !canManageOrgHd;
+  const hdVideoSwitchDisabled =
+    !profileOrganization ||
+    !profileTeam ||
+    loadingPreferences ||
+    updatingOrgHdVideo ||
+    !hasPremium ||
+    !canManageOrgHd ||
+    !orgVideoRecordingEnabled;
   
   // Test component state
   const [showTagTest, setShowTagTest] = useState(false);
@@ -184,11 +205,15 @@ useEffect(() => {
 useEffect(() => {
   if (!profileOrganization?.$id) {
     setImageWatermark(true);
+    setVideoRecordingEnabled(false);
+    setHdVideoEnabled(false);
     return;
   }
 
   setImageWatermark(profileOrganization.watermarkEnabled ?? true);
-}, [profileOrganization?.$id, profileOrganization?.watermarkEnabled]);
+  setVideoRecordingEnabled(profileOrganization.videoRecordingEnabled ?? false);
+  setHdVideoEnabled(profileOrganization.hdVideoEnabled ?? false);
+}, [profileOrganization?.$id, profileOrganization?.watermarkEnabled, profileOrganization?.videoRecordingEnabled, profileOrganization?.hdVideoEnabled]);
 
   // Refresh data when screen comes into focus (e.g., returning from edit account)
   useFocusEffect(
@@ -424,6 +449,89 @@ useEffect(() => {
       await loadUserData().catch(() => {});
     } finally {
       setUpdatingOrgWatermark(false);
+    }
+  };
+
+  const handleVideoRecordingToggle = async (value: boolean) => {
+    if (!user?.$id || !profileOrganization?.$id) {
+      Alert.alert('Error', 'Unable to change video recording setting. Please try again later.');
+      return;
+    }
+
+    if (!hasPremium) {
+      Alert.alert('Premium Required', 'Upgrade to enable video recording for this organization.');
+      return;
+    }
+
+    if (!canManageOrgHd) {
+      Alert.alert('Owner Required', 'Only organization owners can change video recording settings.');
+      return;
+    }
+
+    const orgId = profileOrganization.$id;
+    const previousValue = orgVideoRecordingEnabled;
+
+    setVideoRecordingEnabled(value);
+
+    // If disabling video recording, also disable HD video
+    if (!value && orgHdVideoEnabled) {
+      setHdVideoEnabled(false);
+    }
+
+    try {
+      setUpdatingOrgVideoRecording(true);
+      await organizationService.updateOrganization(orgId, { 
+        videoRecordingEnabled: value,
+        ...(value ? {} : { hdVideoEnabled: false }) // Disable HD video if disabling video recording
+      });
+      await loadUserData();
+    } catch (error) {
+      console.error('Error updating video recording preference:', error);
+      Alert.alert('Error', 'Failed to update video recording setting. Please try again.');
+      setVideoRecordingEnabled(previousValue);
+      await loadUserData().catch(() => {});
+    } finally {
+      setUpdatingOrgVideoRecording(false);
+    }
+  };
+
+  const handleHdVideoToggle = async (value: boolean) => {
+    if (!user?.$id || !profileOrganization?.$id) {
+      Alert.alert('Error', 'Unable to change HD video setting. Please try again later.');
+      return;
+    }
+
+    if (!hasPremium) {
+      Alert.alert('Premium Required', 'Upgrade to enable HD video for this organization.');
+      return;
+    }
+
+    if (!canManageOrgHd) {
+      Alert.alert('Owner Required', 'Only organization owners can change HD video settings.');
+      return;
+    }
+
+    if (!orgVideoRecordingEnabled) {
+      Alert.alert('Video Recording Required', 'Enable video recording first to use HD video.');
+      return;
+    }
+
+    const orgId = profileOrganization.$id;
+    const previousValue = orgHdVideoEnabled;
+
+    setHdVideoEnabled(value);
+
+    try {
+      setUpdatingOrgHdVideo(true);
+      await organizationService.updateOrganization(orgId, { hdVideoEnabled: value });
+      await loadUserData();
+    } catch (error) {
+      console.error('Error updating HD video preference:', error);
+      Alert.alert('Error', 'Failed to update HD video setting. Please try again.');
+      setHdVideoEnabled(previousValue);
+      await loadUserData().catch(() => {});
+    } finally {
+      setUpdatingOrgHdVideo(false);
     }
   };
 
@@ -704,6 +812,77 @@ useEffect(() => {
             {hasPremium && !orgHdEnabled && !canManageOrgHd && (
               <Text style={styles.disabledHint}>
                 Only owners can enable HD captures for this organization.
+              </Text>
+            )}
+            
+            <Pressable
+              style={styles.settingItem}
+              disabled={!hasPremium}
+              onPress={() => {
+                if (!hasPremium) {
+                  Alert.alert('Premium Required', 'Upgrade to enable video recording for this organization.');
+                }
+              }}
+            >
+              <View style={styles.settingLeft}>
+                <IconSymbol name="video" color="#22C55E" size={20} />
+                <Text style={styles.settingText}>Enable video camera</Text>
+              </View>
+              <Switch
+                value={videoRecordingEnabled}
+                onValueChange={handleVideoRecordingToggle}
+                trackColor={{ false: Colors.Gray, true: "#22C55E" }}
+                thumbColor={Colors.White}
+                disabled={videoRecordingSwitchDisabled}
+              />
+            </Pressable>
+            {!hasPremium && (
+              <Text style={styles.disabledHint}>
+                Upgrade this organization to enable video recording for all members.
+              </Text>
+            )}
+            {hasPremium && !canManageOrgHd && (
+              <Text style={styles.disabledHint}>
+                Only owners can change video recording settings for this organization.
+              </Text>
+            )}
+            
+            <Pressable
+              style={styles.settingItem}
+              disabled={!hasPremium || !orgVideoRecordingEnabled}
+              onPress={() => {
+                if (!hasPremium) {
+                  Alert.alert('Premium Required', 'Upgrade to enable HD video for this organization.');
+                } else if (!orgVideoRecordingEnabled) {
+                  Alert.alert('Video Recording Required', 'Enable video recording first to use HD video.');
+                }
+              }}
+            >
+              <View style={styles.settingLeft}>
+                <IconSymbol name="video.fill" color="#22C55E" size={20} />
+                <Text style={styles.settingText}>Enable HD Video</Text>
+              </View>
+              <Switch
+                value={hdVideoEnabled}
+                onValueChange={handleHdVideoToggle}
+                trackColor={{ false: Colors.Gray, true: "#22C55E" }}
+                thumbColor={Colors.White}
+                disabled={hdVideoSwitchDisabled}
+              />
+            </Pressable>
+            {!hasPremium && (
+              <Text style={styles.disabledHint}>
+                Upgrade this organization to enable HD video recording for all members.
+              </Text>
+            )}
+            {hasPremium && !orgVideoRecordingEnabled && (
+              <Text style={styles.disabledHint}>
+                Enable video recording first to use HD video.
+              </Text>
+            )}
+            {hasPremium && orgVideoRecordingEnabled && !canManageOrgHd && (
+              <Text style={styles.disabledHint}>
+                Only owners can change HD video settings for this organization.
               </Text>
             )}
             

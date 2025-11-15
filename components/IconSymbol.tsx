@@ -48,6 +48,12 @@ const MAPPING = {
   // Team and camera icons
   "person.3": "group",
   "camera": "camera-alt",
+  // Video icons
+  "video": "videocam",
+  "video.fill": "hd",
+  "video.slash": "videocam-off",
+  "play.fill": "play-arrow",
+  "pause.fill": "pause",
   // Map and share icons
   "location": "place",
   "mappin": "place",

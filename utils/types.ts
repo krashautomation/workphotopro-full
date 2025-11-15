@@ -36,6 +36,8 @@ export interface Organization {
   hdCaptureEnabled?: boolean;
   timestampEnabled?: boolean;
   watermarkEnabled?: boolean;
+  videoRecordingEnabled?: boolean;
+  hdVideoEnabled?: boolean;
   $createdAt: string;
   $updatedAt: string;
   $permissions: string[];
@@ -150,8 +152,10 @@ export interface Message {
   orgId: string; // References Organizations
   imageUrl?: string; // Optional image URL
   imageFileId?: string; // Optional Appwrite file ID for deletion
+  videoUrl?: string; // Optional video URL
+  videoFileId?: string; // Optional Appwrite file ID for deletion
   locationData?: LocationData; // Optional location data
-  messageType?: 'text' | 'image' | 'location'; // Message type
+  messageType?: 'text' | 'image' | 'video' | 'location'; // Message type
 }
 
 // Location data for messages

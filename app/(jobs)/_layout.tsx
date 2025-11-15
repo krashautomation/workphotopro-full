@@ -229,6 +229,13 @@ export default function JobsLayout() {
             contentStyle: { backgroundColor: 'transparent' },
           }}
         />
+        <Stack.Screen
+          name="video-camera"
+          options={{
+            headerShown: false,
+            presentation: 'fullScreenModal',
+          }}
+        />
       </Stack>
     </JobFilterProvider>
   );

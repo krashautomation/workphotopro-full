@@ -26,6 +26,7 @@ import JobPhotos from './job-photos'
 import * as SecureStore from 'expo-secure-store'
 import SaveImageModal from '@/components/SaveImageModal'
 import ShareJob from './share-job'
+import VideoPlayer from '@/components/VideoPlayer'
 
 
 export default function Job() {
@@ -60,7 +61,10 @@ export default function Job() {
     const headerHeight = Platform.OS === 'ios' ? useHeaderHeight() : 0;
     const listRef = React.useRef<any>(null);
     const [selectedImage, setSelectedImage] = React.useState<string | null>(null);
+    const [selectedVideo, setSelectedVideo] = React.useState<string | null>(null);
     const [isUploading, setIsUploading] = React.useState(false);
+    const [uploadStatus, setUploadStatus] = React.useState<string>('');
+    const [uploadProgress, setUploadProgress] = React.useState<number>(0);
     const [pressedMessageId, setPressedMessageId] = React.useState<string | null>(null);
     const [showDeleteModal, setShowDeleteModal] = React.useState(false);
     const [messageToDelete, setMessageToDelete] = React.useState<Message | null>(null);
@@ -85,7 +89,7 @@ export default function Job() {
 
     // Handle captured image from camera page
     React.useEffect(() => {
-        const checkCapturedImage = async () => {
+        const checkCapturedMedia = async () => {
             try {
                 const capturedImageUri = await SecureStore.getItemAsync('capturedImageUri')
                 if (capturedImageUri) {
@@ -94,11 +98,19 @@ export default function Job() {
                     // Clear the stored image URI
                     await SecureStore.deleteItemAsync('capturedImageUri')
                 }
+                
+                const recordedVideoUri = await SecureStore.getItemAsync('recordedVideoUri')
+                if (recordedVideoUri) {
+                    console.log('🔍 Received recorded video URI:', recordedVideoUri)
+                    setSelectedVideo(recordedVideoUri)
+                    // Clear the stored video URI
+                    await SecureStore.deleteItemAsync('recordedVideoUri')
+                }
             } catch (error) {
-                console.error('Error retrieving captured image:', error)
+                console.error('Error retrieving captured media:', error)
             }
         }
-        checkCapturedImage()
+        checkCapturedMedia()
     }, []) // Run once on mount and when screen comes into focus
 
     // Auto-refresh when returning to the screen
@@ -106,8 +118,8 @@ export default function Job() {
         React.useCallback(() => {
             console.log('🔍 useFocusEffect: Screen focused, refreshing messages');
             
-            // Check for captured image from camera
-            const checkCapturedImage = async () => {
+            // Check for captured media from camera
+            const checkCapturedMedia = async () => {
                 try {
                     const capturedImageUri = await SecureStore.getItemAsync('capturedImageUri')
                     if (capturedImageUri) {
@@ -116,11 +128,19 @@ export default function Job() {
                         // Clear the stored image URI
                         await SecureStore.deleteItemAsync('capturedImageUri')
                     }
+                    
+                    const recordedVideoUri = await SecureStore.getItemAsync('recordedVideoUri')
+                    if (recordedVideoUri) {
+                        console.log('🔍 Received recorded video URI from camera:', recordedVideoUri)
+                        setSelectedVideo(recordedVideoUri)
+                        // Clear the stored video URI
+                        await SecureStore.deleteItemAsync('recordedVideoUri')
+                    }
                 } catch (error) {
-                    console.error('Error retrieving captured image:', error)
+                    console.error('Error retrieving captured media:', error)
                 }
             }
-            checkCapturedImage()
+            checkCapturedMedia()
             
             // Refresh messages
             const refreshMessages = async () => {
@@ -386,6 +406,10 @@ const getMessages = async () => {
         router.push(`/(jobs)/camera?jobId=${jobId}`);
     };
 
+    const pickVideoCamera = () => {
+        router.push(`/(jobs)/video-camera?jobId=${jobId}`);
+    };
+
     const uploadImage = async (imageUri: string): Promise<{ fileId: string; fileUrl: string } | null> => {
         try {
             if (!appwriteConfig.bucket) {
@@ -437,11 +461,75 @@ const getMessages = async () => {
         }
     };
 
+    const uploadVideo = async (videoUri: string): Promise<{ fileId: string; fileUrl: string } | null> => {
+        try {
+            if (!appwriteConfig.bucket) {
+                Alert.alert('Configuration Error', 'Bucket ID not configured. Please add EXPO_PUBLIC_APPWRITE_BUCKET_ID to your .env file.');
+                throw new Error('Bucket ID not configured');
+            }
+
+            // Create a unique file ID
+            const fileId = ID.unique();
+
+            // Create a file object from the video URI
+            const filename = videoUri.split('/').pop() || `video-${Date.now()}.mp4`;
+            
+            // Determine MIME type based on file extension
+            const fileExtension = filename.split('.').pop()?.toLowerCase();
+            let mimeType = 'video/mp4'; // Default
+            if (fileExtension === 'mov') {
+                mimeType = 'video/quicktime';
+            } else if (fileExtension === 'webm') {
+                mimeType = 'video/webm';
+            }
+            
+            // Fetch the video and create a proper file object
+            const response = await fetch(videoUri);
+            const blob = await response.blob();
+            
+            // Create file object for React Native Appwrite
+            const file = {
+                uri: videoUri,
+                name: filename,
+                type: mimeType,
+                size: blob.size,
+            };
+
+            console.log('📹 Uploading video:', { filename, mimeType, size: blob.size });
+
+            // Upload to Appwrite Storage
+            const uploadResponse = await storage.createFile(
+                appwriteConfig.bucket,
+                fileId,
+                file
+            );
+
+            // Check if response is valid
+            if (!uploadResponse || !uploadResponse.$id) {
+                throw new Error(`Invalid upload response: ${JSON.stringify(uploadResponse)}`);
+            }
+
+            // Get the file URL
+            const fileUrl = `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${uploadResponse.$id}/view?project=${appwriteConfig.projectId}`;
+
+            console.log('✅ Video uploaded successfully:', { fileId: uploadResponse.$id, fileUrl });
+
+            return {
+                fileId: uploadResponse.$id,
+                fileUrl: fileUrl,
+            };
+        } catch (error) {
+            console.error('Error uploading video:', error);
+            Alert.alert('Upload Failed', `Failed to upload video: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return null;
+        }
+    };
+
     const sendMessage = async () => {
        
        setShowAttachmentMenu(false);
        
-       if(messageContent.trim() === '' && !selectedImage) return;
+       if(messageContent.trim() === '' && !selectedImage && !selectedVideo) return;
        
        // Check if we have required team and organization data
        if (!currentTeam?.$id || !currentOrganization?.$id) {
@@ -463,6 +551,8 @@ const getMessages = async () => {
         
         let imageUrl = undefined;
         let imageFileId = undefined;
+        let videoUrl = undefined;
+        let videoFileId = undefined;
 
         // Get user's profile picture from Google OAuth or stored preferences
         const userProfilePicture = await getUserProfilePicture();
@@ -483,8 +573,40 @@ const getMessages = async () => {
             }
         }
 
+        // Upload video if one is selected
+        if (selectedVideo) {
+            console.log('🔍 sendMessage: Uploading video...');
+            setUploadStatus('Uploading video...');
+            setUploadProgress(0);
+            
+            // Simulate progress (since Appwrite doesn't provide progress callbacks)
+            const progressInterval = setInterval(() => {
+                setUploadProgress(prev => {
+                    if (prev >= 90) return prev; // Don't go to 100% until actually done
+                    return prev + 10;
+                });
+            }, 200);
+            
+            const uploadResult = await uploadVideo(selectedVideo);
+            clearInterval(progressInterval);
+            
+            if (uploadResult) {
+                setUploadProgress(100);
+                videoUrl = uploadResult.fileUrl;
+                videoFileId = uploadResult.fileId;
+                console.log('🔍 sendMessage: Video uploaded successfully:', { videoUrl, videoFileId });
+                setUploadStatus('Video uploaded!');
+            } else {
+                console.error('🔍 sendMessage: Video upload failed');
+                setUploadStatus('');
+                setUploadProgress(0);
+                setIsUploading(false);
+                return; // Don't send message if video upload failed
+            }
+        }
+
        const message: any = {
-        content: messageContent || '', // Empty string if only image
+        content: messageContent || '', // Empty string if only media
         senderId: user?.$id,
         senderName: user?.name,
         senderPhoto: userProfilePicture || '', // Use user's profile picture from preferences
@@ -497,6 +619,19 @@ const getMessages = async () => {
        if (imageUrl) {
            message.imageUrl = imageUrl;
            message.imageFileId = imageFileId;
+           message.messageType = 'image';
+       }
+
+       // Add video fields only if video was uploaded
+       if (videoUrl) {
+           message.videoUrl = videoUrl;
+           message.videoFileId = videoFileId;
+           message.messageType = 'video';
+       }
+
+       // Set message type to text if no media
+       if (!imageUrl && !videoUrl) {
+           message.messageType = 'text';
        }
 
        console.log('🔍 sendMessage: Creating message document:', message);
@@ -513,7 +648,10 @@ const getMessages = async () => {
         // Clear input fields immediately
         setMessageContent('');
         setSelectedImage(null);
+        setSelectedVideo(null);
         setIsUploading(false);
+        setUploadStatus('');
+        setUploadProgress(0);
 
         // Refresh messages to show the new message
         console.log('🔍 sendMessage: Refreshing messages after sending...');
@@ -530,6 +668,8 @@ const getMessages = async () => {
         } catch(e) {
             console.error('🔍 sendMessage: Error sending message:', e);
             setIsUploading(false);
+            setUploadStatus('');
+            setUploadProgress(0);
         }
     }
 
@@ -905,6 +1045,24 @@ const getMessages = async () => {
                                                 </TouchableOpacity>
                                             )}
 
+                                            {/* Video Message */}
+                                            {item.videoUrl && item.content !== 'Message deleted by user' && (
+                                                <View style={{
+                                                    width: '100%',
+                                                    marginBottom: 8,
+                                                }}>
+                                                    <VideoPlayer
+                                                        uri={item.videoUrl}
+                                                        showControls={true}
+                                                        autoPlay={false}
+                                                        onError={(error) => {
+                                                            console.error('Video playback error:', error);
+                                                            Alert.alert('Video Error', 'Failed to play video. You can try opening it in your browser.');
+                                                        }}
+                                                    />
+                                                </View>
+                                            )}
+
                                             {/* Location Message */}
                                             {item.messageType === 'location' && item.locationData && (
                                                 <TouchableOpacity 
@@ -1014,6 +1172,104 @@ const getMessages = async () => {
                                     >
                                         <IconSymbol name="xmark" color={Colors.White} size={20} />
                                     </Pressable>
+                                </View>
+                            )}
+
+                            {/* Video Preview */}
+                            {selectedVideo && (
+                                <View style={{
+                                    position: 'relative',
+                                    marginBottom: 8,
+                                    borderRadius: 8,
+                                    overflow: 'hidden',
+                                    backgroundColor: Colors.Secondary,
+                                    borderWidth: 1,
+                                    borderColor: Colors.Primary,
+                                }}>
+                                    <View style={{
+                                        width: '100%',
+                                        height: 200,
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                    }}>
+                                        <IconSymbol name="video.fill" color={Colors.Primary} size={48} />
+                                        <Text style={{ 
+                                            color: Colors.Text, 
+                                            marginTop: 8,
+                                            fontSize: 14 
+                                        }}>
+                                            15 second video ready
+                                        </Text>
+                                    </View>
+                                    
+                                    {/* Upload Progress Indicator */}
+                                    {isUploading && uploadStatus && (
+                                        <View style={{
+                                            position: 'absolute',
+                                            bottom: 0,
+                                            left: 0,
+                                            right: 0,
+                                            backgroundColor: 'rgba(0,0,0,0.8)',
+                                            padding: 12,
+                                        }}>
+                                            <View style={{
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            marginBottom: 8,
+                                        }}>
+                                                <ActivityIndicator size="small" color={Colors.Primary} style={{ marginRight: 8 }} />
+                                                <Text style={{ 
+                                                    color: Colors.White, 
+                                                    fontSize: 12,
+                                                    flex: 1 
+                                                }}>
+                                                    {uploadStatus}
+                                                </Text>
+                                                {uploadProgress > 0 && (
+                                                    <Text style={{ 
+                                                        color: Colors.White, 
+                                                        fontSize: 12 
+                                                    }}>
+                                                        {uploadProgress}%
+                                                    </Text>
+                                                )}
+                                            </View>
+                                            {uploadProgress > 0 && (
+                                                <View style={{
+                                                    height: 4,
+                                                    backgroundColor: Colors.Gray + '40',
+                                                    borderRadius: 2,
+                                                    overflow: 'hidden',
+                                                }}>
+                                                    <View style={{
+                                                        height: '100%',
+                                                        width: `${uploadProgress}%`,
+                                                        backgroundColor: Colors.Primary,
+                                                        borderRadius: 2,
+                                                    }} />
+                                                </View>
+                                            )}
+                                        </View>
+                                    )}
+                                    
+                                    {!isUploading && (
+                                        <Pressable
+                                            onPress={() => setSelectedVideo(null)}
+                                            style={{
+                                                position: 'absolute',
+                                                top: 8,
+                                                right: 8,
+                                                backgroundColor: 'rgba(0,0,0,0.6)',
+                                                borderRadius: 16,
+                                                width: 32,
+                                                height: 32,
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                            }}
+                                        >
+                                            <IconSymbol name="xmark" color={Colors.White} size={20} />
+                                        </Pressable>
+                                    )}
                                 </View>
                             )}
 
@@ -1150,7 +1406,7 @@ const getMessages = async () => {
                             
                                 {/* Send Button */}
                                 <Pressable 
-                                    disabled={messageContent === '' && !selectedImage || isUploading} 
+                                    disabled={(messageContent === '' && !selectedImage && !selectedVideo) || isUploading} 
                                     style={{
                                         width: 32,
                                         height: 32,
@@ -1164,7 +1420,7 @@ const getMessages = async () => {
                                     ) : (
                                         <IconSymbol 
                                         name="paperplane" 
-                                        color={(messageContent || selectedImage) ? '#4A9EFF' : Colors.Gray}
+                                        color={(messageContent || selectedImage || selectedVideo) ? '#4A9EFF' : Colors.Gray}
                                         />
                                     )}
                                 </Pressable>
@@ -1212,6 +1468,7 @@ const getMessages = async () => {
                                     alignItems: 'center',
                                     paddingVertical: 8,
                                     marginTop: 4,
+                                    gap: 12,
                                 }}
                             >
                                 <Pressable
@@ -1231,6 +1488,26 @@ const getMessages = async () => {
                                     <IconSymbol 
                                         name="camera" 
                                         color={isUploading ? Colors.Gray : '#4A9EFF'}
+                                        size={28}
+                                    />
+                                </Pressable>
+                                <Pressable
+                                    onPress={pickVideoCamera}
+                                    disabled={isUploading}
+                                    style={{
+                                        width: 48,
+                                        height: 48,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        backgroundColor: '#FF6B6B' + '20',
+                                        borderRadius: 24,
+                                        borderWidth: 2,
+                                        borderColor: isUploading ? Colors.Gray : '#FF6B6B',
+                                    }}
+                                >
+                                    <IconSymbol 
+                                        name="video" 
+                                        color={isUploading ? Colors.Gray : '#FF6B6B'}
                                         size={28}
                                     />
                                 </Pressable>

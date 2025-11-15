@@ -18,6 +18,8 @@ export const organizationService = {
         settings: '{}', // Default empty settings
         premiumTier: 'free',
         hdCaptureEnabled: false,
+        videoRecordingEnabled: false,
+        hdVideoEnabled: false,
         ...(ownerId && { ownerId })
       };
 

@@ -90,6 +90,7 @@ module.exports = {
     plugins: [
       'expo-router',
       'expo-dev-client',
+      'expo-av',
       'expo-secure-store',
       [
         'expo-image-picker',

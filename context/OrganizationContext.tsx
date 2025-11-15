@@ -11,6 +11,8 @@ const applyOrgDefaults = (org: Organization): Organization => ({
   hdCaptureEnabled: org.hdCaptureEnabled ?? false,
   timestampEnabled: org.timestampEnabled ?? true,
   watermarkEnabled: org.watermarkEnabled ?? true,
+  videoRecordingEnabled: org.videoRecordingEnabled ?? false,
+  hdVideoEnabled: org.hdVideoEnabled ?? false,
 });
 
 export function OrganizationProvider({ children }: { children: ReactNode }) {
