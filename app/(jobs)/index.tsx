@@ -590,7 +590,7 @@ export default function Jobs() {
                     <View style={styles.activeStatusIconContainer}>
                       <SquareChevronRight
                         size={16}
-                        color={webColors.primaryForeground}
+                        color="#22c55e" // green to match muted background
                       />
                     </View>
                   )}
@@ -598,7 +598,7 @@ export default function Jobs() {
                     <View style={styles.statusIconContainer}>
                       <SquareCheck
                         size={16}
-                        color={webColors.accentForeground}
+                        color={webColors.accent} // cyan to match muted background
                       />
                     </View>
                   )}
@@ -752,23 +752,23 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   rolePill: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    backgroundColor: 'rgba(40, 247, 248, 0.15)', // cyan accent with opacity
     paddingHorizontal: 10,
     paddingVertical: 2,
     borderRadius: 999,
   },
   rolePillOwner: {
-    backgroundColor: 'rgba(147, 51, 234, 0.15)',
+    backgroundColor: 'rgba(34, 197, 94, 0.15)', // green (same as old Member color)
   },
   rolePillText: {
-    color: colors.primary,
+    color: webColors.accent, // cyan
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'capitalize',
     letterSpacing: 0.3,
   },
   rolePillTextOwner: {
-    color: '#9333EA',
+    color: '#22c55e', // green
   },
   profileButton: {
     width: 36,
@@ -954,7 +954,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 3,
-    backgroundColor: webColors.accent,
+    backgroundColor: 'rgba(40, 247, 248, 0.15)', // muted cyan (like Member pill)
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -962,7 +962,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 3,
-    backgroundColor: webColors.primary,
+    backgroundColor: 'rgba(34, 197, 94, 0.15)', // muted green (like Owner pill)
     alignItems: 'center',
     justifyContent: 'center',
   },

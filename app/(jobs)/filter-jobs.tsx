@@ -201,12 +201,12 @@ export default function FilterJobs() {
                       {option.id === 'active' ? (
                         <SquareChevronRight
                           size={16}
-                          color={webColors.primaryForeground}
+                          color="#22c55e" // green to match muted background
                         />
                       ) : (
                         <SquareCheck
                           size={16}
-                          color={webColors.accentForeground}
+                          color={webColors.accent} // cyan to match muted background
                         />
                       )}
                     </View>
@@ -460,10 +460,10 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   statusIconContainerActive: {
-    backgroundColor: webColors.primary,
+    backgroundColor: 'rgba(34, 197, 94, 0.15)', // muted green (like Owner pill)
   },
   statusIconContainerCompleted: {
-    backgroundColor: webColors.accent,
+    backgroundColor: 'rgba(40, 247, 248, 0.15)', // muted cyan (like Member pill)
   },
   placeholderCard: {
     flexDirection: 'row',
