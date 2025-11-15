@@ -12,6 +12,7 @@ export const colors = {
   border: '#374151',
   error: '#FF3B30',
   success: '#22c55e',
+  blue: "#31f7eb"
 }
 
 // Global typography

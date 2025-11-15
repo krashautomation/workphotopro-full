@@ -495,7 +495,7 @@ export default function Jobs() {
           ) : (
             <View style={styles.emptyState}>
               <Image 
-                source={require('../../assets/images/camera-boy.png')}
+                source={require('../../assets/images/apple-icon-180x180.png')}
                 style={styles.emptyImage}
                 resizeMode="contain"
               />
@@ -504,8 +504,8 @@ export default function Jobs() {
                 Create a new job or change your jobs filter and organize your work photos
               </Text>
               
-              <TouchableOpacity style={globalStyles.button}>
-                <Text style={globalStyles.buttonText}>Create Job</Text>
+              <TouchableOpacity style={[globalStyles.secondaryButton, { borderColor: colors.blue }]}>
+                <Text style={[globalStyles.buttonText, { color: colors.blue }]}>Create Job</Text>
               </TouchableOpacity>
             </View>
           )
@@ -947,8 +947,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyImage: {
-    width: 200,
-    height: 200,
+    width: 150,
+    height: 150,
     marginBottom: 6,
   },
   emptyText: {
