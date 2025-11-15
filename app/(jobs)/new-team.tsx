@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Alert, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
@@ -85,6 +85,11 @@ export default function NewTeamScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+          <Image 
+            source={require('@/assets/images/create-team.png')} 
+            style={styles.headerImage}
+            resizeMode="contain"
+          />
           <View style={styles.infoSection}>
             <View style={styles.infoCard}>
               <IconSymbol name="info.circle" color={webColors.primary} size={20} />
@@ -185,6 +190,13 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 20,
+  },
+  headerImage: {
+    width: 200,
+    height: 200,
+    alignSelf: 'center',
+    marginBottom: 20,
+    marginTop: 10,
   },
   formSection: {
     backgroundColor: Colors.Secondary,
