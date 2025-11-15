@@ -9,7 +9,7 @@ import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, 
 import { useEffect, useState, useCallback } from 'react';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
-import { Coins, Gem, TableProperties, MessageCircle, Plus, Camera, Video, Info } from 'lucide-react-native';
+import { Coins, Gem, TableProperties, MessageCircle, Plus, Camera, Video, Info, SquareCheck, SquareChevronRight } from 'lucide-react-native';
 import { useJobFilters } from '@/context/JobFilterContext';
 
 export default function Jobs() {
@@ -588,15 +588,17 @@ export default function Jobs() {
                   </View>
                   {item.status === 'active' && (
                     <View style={styles.activeStatusIconContainer}>
-                      <Text style={styles.activeStatusIcon}>👈</Text>
+                      <SquareChevronRight
+                        size={16}
+                        color={webColors.primaryForeground}
+                      />
                     </View>
                   )}
                   {item.status === 'completed' && (
                     <View style={styles.statusIconContainer}>
-                      <IconSymbol
-                        name="checkmark"
-                        size={10}
-                        color={colors.background}
+                      <SquareCheck
+                        size={16}
+                        color={webColors.accentForeground}
                       />
                     </View>
                   )}
@@ -949,10 +951,10 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   statusIconContainer: {
-    width: 16,
-    height: 16,
+    width: 20,
+    height: 20,
     borderRadius: 3,
-    backgroundColor: colors.primary,
+    backgroundColor: webColors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -960,12 +962,9 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 3,
+    backgroundColor: webColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  activeStatusIcon: {
-    fontSize: 16,
-    color: '#FFFFFF',
   },
   jobTitle: {
     fontSize: 14,

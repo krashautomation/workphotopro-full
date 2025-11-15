@@ -4,16 +4,18 @@ import { useRouter } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import Avatar from '@/components/Avatar';
 import { Colors } from '@/utils/colors';
+import { webColors } from '@/styles/webDesignTokens';
 import { useOrganization } from '@/context/OrganizationContext';
 import { useJobFilters } from '@/context/JobFilterContext';
 import { tagService } from '@/lib/appwrite/database';
 import { teamService } from '@/lib/appwrite/teams';
 import { TagTemplate } from '@/utils/types';
 import BottomModal2 from '@/components/BottomModal2';
+import { SquareChevronRight, SquareCheck } from 'lucide-react-native';
 
-const STATUS_OPTIONS: Array<{ id: 'active' | 'completed'; label: string; indicator?: string }> = [
-  { id: 'active', label: 'Current', indicator: '👈' },
-  { id: 'completed', label: 'Complete', indicator: '✅' },
+const STATUS_OPTIONS: Array<{ id: 'active' | 'completed'; label: string }> = [
+  { id: 'active', label: 'Current' },
+  { id: 'completed', label: 'Complete' },
 ];
 
 export default function FilterJobs() {
@@ -191,9 +193,23 @@ export default function FilterJobs() {
                   onPress={() => toggleStatus(option.id)}
                 >
                   <View style={styles.itemContent}>
-                    {option.indicator && (
-                      <Text style={styles.statusIcon}>{option.indicator}</Text>
-                    )}
+                    <View style={[
+                      styles.statusIconContainer,
+                      option.id === 'active' && styles.statusIconContainerActive,
+                      option.id === 'completed' && styles.statusIconContainerCompleted
+                    ]}>
+                      {option.id === 'active' ? (
+                        <SquareChevronRight
+                          size={16}
+                          color={webColors.primaryForeground}
+                        />
+                      ) : (
+                        <SquareCheck
+                          size={16}
+                          color={webColors.accentForeground}
+                        />
+                      )}
+                    </View>
                     <Text style={[styles.itemText, isSelected && styles.itemTextSelected]}>
                       {option.label}
                     </Text>
@@ -435,9 +451,19 @@ const styles = StyleSheet.create({
   tagIcon: {
     marginRight: 12,
   },
-  statusIcon: {
-    fontSize: 20,
+  statusIconContainer: {
+    width: 20,
+    height: 20,
+    borderRadius: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 12,
+  },
+  statusIconContainerActive: {
+    backgroundColor: webColors.primary,
+  },
+  statusIconContainerCompleted: {
+    backgroundColor: webColors.accent,
   },
   placeholderCard: {
     flexDirection: 'row',
