@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { Colors } from '@/utils/colors';
+import { webColors } from '@/styles/webDesignTokens';
 import { IconSymbol } from '@/components/IconSymbol';
 import Input from '@/components/Input';
 
@@ -84,6 +85,15 @@ export default function NewTeamScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+          <View style={styles.infoSection}>
+            <View style={styles.infoCard}>
+              <IconSymbol name="info.circle" color={webColors.primary} size={20} />
+              <Text style={styles.infoText}>
+                You are creating a new team in {currentOrganization.orgName}. This team will be added to the "My Teams" tab.
+              </Text>
+            </View>
+          </View>
+
           <View style={styles.formSection}>
             <Text style={styles.sectionTitle}>Team Information</Text>
             
@@ -110,15 +120,6 @@ export default function NewTeamScreen() {
             </View>
           </View>
 
-          <View style={styles.infoSection}>
-            <View style={styles.infoCard}>
-              <IconSymbol name="info.circle" color="#007AFF" size={20} />
-              <Text style={styles.infoText}>
-                You are creating a new team in {currentOrganization.orgName}. This team will be added to the "My Teams" tab.
-              </Text>
-            </View>
-          </View>
-
           {/* Create Button */}
           <View style={styles.saveButtonContainer}>
             <Pressable 
@@ -126,7 +127,7 @@ export default function NewTeamScreen() {
               onPress={handleCreate}
               disabled={saving}
             >
-              <Text style={styles.saveButtonText}>
+              <Text style={[styles.saveButtonText, saving && styles.saveButtonTextDisabled]}>
                 {saving ? 'Creating...' : 'Create Team'}
               </Text>
             </Pressable>
@@ -226,13 +227,13 @@ const styles = StyleSheet.create({
   infoCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#E3F2FD',
+    backgroundColor: Colors.Secondary,
     borderRadius: 8,
     padding: 12,
   },
   infoText: {
     fontSize: 14,
-    color: '#1976D2',
+    color: Colors.Text,
     marginLeft: 8,
     flex: 1,
     lineHeight: 20,
@@ -242,7 +243,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   saveButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: webColors.primary,
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
@@ -252,8 +253,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.Gray,
   },
   saveButtonText: {
-    color: Colors.White,
+    color: webColors.primaryForeground,
     fontSize: 16,
     fontWeight: '600',
+  },
+  saveButtonTextDisabled: {
+    color: Colors.White,
   },
 });

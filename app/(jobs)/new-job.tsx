@@ -55,8 +55,8 @@ return (
       
 
       <Image 
-        source={require('@/assets/images/photopus-icon-glow.png')} 
-        style={{ width: 150, height: 150, alignSelf: 'center', marginBottom: 20 }} 
+        source={require('@/assets/images/new-job-chat.png')} 
+        style={{ width: 200, height: 200, alignSelf: 'center', marginBottom: 10, marginTop: 15 }} 
         resizeMode="contain"
       />
            <Text style={styles.subtitle}>Create a new job that can be assigned to team members for monitoring and collaboration using photos, video, comments and more.</Text>

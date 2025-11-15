@@ -4,6 +4,7 @@ import { IconSymbol } from '@/components/IconSymbol'
 import Avatar from '@/components/Avatar'
 import ShareLocation from '@/components/share-location'
 import { globalStyles } from '@/styles/globalStyles'
+import { webColors } from '@/styles/webDesignTokens'
 import { appwriteConfig, client, db, ID, storage } from '@/utils/appwrite'
 import { Colors } from '@/utils/colors'
 import { JobChats } from '@/utils/test-data'
@@ -762,12 +763,12 @@ const getMessages = async () => {
                             paddingVertical: 16,
                             alignItems: 'center',
                             borderBottomWidth: 3,
-                            borderBottomColor: activeTab === 'chat' ? Colors.Success : 'transparent',
+                            borderBottomColor: activeTab === 'chat' ? webColors.primary : 'transparent',
                         }}
                         onPress={() => setActiveTab('chat')}
                     >
                         <Text style={{
-                            color: activeTab === 'chat' ? Colors.Success : Colors.Gray,
+                            color: activeTab === 'chat' ? webColors.primary : Colors.Gray,
                             fontSize: 16,
                             fontWeight: activeTab === 'chat' ? '600' : '400',
                         }}>
@@ -782,12 +783,12 @@ const getMessages = async () => {
                             paddingVertical: 16,
                             alignItems: 'center',
                             borderBottomWidth: 3,
-                            borderBottomColor: activeTab === 'details' ? Colors.Success : 'transparent',
+                            borderBottomColor: activeTab === 'details' ? webColors.primary : 'transparent',
                         }}
                         onPress={() => setActiveTab('details')}
                     >
                         <Text style={{
-                            color: activeTab === 'details' ? Colors.Success : Colors.Gray,
+                            color: activeTab === 'details' ? webColors.primary : Colors.Gray,
                             fontSize: 16,
                             fontWeight: activeTab === 'details' ? '600' : '400',
                         }}>
@@ -802,12 +803,12 @@ const getMessages = async () => {
                             paddingVertical: 16,
                             alignItems: 'center',
                             borderBottomWidth: 3,
-                            borderBottomColor: activeTab === 'photos' ? Colors.Success : 'transparent',
+                            borderBottomColor: activeTab === 'photos' ? webColors.primary : 'transparent',
                         }}
                         onPress={() => setActiveTab('photos')}
                     >
                         <Text style={{
-                            color: activeTab === 'photos' ? Colors.Success : Colors.Gray,
+                            color: activeTab === 'photos' ? webColors.primary : Colors.Gray,
                             fontSize: 16,
                             fontWeight: activeTab === 'photos' ? '600' : '400',
                         }}>

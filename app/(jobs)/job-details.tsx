@@ -5,12 +5,14 @@ import { IconSymbol } from '@/components/IconSymbol'
 import Avatar from '@/components/Avatar'
 import { globalStyles } from '@/styles/globalStyles'
 import { Colors } from '@/utils/colors'
+import { webColors } from '@/styles/webDesignTokens'
 import { appwriteConfig, db, ID } from '@/utils/appwrite'
 import { JobChat, TagTemplate, JobTagAssignment } from '@/utils/types'
 import { tagService } from '@/lib/appwrite/database'
 import { useAuth } from '@/context/AuthContext'
 import { useOrganization } from '@/context/OrganizationContext'
 import { teamService } from '@/lib/appwrite/teams'
+import { SquareChevronRight, SquareCheck } from 'lucide-react-native'
 
 interface JobDetailsProps {
     jobId: string
@@ -363,7 +365,15 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                         onPress={() => handleStatusChange('current', !isCurrent)}
                     >
                         <View style={styles.itemContent}>
-                            <Text style={styles.statusIcon}>👈</Text>
+                            <View style={[
+                                styles.statusIconContainer,
+                                styles.statusIconContainerActive
+                            ]}>
+                                <SquareChevronRight
+                                    size={16}
+                                    color="#22c55e" // green to match muted background
+                                />
+                            </View>
                         <Text style={[styles.itemText, isCurrent && styles.itemTextSelected]}>
                             Current
                         </Text>
@@ -383,7 +393,15 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                         onPress={() => handleStatusChange('complete', !isComplete)}
                     >
                         <View style={styles.itemContent}>
-                            <Text style={styles.statusIcon}>✅</Text>
+                            <View style={[
+                                styles.statusIconContainer,
+                                styles.statusIconContainerCompleted
+                            ]}>
+                                <SquareCheck
+                                    size={16}
+                                    color={webColors.accent} // cyan to match muted background
+                                />
+                            </View>
                             <Text style={[styles.itemText, isComplete && styles.itemTextSelected]}>
                                 Complete
                             </Text>
@@ -609,9 +627,19 @@ const styles = StyleSheet.create({
     indicator: {
         fontSize: 20,
     },
-    statusIcon: {
-        fontSize: 20,
+    statusIconContainer: {
+        width: 20,
+        height: 20,
+        borderRadius: 3,
+        alignItems: 'center',
+        justifyContent: 'center',
         marginRight: 12,
+    },
+    statusIconContainerActive: {
+        backgroundColor: 'rgba(34, 197, 94, 0.15)', // muted green (like Owner pill)
+    },
+    statusIconContainerCompleted: {
+        backgroundColor: 'rgba(40, 247, 248, 0.15)', // muted cyan (like Member pill)
     },
     checkbox: {
         width: 24,
