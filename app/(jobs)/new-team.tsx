@@ -128,11 +128,19 @@ export default function NewTeamScreen() {
           {/* Create Button */}
           <View style={styles.saveButtonContainer}>
             <Pressable 
-              style={[styles.saveButton, saving && styles.saveButtonDisabled]} 
+              style={[
+                styles.saveButton, 
+                !teamName.trim() && styles.saveButtonEmpty,
+                saving && styles.saveButtonDisabled
+              ]} 
               onPress={handleCreate}
-              disabled={saving}
+              disabled={saving || !teamName.trim()}
             >
-              <Text style={[styles.saveButtonText, saving && styles.saveButtonTextDisabled]}>
+              <Text style={[
+                styles.saveButtonText, 
+                !teamName.trim() && styles.saveButtonTextEmpty,
+                saving && styles.saveButtonTextDisabled
+              ]}>
                 {saving ? 'Creating...' : 'Create Team'}
               </Text>
             </Pressable>
@@ -192,11 +200,11 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   headerImage: {
-    width: 200,
-    height: 200,
+    width: 180,
+    height: 180,
     alignSelf: 'center',
     marginBottom: 20,
-    marginTop: 10,
+    marginTop: 0,
   },
   formSection: {
     backgroundColor: Colors.Secondary,
@@ -261,6 +269,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
+  saveButtonEmpty: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: webColors.primary,
+  },
   saveButtonDisabled: {
     backgroundColor: Colors.Gray,
   },
@@ -268,6 +281,9 @@ const styles = StyleSheet.create({
     color: webColors.primaryForeground,
     fontSize: 16,
     fontWeight: '600',
+  },
+  saveButtonTextEmpty: {
+    color: webColors.primary,
   },
   saveButtonTextDisabled: {
     color: Colors.White,
