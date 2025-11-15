@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { colors } from '@/styles/globalStyles';
+import { webColors } from '@/styles/webDesignTokens';
 
 interface PremiumPackage {
   id: string;
@@ -108,14 +109,14 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   upgradeButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: webColors.primary,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     marginBottom: 16,
   },
   upgradeButtonText: {
-    color: colors.text,
+    color: webColors.primaryForeground,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -123,7 +124,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   linkText: {
-    color: colors.primary,
+    color: webColors.primary,
     fontSize: 16,
     textAlign: 'center',
   },

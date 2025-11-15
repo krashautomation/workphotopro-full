@@ -9,6 +9,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { Rocket } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/styles/globalStyles';
+import { webGradients } from '@/styles/webDesignTokens';
 
 function HeaderRight() {
   const router = useRouter();
@@ -35,12 +36,12 @@ function HeaderRight() {
         onPress={() => router.push('/(jobs)/get-premium')}
       >
         <LinearGradient
-          colors={['#1e40af', '#1e3a8a']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          colors={webGradients.primary.colors}
+          start={webGradients.primary.start}
+          end={webGradients.primary.end}
           style={styles.upgradeButton}
         >
-          <Rocket size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+          <Rocket size={16} color="#000000" style={{ marginRight: 6 }} />
           <Text style={styles.upgradeButtonText}>Get Premium</Text>
         </LinearGradient>
       </TouchableOpacity>
@@ -250,7 +251,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   upgradeButtonText: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontSize: 14,
     fontWeight: '600',
   },

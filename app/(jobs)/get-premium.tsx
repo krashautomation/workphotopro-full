@@ -1,10 +1,12 @@
 import { useAuth } from '@/context/AuthContext';
 import { globalStyles, colors } from '@/styles/globalStyles';
+import { webGradients, webColors } from '@/styles/webDesignTokens';
 import { useRouter } from 'expo-router';
 import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useState } from 'react';
 import { Rocket } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 
 import BottomModal from '@/components/BottomModal';
 import PackageModal from './get-package';
@@ -147,15 +149,23 @@ export default function GetPremium() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <LinearGradient
-        colors={['#1e40af', '#1e3a8a']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
+      <View style={styles.header}>
         <View style={styles.titleContainer}>
-          <Rocket size={24} color="#FFFFFF" style={styles.rocketIcon} />
-          <Text style={styles.title}>Get Premium</Text>
+          <Rocket size={24} color={webColors.primary} style={styles.rocketIcon} />
+          <MaskedView
+            style={styles.gradientTextContainer}
+            maskElement={
+              <Text style={styles.title}>Get Premium</Text>
+            }
+          >
+            <LinearGradient
+              colors={webGradients.primary.colors}
+              start={webGradients.primary.start}
+              end={webGradients.primary.end}
+            >
+              <Text style={[styles.title, { opacity: 0 }]}>Get Premium</Text>
+            </LinearGradient>
+          </MaskedView>
         </View>
         <Text style={styles.subtitle}>
           Get access to all advanced features to supercharge your productivity and manage your work photos with ease.
@@ -165,7 +175,7 @@ export default function GetPremium() {
           <Text style={styles.featureItem}>- Disable watermarks</Text>
           <Text style={styles.featureItem}>- Integrations:</Text>
         </View>
-      </LinearGradient>
+      </View>
 
       {/* Tabs */}
       <View style={styles.tabContainer}>
@@ -240,6 +250,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 20,
     paddingBottom: 24,
+    backgroundColor: webColors.card,
   },
   titleContainer: {
     flexDirection: 'row',
@@ -249,14 +260,16 @@ const styles = StyleSheet.create({
   rocketIcon: {
     marginRight: 8,
   },
+  gradientTextContainer: {
+    alignSelf: 'flex-start',
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
   subtitle: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: webColors.foreground,
     opacity: 0.9,
     lineHeight: 22,
   },
@@ -265,7 +278,7 @@ const styles = StyleSheet.create({
   },
   featureItem: {
     fontSize: 14,
-    color: '#FFFFFF',
+    color: webColors.foreground,
     opacity: 0.95,
     lineHeight: 20,
   },
@@ -285,15 +298,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeTab: {
-    backgroundColor: colors.primary,
+    backgroundColor: webColors.primary,
   },
   tabText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: colors.textSecondary,
+    fontWeight: 'bold',
+    color: '#000000',
   },
   activeTabText: {
-    color: colors.text,
+    color: '#000000',
   },
   listContent: {
     padding: 20,
@@ -303,7 +316,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: webColors.primary,
   },
   cardContent: {
     flexDirection: 'row',
@@ -329,7 +342,7 @@ const styles = StyleSheet.create({
   packagePrice: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.primary,
+    color: webColors.primary,
   },
   pricePeriod: {
     fontSize: 12,

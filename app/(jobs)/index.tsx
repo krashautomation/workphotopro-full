@@ -1,20 +1,29 @@
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { globalStyles, colors } from '@/styles/globalStyles';
+import { webColors } from '@/styles/webDesignTokens';
 import { jobChatService, tagService } from '@/lib/appwrite/database';
 import { JobChat, JobChatWithTags } from '@/utils/types';
-import { Link, useRouter, useFocusEffect } from 'expo-router';
+import { Link, useRouter, useFocusEffect, usePathname, useSegments } from 'expo-router';
 import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Image, TextInput } from 'react-native';
 import { useEffect, useState, useCallback } from 'react';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
-import { Coins, Gem, TableProperties } from 'lucide-react-native';
+import { Coins, Gem, TableProperties, MessageCircle, Plus, Camera, Video, Info } from 'lucide-react-native';
 import { useJobFilters } from '@/context/JobFilterContext';
 
 export default function Jobs() {
   const { user, isAuthenticated, getUserProfilePicture, getGoogleUserData } = useAuth();
   const { currentOrganization, currentTeam, loading: orgLoading } = useOrganization();
   const router = useRouter();
+  const pathname = usePathname();
+  const segments = useSegments();
+  
+  // Check if we're on the index page (Job Chats)
+  const isOnIndexPage = pathname === '/(jobs)' || 
+                        pathname === '/(jobs)/' || 
+                        pathname === '/(jobs)/index' ||
+                        (segments.length === 1 && segments[0] === '(jobs)');
   
   // State for job chat management
   const [jobChats, setJobChats] = useState<JobChatWithTags[]>([]);
@@ -25,6 +34,7 @@ export default function Jobs() {
   const [userProfilePicture, setUserProfilePicture] = useState<string | null>(null);
   const [googleData, setGoogleData] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showProgressTooltip, setShowProgressTooltip] = useState(false);
   const userRole = (currentTeam as any)?.membershipRole || (currentTeam as any)?.teamData?.role || null;
   const roleDisplay = userRole
     ? `${userRole.charAt(0).toUpperCase()}${userRole.slice(1)}`
@@ -359,43 +369,66 @@ export default function Jobs() {
   return (
     <View style={styles.container}>
       {/* Achievements Card */}
-      <Link href="/(jobs)/achievements" asChild>
-        <TouchableOpacity style={styles.achievementsCard}>
-          <View style={styles.achievementsContent}>
-            <View style={styles.achievementsLeft}>
-              {/* Progress Label and Percentage */}
-              <View style={styles.progressHeader}>
-                <Text style={styles.progressLabel}>Your Progress</Text>
-                <Text style={styles.progressText}>79%</Text>
-              </View>
-              
-              {/* Progress Bar */}
-              <View style={styles.progressBarWrapper}>
-                <View style={styles.progressBarContainer}>
-                  <View style={[styles.progressBarFill, { width: '79%' }]} />
+      <View style={styles.achievementsCardWrapper}>
+        <Link href="/(jobs)/achievements" asChild>
+          <TouchableOpacity style={styles.achievementsCard}>
+            <View style={styles.achievementsContent}>
+              <View style={styles.achievementsLeft}>
+                {/* Progress Label and Percentage */}
+                <View style={styles.progressHeader}>
+                  <Text style={styles.progressLabel}>Your Progress</Text>
+                  <Text style={styles.progressText}>79%</Text>
                 </View>
-              </View>
-              
-              {/* Pills */}
-              <View style={styles.pillsContainer}>
-                <View style={styles.pill}>
-                  <Coins size={14} color="#FFD700" />
-                  <Text style={styles.pillText}>Experience</Text>
-                  <Text style={styles.pillNumber}>1,250</Text>
+                
+                {/* Progress Bar */}
+                <View style={styles.progressBarWrapper}>
+                  <View style={styles.progressBarContainer}>
+                    <View style={[styles.progressBarFill, { width: '79%' }]} />
+                  </View>
                 </View>
-                <View style={styles.pill}>
-                  <Gem size={14} color="#9333EA" />
-                  <Text style={styles.pillText}>Achievements</Text>
-                  <Text style={styles.pillNumber}>12</Text>
+                
+                {/* Pills */}
+                <View style={styles.pillsContainer}>
+                  <View style={styles.pill}>
+                    <Coins size={14} color="#FFD700" />
+                    <Text style={styles.pillText}>Experience</Text>
+                    <Text style={styles.pillNumber}>1,250</Text>
+                  </View>
+                  <View style={styles.pill}>
+                    <Gem size={14} color={webColors.accent} />
+                    <Text style={styles.pillText}>Achievements</Text>
+                    <Text style={styles.pillNumber}>12</Text>
+                  </View>
                 </View>
               </View>
             </View>
-            
-            {/* Eye Emojis */}
-            <Text style={styles.eyeEmojis}>👀</Text>
-          </View>
+          </TouchableOpacity>
+        </Link>
+        
+        {/* Info Icon */}
+        <TouchableOpacity
+          style={styles.infoIconButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            setShowProgressTooltip(!showProgressTooltip);
+          }}
+          activeOpacity={0.7}
+        >
+          <Info size={20} color={colors.textSecondary} />
         </TouchableOpacity>
-      </Link>
+        
+        {/* Tooltip */}
+        {showProgressTooltip && (
+          <View style={styles.tooltipContainer}>
+            <View style={styles.tooltip}>
+              <Text style={styles.tooltipText}>
+                Track your awards and achievements to strengthen your profile and inspire trust.
+              </Text>
+              <View style={styles.tooltipArrow} />
+            </View>
+          </View>
+        )}
+      </View>
 
       {/* Header Card */}
       <TouchableOpacity
@@ -504,9 +537,11 @@ export default function Jobs() {
                 Create a new job or change your jobs filter and organize your work photos
               </Text>
               
-              <TouchableOpacity style={[globalStyles.secondaryButton, { borderColor: colors.blue }]}>
-                <Text style={[globalStyles.buttonText, { color: colors.blue }]}>Create Job</Text>
-              </TouchableOpacity>
+              <Link href="/(jobs)/web-design-test" asChild>
+                <TouchableOpacity style={[globalStyles.secondaryButton, { borderColor: colors.blue }]}>
+                  <Text style={[globalStyles.buttonText, { color: colors.blue }]}>Test Web</Text>
+                </TouchableOpacity>
+              </Link>
             </View>
           )
         )}
@@ -579,26 +614,58 @@ export default function Jobs() {
       <View style={styles.bottomMenu}>
         <TouchableOpacity 
           style={styles.menuButton}
-          onPress={() => router.push('/(jobs)/team')}
+          onPress={() => router.push('/(jobs)')}
         >
-          <IconSymbol
-            name="person.3"
+          <MessageCircle
             size={24}
-            color={colors.textSecondary}
+            color={isOnIndexPage ? webColors.primary : colors.textSecondary}
           />
-          <Text style={styles.menuButtonText}>Team</Text>
+          <Text style={[styles.menuButtonText, isOnIndexPage && styles.menuButtonTextActive]}>Job Chats</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
           style={styles.menuButton}
           onPress={() => router.push('/(jobs)/new-job')}
         >
-          <IconSymbol
-            name="camera"
+          <Plus
             size={24}
-            color={colors.primary}
+            color={pathname === '/(jobs)/new-job' ? webColors.primary : colors.textSecondary}
           />
-          <Text style={[styles.menuButtonText, styles.menuButtonTextActive]}>New Job</Text>
+          <Text style={[styles.menuButtonText, pathname === '/(jobs)/new-job' && styles.menuButtonTextActive]}>New Job</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.menuButton}
+          onPress={() => router.push('/(jobs)/camera')}
+        >
+          <Camera
+            size={24}
+            color={colors.textSecondary}
+          />
+          <Text style={styles.menuButtonText}>Camera</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.menuButton}
+          onPress={() => router.push('/(jobs)/camera')}
+        >
+          <Video
+            size={24}
+            color={colors.textSecondary}
+          />
+          <Text style={styles.menuButtonText}>Video</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.menuButton}
+          onPress={() => router.push('/(jobs)/teams')}
+        >
+          <IconSymbol
+            name="person.3"
+            size={24}
+            color={colors.textSecondary}
+          />
+          <Text style={styles.menuButtonText}>Teams</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -834,7 +901,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   menuButtonTextActive: {
-    color: colors.primary,
+    color: webColors.primary,
   },
   errorBanner: {
     backgroundColor: colors.surface,
@@ -964,9 +1031,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   achievementsCard: {
-    marginHorizontal: 20,
-    marginTop: 12,
-    marginBottom: 4,
     backgroundColor: colors.surface,
     borderRadius: 12,
     borderWidth: 0,
@@ -1039,11 +1103,64 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 2,
   },
-  eyeEmojis: {
-    fontSize: 20,
+  achievementsCardWrapper: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 4,
+    position: 'relative',
+  },
+  infoIconButton: {
     position: 'absolute',
     bottom: 16,
     right: 16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  tooltipContainer: {
+    position: 'absolute',
+    bottom: 56,
+    right: 16,
+    zIndex: 20,
+    width: 280,
+  },
+  tooltip: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    position: 'relative',
+  },
+  tooltipText: {
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 18,
+  },
+  tooltipArrow: {
+    position: 'absolute',
+    bottom: -6,
+    right: 20,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 6,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: colors.surface,
   },
 });
 

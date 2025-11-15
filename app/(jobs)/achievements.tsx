@@ -1,4 +1,5 @@
 import { globalStyles, colors } from '@/styles/globalStyles';
+import { webColors } from '@/styles/webDesignTokens';
 import { useRouter } from 'expo-router';
 import { Text, View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -52,7 +53,7 @@ export default function Achievements() {
       <View style={styles.achievementCard}>
         <View style={styles.achievementContent}>
           <View style={styles.achievementIconContainer}>
-            <Gem size={18} color={item.completed ? "#9333EA" : colors.textMuted} />
+            <Gem size={18} color={item.completed ? webColors.accent : colors.textMuted} />
             <Text style={[styles.achievementGems, item.completed && styles.achievementGemsCompleted]}>
               +{item.gems}
             </Text>
@@ -107,7 +108,7 @@ export default function Achievements() {
               <Text style={styles.statLabel}>Experience</Text>
             </View>
             <View style={styles.statItem}>
-              <Gem size={20} color="#9333EA" />
+              <Gem size={20} color={webColors.accent} />
               <Text style={styles.statValue}>12</Text>
               <Text style={styles.statLabel}>Achievements</Text>
             </View>
@@ -131,7 +132,7 @@ export default function Achievements() {
         {/* Achievements Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Gem size={18} color="#9333EA" />
+            <Gem size={18} color={webColors.accent} />
             <Text style={styles.sectionTitle}>Achievements</Text>
           </View>
           {achievements.map((achievement, index) => (
@@ -302,7 +303,7 @@ const styles = StyleSheet.create({
   achievementGems: {
     fontSize: 12,
     fontWeight: '700',
-    color: "#9333EA",
+    color: webColors.accent,
   },
   achievementGemsCompleted: {
     color: colors.textMuted,
