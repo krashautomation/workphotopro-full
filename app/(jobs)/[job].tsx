@@ -869,7 +869,19 @@ const getMessages = async () => {
                                                 borderColor: isPressed ? Colors.Primary : 'transparent',
                                             }}
                                         >
-                                            <Text style={{ color: Colors.Text, fontWeight: 'bold', marginBottom: 5 }}>{item.senderName}</Text>
+                                            <Pressable
+                                                onPress={() => {
+                                                    router.push({
+                                                        pathname: '/(jobs)/user-profile',
+                                                        params: {
+                                                            name: item.senderName || 'Unknown User',
+                                                            imageUrl: item.senderPhoto || '',
+                                                        }
+                                                    });
+                                                }}
+                                            >
+                                                <Text style={{ color: Colors.Text, fontWeight: 'bold', marginBottom: 5 }}>{item.senderName}</Text>
+                                            </Pressable>
                                             
                                             {item.imageUrl && item.content !== 'Message deleted by user' && (
                                                 <TouchableOpacity 
