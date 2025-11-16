@@ -14,6 +14,7 @@ import { useOrganization } from '@/context/OrganizationContext'
 import { LegendList } from '@legendapp/list'
 import { useHeaderHeight } from '@react-navigation/elements'
 import * as ImagePicker from 'expo-image-picker'
+import * as DocumentPicker from 'expo-document-picker'
 import { Stack, useLocalSearchParams, useFocusEffect, useRouter } from 'expo-router'
 import * as React from 'react'
 import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native'
@@ -62,6 +63,7 @@ export default function Job() {
     const listRef = React.useRef<any>(null);
     const [selectedImage, setSelectedImage] = React.useState<string | null>(null);
     const [selectedVideo, setSelectedVideo] = React.useState<string | null>(null);
+    const [selectedFile, setSelectedFile] = React.useState<DocumentPicker.DocumentPickerAsset | null>(null);
     const [isUploading, setIsUploading] = React.useState(false);
     const [uploadStatus, setUploadStatus] = React.useState<string>('');
     const [uploadProgress, setUploadProgress] = React.useState<number>(0);
@@ -396,10 +398,47 @@ const getMessages = async () => {
         await pickImage();
     };
 
-    const handleUploadDocument = () => {
+    const pickDocument = async () => {
         setShowAttachmentMenu(false);
         setShowEmojiPicker(false);
-        Alert.alert('Coming Soon', 'Document uploads will be available soon.');
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: [
+                    'application/pdf',
+                    'application/msword',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'text/plain',
+                    'application/rtf',
+                    'application/vnd.ms-excel',
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'application/vnd.ms-powerpoint',
+                    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                    'application/zip',
+                    'application/x-rar-compressed',
+                ],
+                copyToCacheDirectory: true,
+            });
+
+            if (!result.canceled && result.assets[0]) {
+                const file = result.assets[0];
+                
+                // Check file size (10MB limit for documents)
+                const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+                if (file.size && file.size > maxSize) {
+                    Alert.alert('File Too Large', `File size (${(file.size / 1024 / 1024).toFixed(2)}MB) exceeds the 10MB limit.`);
+                    return;
+                }
+                
+                setSelectedFile(file);
+            }
+        } catch (error) {
+            console.error('Error picking document:', error);
+            Alert.alert('Error', 'Failed to pick document. Please try again.');
+        }
+    };
+
+    const handleUploadDocument = async () => {
+        await pickDocument();
     };
 
     const pickCamera = () => {
@@ -525,11 +564,59 @@ const getMessages = async () => {
         }
     };
 
+    const uploadFile = async (fileUri: string, fileName: string, mimeType: string): Promise<{ fileId: string; fileUrl: string } | null> => {
+        try {
+            if (!appwriteConfig.bucket) {
+                Alert.alert('Configuration Error', 'Bucket ID not configured.');
+                throw new Error('Bucket ID not configured');
+            }
+
+            const fileId = ID.unique();
+            
+            // Fetch the file and create a blob
+            const response = await fetch(fileUri);
+            const blob = await response.blob();
+            
+            // Create file object for React Native Appwrite
+            const file = {
+                uri: fileUri,
+                name: fileName,
+                type: mimeType,
+                size: blob.size,
+            };
+
+            console.log('📄 Uploading file:', { fileName, mimeType, size: blob.size });
+
+            const uploadResponse = await storage.createFile({
+                bucketId: appwriteConfig.bucket,
+                fileId: fileId,
+                file: file
+            });
+
+            if (!uploadResponse || !uploadResponse.$id) {
+                throw new Error(`Invalid upload response: ${JSON.stringify(uploadResponse)}`);
+            }
+
+            const fileUrl = `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${uploadResponse.$id}/view?project=${appwriteConfig.projectId}`;
+
+            console.log('✅ File uploaded successfully:', { fileId: uploadResponse.$id, fileUrl });
+
+            return {
+                fileId: uploadResponse.$id,
+                fileUrl: fileUrl,
+            };
+        } catch (error) {
+            console.error('Error uploading file:', error);
+            Alert.alert('Upload Failed', `Failed to upload file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return null;
+        }
+    };
+
     const sendMessage = async () => {
        
        setShowAttachmentMenu(false);
        
-       if(messageContent.trim() === '' && !selectedImage && !selectedVideo) return;
+       if(messageContent.trim() === '' && !selectedImage && !selectedVideo && !selectedFile) return;
        
        // Check if we have required team and organization data
        if (!currentTeam?.$id || !currentOrganization?.$id) {
@@ -553,6 +640,11 @@ const getMessages = async () => {
         let imageFileId = undefined;
         let videoUrl = undefined;
         let videoFileId = undefined;
+        let fileUrl = undefined;
+        let fileFileId = undefined;
+        let fileName = undefined;
+        let fileSize = undefined;
+        let fileMimeType = undefined;
 
         // Get user's profile picture from Google OAuth or stored preferences
         const userProfilePicture = await getUserProfilePicture();
@@ -605,6 +697,45 @@ const getMessages = async () => {
             }
         }
 
+        // Upload file if one is selected
+        if (selectedFile) {
+            console.log('🔍 sendMessage: Uploading file...');
+            setUploadStatus('Uploading file...');
+            setUploadProgress(0);
+            
+            // Simulate progress
+            const progressInterval = setInterval(() => {
+                setUploadProgress(prev => {
+                    if (prev >= 90) return prev;
+                    return prev + 10;
+                });
+            }, 200);
+            
+            const uploadResult = await uploadFile(
+                selectedFile.uri,
+                selectedFile.name || `file-${Date.now()}`,
+                selectedFile.mimeType || 'application/octet-stream'
+            );
+            clearInterval(progressInterval);
+            
+            if (uploadResult) {
+                setUploadProgress(100);
+                fileUrl = uploadResult.fileUrl;
+                fileFileId = uploadResult.fileId;
+                fileName = selectedFile.name;
+                fileSize = selectedFile.size || 0;
+                fileMimeType = selectedFile.mimeType || 'application/octet-stream';
+                console.log('🔍 sendMessage: File uploaded successfully:', { fileUrl, fileFileId, fileName });
+                setUploadStatus('File uploaded!');
+            } else {
+                console.error('🔍 sendMessage: File upload failed');
+                setUploadStatus('');
+                setUploadProgress(0);
+                setIsUploading(false);
+                return; // Don't send message if file upload failed
+            }
+        }
+
        const message: any = {
         content: messageContent || '', // Empty string if only media
         senderId: user?.$id,
@@ -628,6 +759,15 @@ const getMessages = async () => {
            message.videoFileId = videoFileId;
        }
 
+       // Add file fields only if file was uploaded
+       if (fileFileId) {
+           message.fileUrl = fileUrl;
+           message.fileFileId = fileFileId;
+           message.fileName = fileName;
+           message.fileSize = fileSize;
+           message.fileMimeType = fileMimeType;
+       }
+
        console.log('🔍 sendMessage: Creating message document:', message);
 
        const createdMessage = await db.createDocument(
@@ -643,6 +783,7 @@ const getMessages = async () => {
         setMessageContent('');
         setSelectedImage(null);
         setSelectedVideo(null);
+        setSelectedFile(null);
         setIsUploading(false);
         setUploadStatus('');
         setUploadProgress(0);
@@ -686,6 +827,14 @@ const getMessages = async () => {
                 console.error('Error deleting video file from storage:', fileError);
             }
 
+            try {
+                if ((message as any).fileFileId) {
+                    await storage.deleteFile(appwriteConfig.bucket, (message as any).fileFileId);
+                }
+            } catch (fileError) {
+                console.error('Error deleting file from storage:', fileError);
+            }
+
             // Update the message to mark it as deleted
             await db.updateDocument(
                 appwriteConfig.db,
@@ -696,6 +845,7 @@ const getMessages = async () => {
                     imageUrl: '',
                     imageFileId: '',
                     videoFileId: '',
+                    fileFileId: '',
                 }
             );
             
@@ -1109,6 +1259,40 @@ const getMessages = async () => {
                                                     </Text>
                                                 </TouchableOpacity>
                                             )}
+
+                                            {/* File Message */}
+                                            {item.fileFileId && item.content !== 'Message deleted by user' && (
+                                                <TouchableOpacity 
+                                                    onPress={() => {
+                                                        // Open file URL
+                                                        const fileUrl = item.fileUrl || `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.fileFileId}/view?project=${appwriteConfig.projectId}`;
+                                                        Linking.openURL(fileUrl);
+                                                    }}
+                                                    style={{
+                                                        backgroundColor: Colors.Secondary,
+                                                        padding: 12,
+                                                        borderRadius: 8,
+                                                        marginBottom: 8,
+                                                        borderWidth: 1,
+                                                        borderColor: Colors.Primary,
+                                                        flexDirection: 'row',
+                                                        alignItems: 'center',
+                                                    }}
+                                                >
+                                                    <IconSymbol name="doc.text" color={Colors.Primary} size={24} />
+                                                    <View style={{ flex: 1, marginLeft: 12 }}>
+                                                        <Text style={{ color: Colors.Primary, fontWeight: '600', fontSize: 14 }}>
+                                                            {item.fileName || 'Document'}
+                                                        </Text>
+                                                        {item.fileSize && (
+                                                            <Text style={{ color: Colors.Gray, fontSize: 12, marginTop: 2 }}>
+                                                                {(item.fileSize / 1024).toFixed(2)} KB
+                                                            </Text>
+                                                        )}
+                                                    </View>
+                                                    <IconSymbol name="arrow.down.circle" color={Colors.Primary} size={20} />
+                                                </TouchableOpacity>
+                                            )}
                                             
                                             {item.content && (
                                                 <Text style={{ 
@@ -1285,6 +1469,40 @@ const getMessages = async () => {
                                 </View>
                             )}
 
+                            {/* File Preview */}
+                            {selectedFile && (
+                                <View style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    padding: 12,
+                                    marginBottom: 8,
+                                    backgroundColor: Colors.Secondary,
+                                    borderRadius: 8,
+                                    borderWidth: 1,
+                                    borderColor: Colors.Primary,
+                                }}>
+                                    <IconSymbol name="doc.text" color={Colors.Primary} size={24} />
+                                    <View style={{ flex: 1, marginLeft: 12 }}>
+                                        <Text style={{ color: Colors.Text, fontSize: 14, fontWeight: '500' }}>
+                                            {selectedFile.name}
+                                        </Text>
+                                        <Text style={{ color: Colors.Gray, fontSize: 12 }}>
+                                            {selectedFile.size ? `${(selectedFile.size / 1024).toFixed(2)} KB` : 'Unknown size'}
+                                        </Text>
+                                    </View>
+                                    {!isUploading && (
+                                        <Pressable
+                                            onPress={() => setSelectedFile(null)}
+                                            style={{
+                                                padding: 4,
+                                            }}
+                                        >
+                                            <IconSymbol name="xmark" color={Colors.Gray} size={20} />
+                                        </Pressable>
+                                    )}
+                                </View>
+                            )}
+
                             {/* Input Area */}
                             <View
                             style={{
@@ -1418,7 +1636,7 @@ const getMessages = async () => {
                             
                                 {/* Send Button */}
                                 <Pressable 
-                                    disabled={(messageContent === '' && !selectedImage && !selectedVideo) || isUploading} 
+                                    disabled={(messageContent === '' && !selectedImage && !selectedVideo && !selectedFile) || isUploading} 
                                     style={{
                                         width: 32,
                                         height: 32,

@@ -154,8 +154,13 @@ export interface Message {
   imageFileId?: string; // Optional Appwrite file ID for deletion
   videoUrl?: string; // Optional video URL
   videoFileId?: string; // Optional Appwrite file ID for deletion
+  fileUrl?: string; // Optional file URL
+  fileFileId?: string; // Optional Appwrite file ID for deletion
+  fileName?: string; // Original filename
+  fileSize?: number; // File size in bytes
+  fileMimeType?: string; // MIME type
   locationData?: LocationData; // Optional location data
-  messageType?: 'text' | 'image' | 'video' | 'location'; // Message type
+  messageType?: 'text' | 'image' | 'video' | 'location' | 'file'; // Message type
 }
 
 // Location data for messages
