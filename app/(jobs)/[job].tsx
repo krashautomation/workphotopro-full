@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import JobDetails from './job-details'
 import JobUploads from './job-uploads'
+import JobTasks from './job-tasks'
 import * as SecureStore from 'expo-secure-store'
 import SaveImageModal from '@/components/SaveImageModal'
 import ShareJob from './share-job'
@@ -55,7 +56,7 @@ export default function Job() {
 
     const [messageContent, setMessageContent] = React.useState('');
     const [jobChat, setJobChat] = React.useState<JobChat | null>(null);
-    const [activeTab, setActiveTab] = React.useState<'chat' | 'details' | 'photos'>('chat');
+    const [activeTab, setActiveTab] = React.useState<'chat' | 'details' | 'photos' | 'tasks'>('chat');
 
     const [messages, setMessages] = React.useState<Message[]>([]);
     const [isLoading, setIsLoading] = React.useState(false);
@@ -1122,6 +1123,26 @@ const getMessages = async () => {
                             Uploads
                         </Text>
                     </Pressable>
+
+                    {/* Tasks Tab */}
+                    <Pressable
+                        style={{
+                            flex: 1,
+                            paddingVertical: 16,
+                            alignItems: 'center',
+                            borderBottomWidth: 3,
+                            borderBottomColor: activeTab === 'tasks' ? webColors.primary : 'transparent',
+                        }}
+                        onPress={() => setActiveTab('tasks')}
+                    >
+                        <Text style={{
+                            color: activeTab === 'tasks' ? webColors.primary : Colors.Gray,
+                            fontSize: 16,
+                            fontWeight: activeTab === 'tasks' ? '600' : '400',
+                        }}>
+                            Tasks
+                        </Text>
+                    </Pressable>
                 </View>
 
                 {/* Tab Content */}
@@ -1847,6 +1868,10 @@ const getMessages = async () => {
                         jobChat={jobChat}
                         onJobDeleted={handleJobDeleted}
                         onStatusUpdate={updateJobStatus}
+                    />
+                ) : activeTab === 'tasks' ? (
+                    <JobTasks
+                        jobId={jobId as string}
                     />
                 ) : (
                     <JobUploads
