@@ -3,7 +3,7 @@ import { Dimensions, FlatList, Image, Pressable, StyleSheet, Text, View } from '
 import { Message } from '@/utils/types'
 import { Colors } from '@/utils/colors'
 
-type JobPhotosProps = {
+type JobUploadsProps = {
     messages: Message[]
     onImagePress: (uri: string) => void
 }
@@ -17,7 +17,7 @@ type PhotoItem = {
 const NUM_COLUMNS = 3
 const SPACING = 8
 
-export default function JobPhotos({ messages, onImagePress }: JobPhotosProps) {
+export default function JobUploads({ messages, onImagePress }: JobUploadsProps) {
     const photos = React.useMemo<PhotoItem[]>(() => {
         return messages
             .filter(

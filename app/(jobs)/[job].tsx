@@ -22,7 +22,7 @@ import ImageViewing from 'react-native-image-viewing'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import JobDetails from './job-details'
-import JobPhotos from './job-photos'
+import JobUploads from './job-uploads'
 import * as SecureStore from 'expo-secure-store'
 import SaveImageModal from '@/components/SaveImageModal'
 import ShareJob from './share-job'
@@ -948,7 +948,7 @@ const getMessages = async () => {
                         </Text>
                     </Pressable>
 
-                    {/* Photos Tab */}
+                    {/* Uploads Tab */}
                     <Pressable
                         style={{
                             flex: 1,
@@ -964,7 +964,7 @@ const getMessages = async () => {
                             fontSize: 16,
                             fontWeight: activeTab === 'photos' ? '600' : '400',
                         }}>
-                            Photos
+                            Uploads
                         </Text>
                     </Pressable>
                 </View>
@@ -1534,7 +1534,7 @@ const getMessages = async () => {
                         onStatusUpdate={updateJobStatus}
                     />
                 ) : (
-                    <JobPhotos
+                    <JobUploads
                         messages={messages}
                         onImagePress={uri => {
                             setFullScreenImage(uri)
