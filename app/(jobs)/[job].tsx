@@ -483,11 +483,11 @@ const getMessages = async () => {
                 mimeType = 'video/webm';
             }
             
-            // Fetch the video and create a proper file object
+            // Fetch the video and create a proper file object (same approach as images)
             const response = await fetch(videoUri);
             const blob = await response.blob();
             
-            // Create file object for React Native Appwrite
+            // Create file object for React Native Appwrite (same format as images)
             const file = {
                 uri: videoUri,
                 name: filename,
@@ -495,14 +495,14 @@ const getMessages = async () => {
                 size: blob.size,
             };
 
-            console.log('📹 Uploading video:', { filename, mimeType, size: blob.size });
+            console.log('📹 Uploading video:', { filename, mimeType, uri: videoUri, size: blob.size });
 
-            // Upload to Appwrite Storage
-            const uploadResponse = await storage.createFile(
-                appwriteConfig.bucket,
-                fileId,
-                file
-            );
+            // Upload to Appwrite Storage using object parameter style
+            const uploadResponse = await storage.createFile({
+                bucketId: appwriteConfig.bucket,
+                fileId: fileId,
+                file: file
+            });
 
             // Check if response is valid
             if (!uploadResponse || !uploadResponse.$id) {
@@ -616,22 +616,16 @@ const getMessages = async () => {
        };
 
        // Add image fields only if image was uploaded
+       // Note: messageType is not stored in Appwrite, inferred from imageUrl/videoUrl presence
        if (imageUrl) {
            message.imageUrl = imageUrl;
            message.imageFileId = imageFileId;
-           message.messageType = 'image';
        }
 
        // Add video fields only if video was uploaded
-       if (videoUrl) {
-           message.videoUrl = videoUrl;
+       // Note: Only save videoFileId, construct videoUrl when displaying
+       if (videoFileId) {
            message.videoFileId = videoFileId;
-           message.messageType = 'video';
-       }
-
-       // Set message type to text if no media
-       if (!imageUrl && !videoUrl) {
-           message.messageType = 'text';
        }
 
        console.log('🔍 sendMessage: Creating message document:', message);
@@ -1046,13 +1040,13 @@ const getMessages = async () => {
                                             )}
 
                                             {/* Video Message */}
-                                            {item.videoUrl && item.content !== 'Message deleted by user' && (
+                                            {item.videoFileId && item.content !== 'Message deleted by user' && (
                                                 <View style={{
                                                     width: '100%',
                                                     marginBottom: 8,
                                                 }}>
                                                     <VideoPlayer
-                                                        uri={item.videoUrl}
+                                                        uri={appwriteConfig.bucket ? `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.videoFileId}/view?project=${appwriteConfig.projectId}` : ''}
                                                         showControls={true}
                                                         autoPlay={false}
                                                         onError={(error) => {
@@ -1192,7 +1186,7 @@ const getMessages = async () => {
                                         justifyContent: 'center',
                                         alignItems: 'center',
                                     }}>
-                                        <IconSymbol name="video.fill" color={Colors.Primary} size={48} />
+                                        <IconSymbol name="video" color={Colors.Primary} size={48} />
                                         <Text style={{ 
                                             color: Colors.Text, 
                                             marginTop: 8,

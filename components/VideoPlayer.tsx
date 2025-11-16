@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
-import { View, StyleSheet, Pressable, ActivityIndicator, Text, Alert } from 'react-native';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Pressable, ActivityIndicator, Text } from 'react-native';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { IconSymbol } from './IconSymbol';
 import { Colors } from '@/utils/colors';
 
@@ -19,55 +19,56 @@ export default function VideoPlayer({
     autoPlay = false,
     onError 
 }: VideoPlayerProps) {
-    const videoRef = useRef<Video>(null);
-    const [status, setStatus] = useState<any>({});
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
-    const [isPlaying, setIsPlaying] = useState(autoPlay);
     const [retryKey, setRetryKey] = useState(0);
 
-    const handlePlaybackStatusUpdate = (playbackStatus: AVPlaybackStatus) => {
-        if (playbackStatus.isLoaded) {
-            setIsLoading(false);
-            setIsPlaying(playbackStatus.isPlaying);
-        } else {
-            // Check if it's an error state
-            if ('error' in playbackStatus) {
-                console.error('Video load error:', playbackStatus.error);
-                setHasError(true);
-                setIsLoading(false);
-                if (onError) {
-                    onError(new Error(playbackStatus.error || 'Unknown video error'));
-                }
-            } else {
-                setIsLoading(false);
-            }
-        }
-        setStatus(playbackStatus);
-    };
+    // Use retryKey to force player recreation on retry
+    const playerUri = retryKey > 0 ? `${uri}?retry=${retryKey}` : uri;
+    const player = useVideoPlayer(playerUri, (player) => {
+        player.loop = false;
+    });
 
-    const togglePlayPause = async () => {
-        if (hasError) return;
+    useEffect(() => {
+        if (!player) return;
+
+        if (autoPlay) {
+            player.play();
+        }
+
+        const subscription = player.addListener('statusChange', (status) => {
+            if (status.status === 'readyToPlay') {
+                setIsLoading(false);
+                setHasError(false);
+            } else if (status.status === 'error') {
+                setIsLoading(false);
+                setHasError(true);
+                if (onError) {
+                    onError(new Error(status.error?.message || 'Unknown video error'));
+                }
+            } else if (status.status === 'loading') {
+                setIsLoading(true);
+            }
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, [player, autoPlay, onError]);
+
+    const togglePlayPause = () => {
+        if (hasError || !player) return;
         
         try {
-            if (isPlaying) {
-                await videoRef.current?.pauseAsync();
+            if (player.playing) {
+                player.pause();
             } else {
-                await videoRef.current?.playAsync();
+                player.play();
             }
         } catch (error) {
             console.error('Error toggling playback:', error);
             setHasError(true);
         }
-    };
-
-    const handleLoadStart = () => {
-        setIsLoading(true);
-        setHasError(false);
-    };
-
-    const handleLoad = () => {
-        setIsLoading(false);
     };
 
     if (hasError) {
@@ -79,7 +80,7 @@ export default function VideoPlayer({
                     onPress={() => {
                         setHasError(false);
                         setIsLoading(true);
-                        // Force re-render by changing key
+                        // Force player recreation by incrementing retryKey
                         setRetryKey(prev => prev + 1);
                     }}
                     style={styles.retryButton}
@@ -90,18 +91,22 @@ export default function VideoPlayer({
         );
     }
 
+    if (!player) {
+        return (
+            <View style={[styles.container, style, styles.errorContainer]}>
+                <ActivityIndicator size="large" color={Colors.Primary} />
+                <Text style={styles.loadingText}>Initializing video...</Text>
+            </View>
+        );
+    }
+
     return (
         <View style={[styles.container, style]} key={retryKey}>
-            <Video
-                ref={videoRef}
+            <VideoView
+                player={player}
                 style={styles.video}
-                source={{ uri }}
-                useNativeControls={showControls}
-                resizeMode={ResizeMode.CONTAIN}
-                isLooping={false}
-                onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
-                onLoadStart={handleLoadStart}
-                onLoad={handleLoad}
+                nativeControls={showControls}
+                contentFit="contain"
             />
             
             {isLoading && (
@@ -111,14 +116,14 @@ export default function VideoPlayer({
                 </View>
             )}
 
-            {!showControls && !isLoading && (
+            {!showControls && !isLoading && !hasError && (
                 <Pressable
                     style={styles.playButtonOverlay}
                     onPress={togglePlayPause}
                 >
                     <View style={styles.playButton}>
                         <IconSymbol 
-                            name={isPlaying ? "pause.fill" : "play.fill"} 
+                            name={player.playing ? "pause.fill" : "play.fill"} 
                             color={Colors.White} 
                             size={32} 
                         />

@@ -3,7 +3,8 @@ import { IconSymbol } from '@/components/IconSymbol'
 import { Colors } from '@/utils/colors'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import React from 'react'
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View, Platform } from 'react-native'
+import { PermissionsAndroid } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import * as SecureStore from 'expo-secure-store'
@@ -39,78 +40,181 @@ export default function VideoCameraPage() {
     )
 
     // Check premium access and video recording enabled
+    const isCheckingRef = React.useRef(false)
+    
     React.useEffect(() => {
+        // Prevent multiple simultaneous checks
+        if (isCheckingRef.current) {
+            console.log('🎥 [VideoCamera] ⚠️ Access check already in progress, skipping...')
+            return
+        }
+        
         let isMounted = true
+        let timeoutId: ReturnType<typeof setTimeout> | null = null
 
         const checkAccess = async () => {
+            isCheckingRef.current = true
+            console.log('🎥 [VideoCamera] Starting access check...')
             setIsCheckingPremium(true)
             
             try {
-                // Refresh organization data
-                await loadUserData()
+                console.log('🎥 [VideoCamera] Step 1: Checking current organization:', currentOrganization?.$id)
+                console.log('🎥 [VideoCamera] Step 1: Is premium?', isCurrentOrgPremium)
                 
-                // Resolve job organization if jobId is provided
-                if (jobId && typeof jobId === 'string') {
+                // Set a timeout to prevent hanging
+                const timeoutPromise = new Promise((_, reject) => {
+                    timeoutId = setTimeout(() => {
+                        console.error('🎥 [VideoCamera] ⏱️ TIMEOUT: loadUserData took longer than 5 seconds')
+                        reject(new Error('Access check timeout'))
+                    }, 5000) // 5 second timeout
+                })
+
+                // Skip loadUserData if we already have organization data - it's causing re-renders
+                // Only refresh if we don't have current organization
+                if (!currentOrganization) {
+                    console.log('🎥 [VideoCamera] Step 2: No current organization, calling loadUserData()...')
                     try {
-                        const jobDoc = await db.getDocument<JobChat>(
+                        await Promise.race([
+                            loadUserData().then(() => {
+                                console.log('🎥 [VideoCamera] ✅ loadUserData() completed successfully')
+                            }).catch((err) => {
+                                console.error('🎥 [VideoCamera] ❌ loadUserData() failed:', err)
+                                throw err
+                            }),
+                            timeoutPromise
+                        ])
+                        console.log('🎥 [VideoCamera] Step 3: loadUserData completed successfully')
+                    } catch (timeoutError: any) {
+                        if (timeoutError?.message === 'Access check timeout') {
+                            console.warn('🎥 [VideoCamera] ⚠️ loadUserData() timed out, proceeding with cached organization data')
+                            // Continue with existing organization data instead of failing
+                        } else {
+                            console.error('🎥 [VideoCamera] ❌ loadUserData() error:', timeoutError)
+                            throw timeoutError
+                        }
+                    }
+                } else {
+                    console.log('🎥 [VideoCamera] Step 2: Using existing current organization, skipping loadUserData')
+                }
+                
+                console.log('🎥 [VideoCamera] Step 3: Checking jobId:', jobId)
+                
+                // Resolve job organization if jobId is provided and different from current
+                let resolvedOrg: Organization | null = currentOrganization
+                if (jobId && typeof jobId === 'string' && currentOrganization) {
+                    console.log('🎥 [VideoCamera] Step 4: Fetching job document...')
+                    try {
+                        // Add timeout for job fetch too
+                        const jobFetchPromise = db.getDocument<JobChat>(
                             appwriteConfig.db,
                             appwriteConfig.col.jobchat,
                             jobId as string
                         )
+                        
+                        const jobFetchTimeout = new Promise((_, reject) => {
+                            setTimeout(() => reject(new Error('Job fetch timeout')), 3000)
+                        })
+                        
+                        const jobDoc = await Promise.race([jobFetchPromise, jobFetchTimeout]) as JobChat
 
                         if (!isMounted) return
 
                         const jobOrgId = jobDoc?.orgId
+                        console.log('🎥 [VideoCamera] Step 5: Job orgId:', jobOrgId)
 
-                        if (jobOrgId) {
-                            if (currentOrganization?.$id === jobOrgId) {
-                                setJobOrganization(currentOrganization)
-                            } else {
-                                try {
-                                    const organization = await organizationService.getOrganization(jobOrgId)
-                                    if (isMounted) {
-                                        setJobOrganization(organization)
-                                    }
-                                } catch (orgError) {
-                                    console.warn('Failed to load job organization:', orgError)
+                        if (jobOrgId && jobOrgId !== currentOrganization?.$id) {
+                            console.log('🎥 [VideoCamera] Step 6: Job org differs, fetching organization from service...')
+                            try {
+                                const organization = await organizationService.getOrganization(jobOrgId)
+                                resolvedOrg = organization
+                                console.log('🎥 [VideoCamera] ✅ Organization fetched:', organization?.$id)
+                                if (isMounted) {
+                                    setJobOrganization(organization)
                                 }
+                            } catch (orgError) {
+                                console.warn('🎥 [VideoCamera] ⚠️ Failed to load job organization, using current:', orgError)
+                                resolvedOrg = currentOrganization
                             }
+                        } else if (jobOrgId === currentOrganization?.$id) {
+                            console.log('🎥 [VideoCamera] Step 6: Job org matches current org, using current')
+                            resolvedOrg = currentOrganization
+                        } else {
+                            console.log('🎥 [VideoCamera] Step 5: No jobOrgId found, using current organization')
                         }
-                    } catch (error) {
-                        console.error('Error resolving job organization:', error)
+                    } catch (error: any) {
+                        if (error?.message === 'Job fetch timeout') {
+                            console.warn('🎥 [VideoCamera] ⚠️ Job fetch timed out, using current organization')
+                            resolvedOrg = currentOrganization
+                        } else {
+                            console.error('🎥 [VideoCamera] ❌ Error resolving job organization:', error)
+                            resolvedOrg = currentOrganization
+                        }
                     }
+                } else {
+                    console.log('🎥 [VideoCamera] Step 4: No jobId or no current org, using current organization')
                 }
 
-                if (!isMounted) return
+                if (!isMounted) {
+                    console.log('🎥 [VideoCamera] ⚠️ Component unmounted, aborting')
+                    return
+                }
 
                 // Check if organization has premium and video recording enabled
-                const org = activeOrganization || currentOrganization
+                const org = resolvedOrg || currentOrganization
+                console.log('🎥 [VideoCamera] Step 7: Final organization check')
+                console.log('🎥 [VideoCamera] - Org ID:', org?.$id)
+                console.log('🎥 [VideoCamera] - Premium tier:', org?.premiumTier)
+                console.log('🎥 [VideoCamera] - Video enabled:', org?.videoRecordingEnabled)
+                
                 const hasPremium = isCurrentOrgPremium || (org?.premiumTier && org.premiumTier !== 'free')
                 const videoEnabled = org?.videoRecordingEnabled ?? false
+                
+                console.log('🎥 [VideoCamera] Step 8: Access check results')
+                console.log('🎥 [VideoCamera] - Has premium:', hasPremium)
+                console.log('🎥 [VideoCamera] - Video enabled:', videoEnabled)
 
                 if (!hasPremium || !videoEnabled) {
-                    Alert.alert(
-                        'Premium Feature',
-                        'Video recording is available for premium organizations only. Please upgrade to premium and enable video recording in your organization settings.',
-                        [
-                            {
-                                text: 'Go to Premium',
-                                onPress: () => router.push('/(jobs)/get-premium'),
-                            },
-                            {
-                                text: 'Cancel',
-                                style: 'cancel',
-                                onPress: () => router.back(),
-                            },
-                        ]
-                    )
+                    console.log('🎥 [VideoCamera] ⛔ Access denied - showing alert')
+                    if (isMounted) {
+                        Alert.alert(
+                            'Premium Feature',
+                            'Video recording is available for premium organizations only. Please upgrade to premium and enable video recording in your organization settings.',
+                            [
+                                {
+                                    text: 'Go to Premium',
+                                    onPress: () => router.push('/(jobs)/get-premium'),
+                                },
+                                {
+                                    text: 'Cancel',
+                                    style: 'cancel',
+                                    onPress: () => router.back(),
+                                },
+                            ]
+                        )
+                    }
+                } else {
+                    console.log('🎥 [VideoCamera] ✅ Access granted - video recording allowed')
                 }
             } catch (error) {
-                console.error('Error checking premium access:', error)
-                Alert.alert('Error', 'Failed to verify premium access. Please try again.')
+                console.error('🎥 [VideoCamera] ❌ Error checking premium access:', error)
+                console.error('🎥 [VideoCamera] Error details:', JSON.stringify(error, null, 2))
+                if (isMounted) {
+                    Alert.alert(
+                        'Error', 
+                        'Failed to verify premium access. Please try again.',
+                        [{ text: 'OK', onPress: () => router.back() }]
+                    )
+                }
             } finally {
+                console.log('🎥 [VideoCamera] Step 9: Cleaning up - setting isCheckingPremium to false')
+                isCheckingRef.current = false
+                if (timeoutId) {
+                    clearTimeout(timeoutId)
+                    console.log('🎥 [VideoCamera] Cleared timeout')
+                }
                 if (isMounted) {
                     setIsCheckingPremium(false)
+                    console.log('🎥 [VideoCamera] ✅ Access check complete')
                 }
             }
         }
@@ -119,8 +223,12 @@ export default function VideoCameraPage() {
 
         return () => {
             isMounted = false
+            isCheckingRef.current = false
+            if (timeoutId) {
+                clearTimeout(timeoutId)
+            }
         }
-    }, [jobId, currentOrganization, isCurrentOrgPremium, loadUserData, router])
+    }, [jobId, currentOrganization?.$id, isCurrentOrgPremium, router])
 
     // Cleanup timers on unmount
     React.useEffect(() => {
@@ -152,6 +260,47 @@ export default function VideoCameraPage() {
                         'Video recording is not available for this organization.'
                     )
                     return
+                }
+
+                // Request audio permission on Android before recording
+                if (Platform.OS === 'android') {
+                    try {
+                        // Check if permission is already granted
+                        const checkResult = await PermissionsAndroid.check(
+                            PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
+                        )
+
+                        if (!checkResult) {
+                            // Request permission if not granted
+                            const audioPermission = await PermissionsAndroid.request(
+                                PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+                                {
+                                    title: 'Microphone Permission',
+                                    message: 'WorkPhotoPro needs access to your microphone to record video with audio.',
+                                    buttonNeutral: 'Ask Me Later',
+                                    buttonNegative: 'Cancel',
+                                    buttonPositive: 'OK',
+                                }
+                            )
+
+                            if (audioPermission !== PermissionsAndroid.RESULTS.GRANTED) {
+                                Alert.alert(
+                                    'Permission Required',
+                                    'Microphone permission is required to record video with audio. Please enable it in your device settings.',
+                                    [{ text: 'OK' }]
+                                )
+                                return
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Error requesting audio permission:', err)
+                        Alert.alert(
+                            'Permission Error',
+                            'Failed to request microphone permission. Please enable it in your device settings.',
+                            [{ text: 'OK' }]
+                        )
+                        return
+                    }
                 }
 
                 setIsRecording(true)

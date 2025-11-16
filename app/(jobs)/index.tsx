@@ -7,6 +7,7 @@ import { JobChat, JobChatWithTags } from '@/utils/types';
 import { Link, useRouter, useFocusEffect, usePathname, useSegments } from 'expo-router';
 import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Image, TextInput } from 'react-native';
 import { useEffect, useState, useCallback } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Coins, Gem, TableProperties, MessageCircle, Plus, Camera, Video, Info, SquareCheck, SquareChevronRight } from 'lucide-react-native';
@@ -18,6 +19,7 @@ export default function Jobs() {
   const router = useRouter();
   const pathname = usePathname();
   const segments = useSegments();
+  const insets = useSafeAreaInsets();
   
   // Check if we're on the index page (Job Chats)
   const isOnIndexPage = pathname === '/(jobs)' || 
@@ -613,7 +615,7 @@ export default function Jobs() {
       />
 
       {/* Bottom Menu */}
-      <View style={styles.bottomMenu}>
+      <View style={[styles.bottomMenu, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <TouchableOpacity 
           style={styles.menuButton}
           onPress={() => router.push('/(jobs)')}
@@ -885,7 +887,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingVertical: 12,
+    paddingTop: 12,
     paddingHorizontal: 20,
     justifyContent: 'space-around',
     alignItems: 'center',
