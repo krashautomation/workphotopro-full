@@ -79,27 +79,39 @@ export default function ChooseJobForPhoto() {
       return;
     }
 
-    router.push({
-      pathname: '/(jobs)/new-job',
-      params: { 
-        photoFlow: 'true',
-        mediaType: isVideo ? 'video' : 'photo',
-      },
-    });
+    // Deselect any existing job and select "Create new job" option
+    setSelectedJobId(null);
   };
 
   const handleNext = () => {
-    if (!selectedJobId) {
+    if (!currentTeam?.$id || !currentOrganization?.$id) {
+      Alert.alert(
+        'Select a Team',
+        'Please select a team and organization before creating a job.',
+      );
       return;
     }
 
-    router.push({
-      pathname: isVideo ? '/(jobs)/video-camera' : '/(jobs)/camera',
-      params: {
-        jobId: selectedJobId,
-        photoFlow: 'true',
-      },
-    });
+    // If no job selected (selectedJobId is null), user wants to create new job
+    if (selectedJobId === null) {
+      router.push({
+        pathname: '/(jobs)/new-job',
+        params: { 
+          photoFlow: 'true',
+          mediaType: isVideo ? 'video' : 'photo',
+        },
+      });
+    } else if (selectedJobId) {
+      // User selected an existing job, navigate to camera
+      router.push({
+        pathname: isVideo ? '/(jobs)/video-camera' : '/(jobs)/camera',
+        params: {
+          jobId: selectedJobId,
+          photoFlow: 'true',
+        },
+      });
+    }
+    // If neither condition is met, do nothing (Next button should be disabled)
   };
 
   if (!isAuthenticated) {
@@ -163,7 +175,10 @@ export default function ChooseJobForPhoto() {
 
           <View style={styles.actionsRow}>
             <Pressable
-              style={styles.primaryAction}
+              style={[
+                styles.primaryAction,
+                selectedJobId !== null && styles.primaryActionUnselected,
+              ]}
               onPress={handleCreateNewJob}
             >
               <Text style={styles.primaryActionTitle}>Create a new job</Text>
@@ -243,15 +258,15 @@ export default function ChooseJobForPhoto() {
           <Pressable
             style={[
               styles.nextButton,
-              !selectedJobId && styles.nextButtonDisabled,
+              selectedJobId === undefined && styles.nextButtonDisabled,
             ]}
-            disabled={!selectedJobId}
+            disabled={selectedJobId === undefined}
             onPress={handleNext}
           >
             <Text
               style={[
                 styles.nextButtonText,
-                !selectedJobId && styles.nextButtonTextDisabled,
+                selectedJobId === undefined && styles.nextButtonTextDisabled,
               ]}
             >
               Next
@@ -294,6 +309,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: globalColors.primary,
+  },
+  primaryActionUnselected: {
+    borderColor: 'transparent',
   },
   primaryActionTitle: {
     fontSize: 16,
