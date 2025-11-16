@@ -1,5 +1,5 @@
 import React from 'react'
-import { Dimensions, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Dimensions, FlatList, Image, Pressable, StyleSheet, Text, View, Linking } from 'react-native'
 import { Message } from '@/utils/types'
 import { Colors } from '@/utils/colors'
 import { appwriteConfig } from '@/utils/appwrite'
@@ -27,6 +27,10 @@ type VideoItem = {
 type FileItem = {
     id: string
     name: string
+    fileFileId: string
+    fileUrl: string
+    fileSize?: number
+    fileMimeType?: string
     createdAt?: string
 }
 
@@ -73,11 +77,29 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
             })
     }, [messages])
 
-    // Placeholder files - will be implemented later
     const files = React.useMemo<FileItem[]>(() => {
-        // Return empty array for now - placeholder implementation
-        return []
-    }, [])
+        return messages
+            .filter(
+                message =>
+                    !!(message as any).fileFileId &&
+                    message.content !== 'Message deleted by user'
+            )
+            .map(message => {
+                const fileFileId = (message as any).fileFileId
+                const fileUrl = (message as any).fileUrl || (appwriteConfig.bucket
+                    ? `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${fileFileId}/view?project=${appwriteConfig.projectId}`
+                    : '')
+                return {
+                    id: message.$id,
+                    name: (message as any).fileName || 'Document',
+                    fileFileId,
+                    fileUrl,
+                    fileSize: (message as any).fileSize,
+                    fileMimeType: (message as any).fileMimeType,
+                    createdAt: message.$createdAt,
+                }
+            })
+    }, [messages])
 
     const { width } = Dimensions.get('window')
     const itemSize = React.useMemo(() => {
@@ -182,6 +204,12 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                 renderItem={({ item }) => (
                     <Pressable
                         style={[styles.fileWrapper, { width: itemSize, height: itemSize }]}
+                        onPress={() => {
+                            // Open file URL
+                            if (item.fileUrl) {
+                                Linking.openURL(item.fileUrl)
+                            }
+                        }}
                     >
                         <View style={styles.fileIconContainer}>
                             <IconSymbol name="doc.text" color={Colors.Primary} size={32} />
@@ -189,6 +217,11 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                         <Text style={styles.fileName} numberOfLines={2}>
                             {item.name}
                         </Text>
+                        {item.fileSize && (
+                            <Text style={styles.fileSize} numberOfLines={1}>
+                                {(item.fileSize / 1024).toFixed(1)} KB
+                            </Text>
+                        )}
                     </Pressable>
                 )}
             />
@@ -351,6 +384,13 @@ const styles = StyleSheet.create({
         color: Colors.Text,
         fontSize: 12,
         textAlign: 'center',
+        fontWeight: '500',
+    },
+    fileSize: {
+        color: Colors.Gray,
+        fontSize: 10,
+        textAlign: 'center',
+        marginTop: 4,
     },
     emptyState: {
         flex: 1,
