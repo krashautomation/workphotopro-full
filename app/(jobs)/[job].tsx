@@ -667,17 +667,35 @@ const getMessages = async () => {
         }
     }
 
-    const deleteMessage = async (messageId: string) => {
+    const deleteMessage = async (message: Message) => {
         try {
+            // Hard delete associated image/video files from storage (if any)
+            try {
+                if ((message as any).imageFileId) {
+                    await storage.deleteFile(appwriteConfig.bucket, (message as any).imageFileId);
+                }
+            } catch (fileError) {
+                console.error('Error deleting image file from storage:', fileError);
+            }
+
+            try {
+                if ((message as any).videoFileId) {
+                    await storage.deleteFile(appwriteConfig.bucket, (message as any).videoFileId);
+                }
+            } catch (fileError) {
+                console.error('Error deleting video file from storage:', fileError);
+            }
+
             // Update the message to mark it as deleted
             await db.updateDocument(
                 appwriteConfig.db,
                 appwriteConfig.col.messages,
-                messageId,
+                message.$id,
                 {
                     content: 'Message deleted by user',
                     imageUrl: '',
                     imageFileId: '',
+                    videoFileId: '',
                 }
             );
             
@@ -707,7 +725,7 @@ const getMessages = async () => {
 
     const handleDeleteConfirm = () => {
         if (messageToDelete) {
-            deleteMessage(messageToDelete.$id);
+            deleteMessage(messageToDelete);
         }
         setShowDeleteModal(false);
         setPressedMessageId(null);
