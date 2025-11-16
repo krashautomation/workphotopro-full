@@ -15,7 +15,6 @@ import { JobChat, Organization } from '@/utils/types'
 import { appwriteConfig, db } from '@/utils/appwrite'
 
 const RECORDING_DURATION = 15 // 15 seconds fixed duration
-const VIDEO_RESOLUTION = { width: 1920, height: 1080 } // 1080p HD
 
 export default function VideoCameraPage() {
     const { jobId, photoFlow } = useLocalSearchParams()
@@ -165,13 +164,17 @@ export default function VideoCameraPage() {
                 console.log('🎥 [VideoCamera] - Org ID:', org?.$id)
                 console.log('🎥 [VideoCamera] - Premium tier:', org?.premiumTier)
                 console.log('🎥 [VideoCamera] - Video enabled:', org?.videoRecordingEnabled)
+                console.log('🎥 [VideoCamera] - HD Video enabled:', org?.hdVideoEnabled)
                 
                 const hasPremium = isCurrentOrgPremium || (org?.premiumTier && org.premiumTier !== 'free')
                 const videoEnabled = org?.videoRecordingEnabled ?? false
+                const hdVideoEnabled = org?.hdVideoEnabled ?? false
                 
                 console.log('🎥 [VideoCamera] Step 8: Access check results')
                 console.log('🎥 [VideoCamera] - Has premium:', hasPremium)
                 console.log('🎥 [VideoCamera] - Video enabled:', videoEnabled)
+                console.log('🎥 [VideoCamera] - HD Video enabled:', hdVideoEnabled)
+                console.log('🎥 [VideoCamera] - Will record at:', hdVideoEnabled ? '1080p' : '720p')
 
                 if (!hasPremium || !videoEnabled) {
                     console.log('🎥 [VideoCamera] ⛔ Access denied - showing alert')
@@ -262,6 +265,11 @@ export default function VideoCameraPage() {
                     return
                 }
 
+                // Determine video quality based on hdVideoEnabled setting
+                const hdVideoEnabled = org?.hdVideoEnabled ?? false
+                const videoQuality = hdVideoEnabled ? '1080p' : '720p'
+                console.log(`🎥 [VideoCamera] Recording at ${videoQuality} (HD Video: ${hdVideoEnabled})`)
+
                 // Request audio permission on Android before recording
                 if (Platform.OS === 'android') {
                     try {
@@ -307,10 +315,10 @@ export default function VideoCameraPage() {
                 setRecordingTime(0)
                 setRecordedVideo(null)
 
-                // Start recording
+                // Start recording with quality based on hdVideoEnabled setting
                 const recording = await cameraRef.current.recordAsync({
                     maxDuration: RECORDING_DURATION,
-                    quality: '1080p',
+                    quality: videoQuality,
                 })
 
                 // Start timer for UI
