@@ -18,7 +18,7 @@ const RECORDING_DURATION = 15 // 15 seconds fixed duration
 const VIDEO_RESOLUTION = { width: 1920, height: 1080 } // 1080p HD
 
 export default function VideoCameraPage() {
-    const { jobId } = useLocalSearchParams()
+    const { jobId, photoFlow } = useLocalSearchParams()
     const { user } = useAuth()
     const { currentOrganization, isCurrentOrgPremium, loadUserData } = useOrganization()
     const [facing, setFacing] = React.useState<CameraType>('back')
@@ -395,8 +395,17 @@ export default function VideoCameraPage() {
                 // Store the recorded video URI in secure store
                 await SecureStore.setItemAsync('recordedVideoUri', recordedVideo)
                 console.log('✅ Saved video:', recordedVideo)
-                // Navigate back to job page
-                router.back()
+                
+                // If we have a jobId and are in photo flow mode, navigate directly to that job chat
+                if (photoFlow === 'true' && jobId && typeof jobId === 'string') {
+                    router.replace({
+                        pathname: '/(jobs)/[job]',
+                        params: { job: jobId },
+                    })
+                } else {
+                    // Normal flow: navigate back (which may go to jobs list or previous screen)
+                    router.back()
+                }
             } catch (error) {
                 console.error('Error storing video:', error)
                 Alert.alert('Error', 'Failed to save video. Please try again.')

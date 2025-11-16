@@ -18,7 +18,7 @@ import * as ImageManipulator from 'expo-image-manipulator'
 import { appwriteConfig, db } from '@/utils/appwrite'
 
 export default function CameraPage() {
-    const { jobId } = useLocalSearchParams()
+    const { jobId, photoFlow } = useLocalSearchParams()
     const { user } = useAuth()
     const { currentOrganization, isHDCaptureEnabled, loadUserData } = useOrganization()
     const [facing, setFacing] = React.useState<CameraType>('back')
@@ -504,8 +504,17 @@ export default function CameraPage() {
                 // Store the captured image URI in secure store
                 await SecureStore.setItemAsync('capturedImageUri', imageToSave)
                 console.log('✅ Saved image:', imageToSave)
-                // Navigate back to job page
-                router.back()
+                
+                // If we have a jobId and are in photo flow mode, navigate directly to that job chat
+                if (photoFlow === 'true' && jobId && typeof jobId === 'string') {
+                    router.replace({
+                        pathname: '/(jobs)/[job]',
+                        params: { job: jobId },
+                    })
+                } else {
+                    // Normal flow: navigate back (which may go to jobs list or previous screen)
+                    router.back()
+                }
             } catch (error) {
                 console.error('Error storing photo:', error)
                 Alert.alert('Error', 'Failed to save photo. Please try again.')

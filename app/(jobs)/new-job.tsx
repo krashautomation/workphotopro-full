@@ -4,13 +4,15 @@ import { useOrganization } from '@/context/OrganizationContext';
 import { jobChatService } from '@/lib/appwrite/database';
 import { Colors } from '@/utils/colors';
 import { Image } from 'react-native';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View, Alert } from 'react-native';
 
 export default function NewJob() {
   const { user } = useAuth();
   const { currentTeam, currentOrganization } = useOrganization();
+  const { photoFlow, mediaType } = useLocalSearchParams<{ photoFlow?: string; mediaType?: 'photo' | 'video' }>();
+  const isVideo = mediaType === 'video';
   const [jobName, setJobName] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [isLoading, setIsLoading ] = useState(false);
@@ -31,14 +33,26 @@ const handleCreateRoom = async () => {
     setIsLoading(true);
     
     // Use jobChatService which properly handles teamId and orgId
-    await jobChatService.createJobChat({
+    const newJob = await jobChatService.createJobChat({
       title: jobName,
       description: jobDescription,
       createdBy: user?.$id || 'unknown',
       createdByName: user?.name || 'Unknown User',
     }, currentTeam.$id, currentOrganization.$id);
     
-    router.back();
+    // If we're in photo flow mode, navigate to camera/video-camera with the new job's ID
+    if (photoFlow === 'true' && newJob?.$id) {
+      router.replace({
+        pathname: isVideo ? '/(jobs)/video-camera' : '/(jobs)/camera',
+        params: {
+          jobId: newJob.$id,
+          photoFlow: 'true',
+        },
+      });
+    } else {
+      // Normal flow: just go back
+      router.back();
+    }
   } catch (error) {
     console.error('Error creating job:', error);
     Alert.alert('Error', 'Failed to create job. Please try again.');

@@ -640,7 +640,10 @@ export default function Jobs() {
         
         <TouchableOpacity 
           style={styles.menuButton}
-          onPress={() => router.push('/(jobs)/camera')}
+          onPress={() => router.push({
+            pathname: '/(jobs)/choose-job-for-photo',
+            params: { mediaType: 'photo' }
+          })}
         >
           <Camera
             size={24}
@@ -651,7 +654,10 @@ export default function Jobs() {
         
         <TouchableOpacity 
           style={styles.menuButton}
-          onPress={() => router.push('/(jobs)/camera')}
+          onPress={() => router.push({
+            pathname: '/(jobs)/choose-job-for-photo',
+            params: { mediaType: 'video' }
+          })}
         >
           <Video
             size={24}
