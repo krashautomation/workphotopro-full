@@ -28,6 +28,7 @@ import * as SecureStore from 'expo-secure-store'
 import SaveImageModal from '@/components/SaveImageModal'
 import ShareJob from './share-job'
 import VideoPlayer from '@/components/VideoPlayer'
+import { ClipboardList, CalendarCheck, LayoutList } from 'lucide-react-native'
 
 
 export default function Job() {
@@ -78,6 +79,7 @@ export default function Job() {
     const [showShareJobModal, setShowShareJobModal] = React.useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
     const [showAttachmentMenu, setShowAttachmentMenu] = React.useState(false);
+    const [showClipboardMenu, setShowClipboardMenu] = React.useState(false);
 
 
     React.useEffect(() => {
@@ -368,6 +370,7 @@ const getMessages = async () => {
 
     const pickImage = async () => {
         setShowAttachmentMenu(false);
+        setShowClipboardMenu(false);
         setShowEmojiPicker(false);
         try {
             const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -400,6 +403,7 @@ const getMessages = async () => {
 
     const pickDocument = async () => {
         setShowAttachmentMenu(false);
+        setShowClipboardMenu(false);
         setShowEmojiPicker(false);
         try {
             const result = await DocumentPicker.getDocumentAsync({
@@ -615,6 +619,7 @@ const getMessages = async () => {
     const sendMessage = async () => {
        
        setShowAttachmentMenu(false);
+       setShowClipboardMenu(false);
        
        if(messageContent.trim() === '' && !selectedImage && !selectedVideo && !selectedFile) return;
        
@@ -1520,6 +1525,7 @@ const getMessages = async () => {
                                     onPress={() => {
                                         setShowEmojiPicker(!showEmojiPicker);
                                         setShowAttachmentMenu(false);
+                                        setShowClipboardMenu(false);
                                     }}
                                     disabled={isUploading}
                                     style={{
@@ -1542,6 +1548,7 @@ const getMessages = async () => {
                                         onPress={() => {
                                             if (isUploading) return;
                                             setShowEmojiPicker(false);
+                                            setShowClipboardMenu(false);
                                             setShowAttachmentMenu((prev) => !prev);
                                         }}
                                         disabled={isUploading}
@@ -1619,12 +1626,102 @@ const getMessages = async () => {
                                     )}
                                 </View>
 
+                                {/* Clipboard Menu */}
+                                <View style={{ position: 'relative' }}>
+                                    <Pressable 
+                                        onPress={() => {
+                                            if (isUploading) return;
+                                            setShowEmojiPicker(false);
+                                            setShowAttachmentMenu(false);
+                                            setShowClipboardMenu((prev) => !prev);
+                                        }}
+                                        disabled={isUploading}
+                                        style={{
+                                            width: 32,
+                                            height: 32,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                        }}
+                                    >
+                                        <ClipboardList 
+                                            color={isUploading ? Colors.Gray : '#4A9EFF'}
+                                            size={24}
+                                        />
+                                    </Pressable>
+                                    {showClipboardMenu && (
+                                        <View
+                                            style={{
+                                                position: 'absolute',
+                                                bottom: 44,
+                                                left: -8,
+                                                backgroundColor: Colors.Secondary,
+                                                borderRadius: 8,
+                                                borderWidth: 1,
+                                                borderColor: Colors.Gray,
+                                                paddingVertical: 4,
+                                                width: 200,
+                                                shadowColor: '#000',
+                                                shadowOpacity: 0.15,
+                                                shadowRadius: 6,
+                                                shadowOffset: { width: 0, height: 4 },
+                                                elevation: 5,
+                                            }}
+                                        >
+                                            <Pressable
+                                                onPress={() => {
+                                                    setShowClipboardMenu(false);
+                                                    // TODO: Implement Create task functionality
+                                                }}
+                                                style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    paddingHorizontal: 12,
+                                                    paddingVertical: 10,
+                                                    gap: 12,
+                                                }}
+                                            >
+                                                <CalendarCheck 
+                                                    color={Colors.Primary}
+                                                    size={22}
+                                                />
+                                                <Text style={{ color: Colors.Text, fontSize: 14 }}>
+                                                    Create task
+                                                </Text>
+                                            </Pressable>
+                                            <Pressable
+                                                onPress={() => {
+                                                    setShowClipboardMenu(false);
+                                                    // TODO: Implement Create duties functionality
+                                                }}
+                                                style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    paddingHorizontal: 12,
+                                                    paddingVertical: 10,
+                                                    gap: 12,
+                                                }}
+                                            >
+                                                <LayoutList 
+                                                    color={Colors.Primary}
+                                                    size={22}
+                                                />
+                                                <Text style={{ color: Colors.Text, fontSize: 14 }}>
+                                                    Create duties
+                                                </Text>
+                                            </Pressable>
+                                        </View>
+                                    )}
+                                </View>
+
                                 <TextInput 
                                 placeholder="Type your message..."
                                 onChangeText={setMessageContent}
                                 value={messageContent}
                                 editable={!isUploading}
-                                onFocus={() => setShowAttachmentMenu(false)}
+                                onFocus={() => {
+                                    setShowAttachmentMenu(false);
+                                    setShowClipboardMenu(false);
+                                }}
                                 style={{minHeight: 40, color: Colors.Text, flexGrow: 1,
                                     paddingVertical: 2, paddingHorizontal: 3, flexShrink: 1,
                                 }}
