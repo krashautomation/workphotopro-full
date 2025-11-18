@@ -20,7 +20,7 @@ export default function Teams() {
   const { userOrganizations, userTeams, loadUserData, switchTeam, currentTeam } = useOrganization();
   const router = useRouter();
   
-  const [activeTab, setActiveTab] = useState<'memberships' | 'myTeams'>('memberships');
+  const [activeTab, setActiveTab] = useState<'memberships' | 'myTeams'>('myTeams');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [myOwnedTeams, setMyOwnedTeams] = useState<any[]>([]);
@@ -197,20 +197,6 @@ export default function Teams() {
         <TouchableOpacity
           style={[
             styles.tab,
-            activeTab === 'memberships' && styles.activeTab
-          ]}
-          onPress={() => setActiveTab('memberships')}
-        >
-          <Text style={[
-            styles.tabText,
-            activeTab === 'memberships' && styles.activeTabText
-          ]}>
-            My Memberships
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.tab,
             activeTab === 'myTeams' && styles.activeTab
           ]}
           onPress={() => setActiveTab('myTeams')}
@@ -220,6 +206,20 @@ export default function Teams() {
             activeTab === 'myTeams' && styles.activeTabText
           ]}>
             My Teams
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'memberships' && styles.activeTab
+          ]}
+          onPress={() => setActiveTab('memberships')}
+        >
+          <Text style={[
+            styles.tabText,
+            activeTab === 'memberships' && styles.activeTabText
+          ]}>
+            My Memberships
           </Text>
         </TouchableOpacity>
       </View>
