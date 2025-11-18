@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   activeTabText: {
-    color: colors.text,
+    color: '#000000',
   },
   listContent: {
     padding: 20,
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
   currentTeamBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.text,
+    color: '#000000',
   },
   description: {
     fontSize: 14,
