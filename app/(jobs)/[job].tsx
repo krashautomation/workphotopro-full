@@ -1475,6 +1475,28 @@ const getMessages = async () => {
                                 });
                                 const isSender = item.senderId === user?.$id;
                                 const isPressed = pressedMessageId === item.$id;
+                                const isDeleted = item.content === 'Message deleted by user';
+                                
+                                // Render deleted messages differently
+                                if (isDeleted) {
+                                    return (
+                                        <View style={{ 
+                                            paddingHorizontal: 10,
+                                            paddingVertical: 5,
+                                            alignItems: 'center',
+                                        }}>
+                                            <Text style={{ 
+                                                color: Colors.White,
+                                                fontSize: 14,
+                                                fontStyle: 'italic',
+                                                opacity: 0.6,
+                                            }}>
+                                                {item.content}
+                                            </Text>
+                                        </View>
+                                    );
+                                }
+                                
                                 return (
                                     <View style={{ 
                                         padding: 10,
