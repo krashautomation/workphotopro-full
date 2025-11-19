@@ -454,6 +454,11 @@ const getMessages = async () => {
         router.push(`/(jobs)/video-camera?jobId=${jobId}`);
     };
 
+    const handleRecordAudio = () => {
+        // TODO: Implement audio recording functionality
+        Alert.alert('Audio Recording', 'Audio recording feature coming soon!');
+    };
+
     const uploadImage = async (imageUri: string): Promise<{ fileId: string; fileUrl: string } | null> => {
         try {
             if (!appwriteConfig.bucket) {
@@ -1856,6 +1861,26 @@ const getMessages = async () => {
                                     <IconSymbol 
                                         name="video" 
                                         color={isUploading ? Colors.Gray : '#FF6B6B'}
+                                        size={28}
+                                    />
+                                </Pressable>
+                                <Pressable
+                                    onPress={handleRecordAudio}
+                                    disabled={isUploading}
+                                    style={{
+                                        width: 48,
+                                        height: 48,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        backgroundColor: '#22c55e' + '20',
+                                        borderRadius: 24,
+                                        borderWidth: 2,
+                                        borderColor: isUploading ? Colors.Gray : '#22c55e',
+                                    }}
+                                >
+                                    <IconSymbol 
+                                        name="mic" 
+                                        color={isUploading ? Colors.Gray : '#22c55e'}
                                         size={28}
                                     />
                                 </Pressable>

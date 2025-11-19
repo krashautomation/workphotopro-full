@@ -54,6 +54,9 @@ const MAPPING = {
   "video.slash": "videocam-off",
   "play.fill": "play-arrow",
   "pause.fill": "pause",
+  // Audio icons
+  "mic": "mic",
+  "mic.fill": "mic",
   // Map and share icons
   "location": "place",
   "mappin": "place",
