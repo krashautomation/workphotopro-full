@@ -34,10 +34,18 @@ type FileItem = {
     createdAt?: string
 }
 
+type AudioItem = {
+    id: string
+    audioFileId: string
+    audioUrl: string
+    audioDuration?: number
+    createdAt?: string
+}
+
 const NUM_COLUMNS = 3
 const SPACING = 8
 
-type SubTab = 'photos' | 'videos' | 'files'
+type SubTab = 'photos' | 'videos' | 'files' | 'audios'
 
 export default function JobUploads({ messages, onImagePress }: JobUploadsProps) {
     const [activeSubTab, setActiveSubTab] = React.useState<SubTab>('photos')
@@ -96,6 +104,28 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                     fileUrl,
                     fileSize: (message as any).fileSize,
                     fileMimeType: (message as any).fileMimeType,
+                    createdAt: message.$createdAt,
+                }
+            })
+    }, [messages])
+
+    const audios = React.useMemo<AudioItem[]>(() => {
+        return messages
+            .filter(
+                message =>
+                    !!(message as any).audioFileId &&
+                    message.content !== 'Message deleted by user'
+            )
+            .map(message => {
+                const audioFileId = (message as any).audioFileId
+                const audioUrl = (message as any).audioUrl || (appwriteConfig.bucket
+                    ? `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${audioFileId}/view?project=${appwriteConfig.projectId}`
+                    : '')
+                return {
+                    id: message.$id,
+                    audioFileId,
+                    audioUrl,
+                    audioDuration: (message as any).audioDuration,
                     createdAt: message.$createdAt,
                 }
             })
@@ -228,6 +258,56 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
         )
     }
 
+    const renderAudiosGrid = () => {
+        if (audios.length === 0) {
+            return renderEmptyState(
+                'No audio recordings yet',
+                'Audio messages shared in this chat will show up here.'
+            )
+        }
+
+        const formatDuration = (seconds?: number) => {
+            if (!seconds) return '--:--'
+            const mins = Math.floor(seconds / 60)
+            const secs = seconds % 60
+            return `${mins}:${secs.toString().padStart(2, '0')}`
+        }
+
+        return (
+            <FlatList
+                data={audios}
+                numColumns={NUM_COLUMNS}
+                keyExtractor={item => item.id}
+                contentContainerStyle={styles.listContainer}
+                columnWrapperStyle={{ gap: SPACING }}
+                ItemSeparatorComponent={() => <View style={{ height: SPACING }} />}
+                renderItem={({ item }) => (
+                    <Pressable
+                        style={[styles.audioWrapper, { width: itemSize, height: itemSize }]}
+                        onPress={() => {
+                            // Open audio URL
+                            if (item.audioUrl) {
+                                Linking.openURL(item.audioUrl)
+                            }
+                        }}
+                    >
+                        <View style={styles.audioIconContainer}>
+                            <IconSymbol name="mic" color={Colors.Primary} size={32} />
+                        </View>
+                        <View style={styles.playButtonSmall}>
+                            <IconSymbol name="play.fill" color={Colors.White} size={16} />
+                        </View>
+                        {item.audioDuration && (
+                            <Text style={styles.audioDuration} numberOfLines={1}>
+                                {formatDuration(item.audioDuration)}
+                            </Text>
+                        )}
+                    </Pressable>
+                )}
+            />
+        )
+    }
+
     return (
         <View style={styles.container}>
             {/* Sub-tabs */}
@@ -267,6 +347,22 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                 <Pressable
                     style={[
                         styles.subTab,
+                        activeSubTab === 'audios' && styles.subTabActive,
+                    ]}
+                    onPress={() => setActiveSubTab('audios')}
+                >
+                    <Text
+                        style={[
+                            styles.subTabText,
+                            activeSubTab === 'audios' && styles.subTabTextActive,
+                        ]}
+                    >
+                        Audios
+                    </Text>
+                </Pressable>
+                <Pressable
+                    style={[
+                        styles.subTab,
                         activeSubTab === 'files' && styles.subTabActive,
                     ]}
                     onPress={() => setActiveSubTab('files')}
@@ -287,6 +383,7 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                 {activeSubTab === 'photos' && renderPhotosGrid()}
                 {activeSubTab === 'videos' && renderVideosGrid()}
                 {activeSubTab === 'files' && renderFilesGrid()}
+                {activeSubTab === 'audios' && renderAudiosGrid()}
             </View>
         </View>
     )
@@ -391,6 +488,35 @@ const styles = StyleSheet.create({
         fontSize: 10,
         textAlign: 'center',
         marginTop: 4,
+    },
+    audioWrapper: {
+        borderRadius: 8,
+        backgroundColor: Colors.Secondary,
+        padding: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: Colors.Gray,
+        position: 'relative',
+    },
+    audioIconContainer: {
+        marginBottom: 8,
+    },
+    playButtonSmall: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: Colors.Primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 4,
+    },
+    audioDuration: {
+        color: Colors.Text,
+        fontSize: 12,
+        textAlign: 'center',
+        marginTop: 8,
+        fontWeight: '500',
     },
     emptyState: {
         flex: 1,
