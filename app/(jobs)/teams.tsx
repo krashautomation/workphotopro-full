@@ -2,9 +2,9 @@ import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { globalStyles, colors } from '@/styles/globalStyles';
 import { webColors } from '@/styles/webDesignTokens';
-import { Link, useRouter } from 'expo-router';
+import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -25,6 +25,8 @@ export default function Teams() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [myOwnedTeams, setMyOwnedTeams] = useState<any[]>([]);
+  const flatListRef = useRef<FlatList>(null);
+  const hasInitializedRef = useRef(false);
 
   /**
    * Load teams from organizations owned by the user
@@ -183,6 +185,69 @@ export default function Teams() {
 
   const currentData = activeTab === 'memberships' ? membershipsOnly : myOwnedTeams;
 
+  /**
+   * Initialize tab and scroll to active team - runs only once on initial load
+   */
+  useEffect(() => {
+    // Only run once when data is loaded and we haven't initialized yet
+    if (hasInitializedRef.current || loading || !currentTeam?.$id) {
+      return;
+    }
+
+    // Wait for both data sources to be available
+    if (myOwnedTeams.length === 0 && membershipsOnly.length === 0) {
+      return;
+    }
+
+    // Determine which tab the current team belongs to
+    const isInMyTeams = myOwnedTeams.some(team => team.$id === currentTeam.$id);
+    const isInMemberships = membershipsOnly.some(team => team.$id === currentTeam.$id);
+
+    // Set the correct tab first
+    if (isInMyTeams) {
+      setActiveTab('myTeams');
+    } else if (isInMemberships) {
+      setActiveTab('memberships');
+    }
+
+    // Mark as initialized
+    hasInitializedRef.current = true;
+  }, [loading, currentTeam, myOwnedTeams, membershipsOnly]);
+
+  /**
+   * Scroll to active team after tab is set and data is ready
+   */
+  useEffect(() => {
+    // Only scroll if we've initialized and have data
+    if (!hasInitializedRef.current || loading || !currentTeam?.$id || currentData.length === 0) {
+      return;
+    }
+
+    const activeIndex = currentData.findIndex(team => team.$id === currentTeam.$id);
+    if (activeIndex >= 0 && flatListRef.current) {
+      // Use a longer timeout to ensure the list is fully rendered
+      setTimeout(() => {
+        flatListRef.current?.scrollToIndex({
+          index: activeIndex,
+          animated: false, // Instant scroll so it's visible immediately
+          viewPosition: 0.5,
+        });
+      }, 100);
+    }
+  }, [currentData, loading, currentTeam, activeTab]);
+
+  /**
+   * Reset initialization flag when navigating away (screen loses focus)
+   */
+  useFocusEffect(
+    useCallback(() => {
+      // Cleanup: Reset when screen loses focus (user navigates away)
+      return () => {
+        hasInitializedRef.current = false;
+      };
+    }, [])
+  );
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -232,8 +297,16 @@ export default function Teams() {
         </View>
       ) : (
         <FlatList
+          ref={flatListRef}
           data={currentData}
           keyExtractor={(item) => item.$id || item.id}
+          onScrollToIndexFailed={(info) => {
+            // Handle scroll failure gracefully
+            const wait = new Promise(resolve => setTimeout(resolve, 500));
+            wait.then(() => {
+              flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+            });
+          }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
