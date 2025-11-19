@@ -1385,8 +1385,8 @@ const getMessages = async () => {
                     </Pressable>
                 </View>
 
-                {/* Pinned Tasks Bar */}
-                {(() => {
+                {/* Pinned Tasks Bar - Only show in Chat tab */}
+                {activeTab === 'chat' && (() => {
                     const activeTasks = messages.filter(m => m.isTask === true && m.taskStatus === 'active');
                     if (activeTasks.length === 0) return null;
                     
