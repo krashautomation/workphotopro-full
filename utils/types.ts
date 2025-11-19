@@ -164,6 +164,9 @@ export interface Message {
   fileMimeType?: string; // MIME type
   locationData?: LocationData; // Optional location data
   messageType?: 'text' | 'image' | 'video' | 'location' | 'file' | 'audio'; // Message type (optional, inferred from field presence)
+  // Task fields
+  isTask?: boolean; // Flag to mark message as a task
+  taskStatus?: 'active' | 'completed'; // Task status (only relevant if isTask is true)
 }
 
 // Location data for messages

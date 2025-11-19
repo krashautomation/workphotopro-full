@@ -85,6 +85,63 @@ export default function Job() {
     const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
     const [showAttachmentMenu, setShowAttachmentMenu] = React.useState(false);
     const [showClipboardMenu, setShowClipboardMenu] = React.useState(false);
+    const [isTaskMessage, setIsTaskMessage] = React.useState(false); // Flag to mark message as task when sending
+    const [currentPinnedTaskIndex, setCurrentPinnedTaskIndex] = React.useState(0); // Index of currently displayed pinned task
+    const [taskToScrollTo, setTaskToScrollTo] = React.useState<string | null>(null); // Task message ID to scroll to
+
+    // Reset pinned task index when active tasks change
+    React.useEffect(() => {
+        const activeTasks = messages.filter(m => m.isTask === true && m.taskStatus === 'active');
+        if (activeTasks.length > 0 && currentPinnedTaskIndex >= activeTasks.length) {
+            setCurrentPinnedTaskIndex(0);
+        }
+    }, [messages, currentPinnedTaskIndex]);
+
+    // Handle scrolling to task when chat tab is active and task ID is set
+    React.useEffect(() => {
+        if (activeTab === 'chat' && taskToScrollTo && messages.length > 0 && listRef.current) {
+            const scrollToMessage = () => {
+                const messageIndex = messages.findIndex(m => m.$id === taskToScrollTo);
+                if (messageIndex >= 0) {
+                    try {
+                        listRef.current?.scrollToIndex({ 
+                            index: messageIndex, 
+                            animated: true,
+                            viewPosition: 0.5 
+                        });
+                        // Clear the task to scroll to after successful scroll
+                        setTimeout(() => setTaskToScrollTo(null), 1000);
+                    } catch (error) {
+                        console.log('🔍 ScrollToIndex failed, retrying...', error);
+                        // Retry with delay
+                        setTimeout(() => {
+                            const retryIndex = messages.findIndex(m => m.$id === taskToScrollTo);
+                            if (retryIndex >= 0 && listRef.current) {
+                                try {
+                                    listRef.current.scrollToIndex({ 
+                                        index: retryIndex, 
+                                        animated: true 
+                                    });
+                                    setTimeout(() => setTaskToScrollTo(null), 500);
+                                } catch (retryError) {
+                                    console.error('🔍 ScrollToIndex retry failed:', retryError);
+                                    setTaskToScrollTo(null);
+                                }
+                            } else {
+                                setTaskToScrollTo(null);
+                            }
+                        }, 500);
+                    }
+                } else {
+                    setTaskToScrollTo(null);
+                }
+            };
+
+            // Wait for list to be ready
+            const timeoutId = setTimeout(scrollToMessage, 300);
+            return () => clearTimeout(timeoutId);
+        }
+    }, [activeTab, taskToScrollTo, messages]);
 
 
     React.useEffect(() => {
@@ -314,13 +371,30 @@ const getMessages = async () => {
         console.log('🔍 getMessages: Successfully fetched messages:', {
             count: documents.length,
             total: total,
-            messages: documents.map(m => ({ id: m.$id, content: m.content, senderId: m.senderId }))
+            messages: documents.map(m => ({ 
+                id: m.$id, 
+                content: m.content, 
+                senderId: m.senderId,
+                isTask: (m as any).isTask,
+                taskStatus: (m as any).taskStatus
+            }))
         });
         
         // Update messages state with fresh data
         // Parse locationData from locationData attribute (now defined in Appwrite)
         // Infer messageType from locationData presence (since messageType attribute doesn't exist in Appwrite)
         const freshMessages = documents.map((doc: any) => {
+            // Normalize isTask field (handle string "true" or boolean true)
+            if (doc.isTask === true || doc.isTask === 'true' || doc.isTask === 1) {
+                doc.isTask = true;
+                // Set default taskStatus if isTask is true but taskStatus is missing
+                if (!doc.taskStatus) {
+                    doc.taskStatus = 'active';
+                }
+            } else {
+                doc.isTask = false;
+            }
+            
             // Check if this message has locationData (infers it's a location message)
             if (doc.locationData) {
                 // Parse locationData from attribute (stored as JSON string)
@@ -358,11 +432,16 @@ const getMessages = async () => {
             return doc;
         }) as Message[];
         
+        // Sort messages by creation date (chronological order - no special sorting for tasks)
+        const sortedMessages = [...freshMessages].sort((a, b) => {
+            return new Date(a.$createdAt).getTime() - new Date(b.$createdAt).getTime();
+        });
+        
         setMessages(prevMessages => {
             // Only update if the data is actually different to prevent unnecessary re-renders
-            if (JSON.stringify(prevMessages) !== JSON.stringify(freshMessages)) {
-                console.log('🔍 getMessages: Updating messages state with fresh data');
-                return freshMessages;
+            if (JSON.stringify(prevMessages) !== JSON.stringify(sortedMessages)) {
+                console.log('🔍 getMessages: Updating messages state with fresh data (sorted by date)');
+                return sortedMessages;
             }
             console.log('🔍 getMessages: Messages unchanged, keeping current state');
             return prevMessages;
@@ -878,6 +957,15 @@ const getMessages = async () => {
            message.audioDuration = audioDuration;
        }
 
+       // Add task fields if message is marked as a task
+       if (isTaskMessage) {
+           message.isTask = true;
+           message.taskStatus = 'active'; // Tasks are active when created
+           console.log('🔍 sendMessage: Message is marked as a task:', { isTask: message.isTask, taskStatus: message.taskStatus });
+       } else {
+           console.log('🔍 sendMessage: Message is NOT a task, isTaskMessage:', isTaskMessage);
+       }
+
        console.log('🔍 sendMessage: Creating message document:', message);
 
        const createdMessage = await db.createDocument(
@@ -887,7 +975,13 @@ const getMessages = async () => {
         message
         );
 
-        console.log('🔍 sendMessage: Message created successfully:', createdMessage);
+        console.log('🔍 sendMessage: Message created successfully:', {
+            id: createdMessage.$id,
+            content: createdMessage.content,
+            isTask: (createdMessage as any).isTask,
+            taskStatus: (createdMessage as any).taskStatus,
+            senderId: createdMessage.senderId
+        });
 
         // Clear input fields immediately
         setMessageContent('');
@@ -898,6 +992,7 @@ const getMessages = async () => {
         setIsUploading(false);
         setUploadStatus('');
         setUploadProgress(0);
+        setIsTaskMessage(false); // Clear task flag
 
         // Refresh messages to show the new message
         console.log('🔍 sendMessage: Refreshing messages after sending...');
@@ -997,6 +1092,46 @@ const getMessages = async () => {
         setShowDeleteModal(false);
         setPressedMessageId(null);
         setMessageToDelete(null);
+    };
+
+    const handleCompleteTask = async (messageId: string) => {
+        try {
+            const message = messages.find(m => m.$id === messageId);
+            if (!message) {
+                Alert.alert('Error', 'Task not found.');
+                return;
+            }
+
+            // Only the creator can complete the task
+            if (message.senderId !== user?.$id) {
+                Alert.alert('Permission Denied', 'Only the task creator can mark it as completed.');
+                return;
+            }
+
+            // Only allow completing active tasks
+            if (message.taskStatus !== 'active') {
+                Alert.alert('Error', 'This task is already completed.');
+                return;
+            }
+
+            // Update the task status
+            await db.updateDocument(
+                appwriteConfig.db,
+                appwriteConfig.col.messages,
+                messageId,
+                {
+                    taskStatus: 'completed',
+                }
+            );
+
+            console.log('✅ Task marked as completed:', messageId);
+
+            // Refresh messages to show updated status
+            await getMessages();
+        } catch (error) {
+            console.error('Error completing task:', error);
+            Alert.alert('Error', 'Failed to complete task. Please try again.');
+        }
     };
 
     // Helper function to check if message is mostly emojis
@@ -1250,6 +1385,66 @@ const getMessages = async () => {
                     </Pressable>
                 </View>
 
+                {/* Pinned Tasks Bar */}
+                {(() => {
+                    const activeTasks = messages.filter(m => m.isTask === true && m.taskStatus === 'active');
+                    if (activeTasks.length === 0) return null;
+                    
+                    const currentTask = activeTasks[currentPinnedTaskIndex % activeTasks.length];
+                    if (!currentTask) return null;
+                    
+                    const taskExcerpt = currentTask.content ? 
+                        (currentTask.content.length > 50 ? currentTask.content.substring(0, 50) + '...' : currentTask.content) 
+                        : 'Task message';
+                    
+                    return (
+                        <TouchableOpacity
+                            onPress={() => {
+                                const taskMessageId = currentTask.$id;
+                                
+                                // Move to next task (cycle) before switching
+                                setCurrentPinnedTaskIndex((prev) => (prev + 1) % activeTasks.length);
+                                
+                                // Set the task to scroll to
+                                setTaskToScrollTo(taskMessageId);
+                                
+                                // Switch to chat tab (scroll will happen via useEffect when tab is active)
+                                setActiveTab('chat');
+                            }}
+                            style={{
+                                backgroundColor: Colors.Primary + '15',
+                                borderLeftWidth: 3,
+                                borderLeftColor: Colors.Primary,
+                                paddingVertical: 8,
+                                paddingHorizontal: 12,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                            }}
+                        >
+                            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <IconSymbol name="pin.fill" color={Colors.Primary} size={16} />
+                                <Text style={{ color: Colors.Primary, fontWeight: '600', fontSize: 12, marginRight: 4 }}>
+                                    Task:
+                                </Text>
+                                <Text style={{ color: Colors.Text, fontSize: 13, flex: 1 }} numberOfLines={1}>
+                                    {taskExcerpt}
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                onPress={(e) => {
+                                    e.stopPropagation();
+                                    // Cycle to next task
+                                    setCurrentPinnedTaskIndex((prev) => (prev + 1) % activeTasks.length);
+                                }}
+                                style={{ padding: 4 }}
+                            >
+                                <IconSymbol name="chevron.right" color={Colors.Primary} size={16} />
+                            </TouchableOpacity>
+                        </TouchableOpacity>
+                    );
+                })()}
+
                 {/* Tab Content */}
                 {activeTab === 'chat' ? (
                     <KeyboardAvoidingView
@@ -1271,7 +1466,13 @@ const getMessages = async () => {
                                 />
                             }
                             renderItem={({ item }: { item: Message }) => {
-                                console.log('🔍 LegendList renderItem: Rendering message:', { id: item.$id, content: item.content, senderId: item.senderId });
+                                console.log('🔍 LegendList renderItem: Rendering message:', { 
+                                    id: item.$id, 
+                                    content: item.content, 
+                                    senderId: item.senderId,
+                                    isTask: item.isTask,
+                                    taskStatus: item.taskStatus
+                                });
                                 const isSender = item.senderId === user?.$id;
                                 const isPressed = pressedMessageId === item.$id;
                                 return (
@@ -1299,10 +1500,58 @@ const getMessages = async () => {
                                                 minWidth: '70%',
                                                 maxWidth: '70%',
                                                 opacity: isPressed ? 0.7 : 1,
-                                                borderWidth: isPressed ? 2 : 0,
-                                                borderColor: isPressed ? Colors.Primary : 'transparent',
+                                                borderWidth: isPressed ? 2 : (item.isTask ? 2 : 0),
+                                                borderColor: isPressed ? Colors.Primary : (item.isTask ? (item.taskStatus === 'completed' ? Colors.Gray : Colors.Primary) : 'transparent'),
                                             }}
                                         >
+                                            {/* Task Badge and Status */}
+                                            {item.isTask && (
+                                                <View style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    marginBottom: 8,
+                                                    paddingBottom: 8,
+                                                    borderBottomWidth: 1,
+                                                    borderBottomColor: Colors.Gray + '40',
+                                                }}>
+                                                    <IconSymbol 
+                                                        name={item.taskStatus === 'completed' ? 'checkmark.circle.fill' : 'circle'} 
+                                                        color={item.taskStatus === 'completed' ? Colors.Gray : Colors.Primary} 
+                                                        size={18} 
+                                                    />
+                                                    <Text style={{
+                                                        color: item.taskStatus === 'completed' ? Colors.Gray : Colors.Primary,
+                                                        fontWeight: '600',
+                                                        fontSize: 12,
+                                                        marginLeft: 6,
+                                                        textTransform: 'uppercase',
+                                                    }}>
+                                                        Task {item.taskStatus === 'completed' ? '• Completed' : '• Active'}
+                                                    </Text>
+                                                    {/* Complete Task Button (only show for creator and if active) */}
+                                                    {item.taskStatus === 'active' && item.senderId === user?.$id && (
+                                                        <TouchableOpacity
+                                                            onPress={() => handleCompleteTask(item.$id)}
+                                                            style={{
+                                                                marginLeft: 'auto',
+                                                                paddingHorizontal: 8,
+                                                                paddingVertical: 4,
+                                                                borderRadius: 6,
+                                                                backgroundColor: Colors.Primary + '20',
+                                                            }}
+                                                        >
+                                                            <Text style={{
+                                                                color: Colors.Primary,
+                                                                fontSize: 11,
+                                                                fontWeight: '600',
+                                                            }}>
+                                                                Complete
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    )}
+                                                </View>
+                                            )}
+                                            
                                             <Pressable
                                                 onPress={() => {
                                                     router.push({
@@ -1314,7 +1563,15 @@ const getMessages = async () => {
                                                     });
                                                 }}
                                             >
-                                                <Text style={{ color: Colors.Text, fontWeight: 'bold', marginBottom: 5 }}>{item.senderName}</Text>
+                                                <Text style={{ 
+                                                    color: Colors.Text, 
+                                                    fontWeight: 'bold', 
+                                                    marginBottom: 5,
+                                                    textDecorationLine: item.isTask && item.taskStatus === 'completed' ? 'line-through' : 'none',
+                                                    opacity: item.isTask && item.taskStatus === 'completed' ? 0.6 : 1,
+                                                }}>
+                                                    {item.senderName}
+                                                </Text>
                                             </Pressable>
                                             
                                             {item.imageUrl && item.content !== 'Message deleted by user' && (
@@ -1437,10 +1694,11 @@ const getMessages = async () => {
                                                 <Text style={{ 
                                                     color: Colors.Text,
                                                     fontStyle: item.content === 'Message deleted by user' ? 'italic' : 'normal',
-                                                    opacity: item.content === 'Message deleted by user' ? 0.6 : 1,
+                                                    opacity: item.content === 'Message deleted by user' ? 0.6 : (item.isTask && item.taskStatus === 'completed' ? 0.6 : 1),
                                                     fontSize: isEmojiMessage(item.content) ? 48 : 14,
                                                     textAlign: isEmojiMessage(item.content) ? 'center' : 'left',
                                                     lineHeight: isEmojiMessage(item.content) ? 56 : undefined,
+                                                    textDecorationLine: item.isTask && item.taskStatus === 'completed' ? 'line-through' : 'none',
                                                 }}>
                                                     {item.content}
                                                 </Text>
@@ -1890,7 +2148,7 @@ const getMessages = async () => {
                                             <Pressable
                                                 onPress={() => {
                                                     setShowClipboardMenu(false);
-                                                    // TODO: Implement Create task functionality
+                                                    setIsTaskMessage(true); // Enable task mode
                                                 }}
                                                 style={{
                                                     flexDirection: 'row',
@@ -1934,7 +2192,7 @@ const getMessages = async () => {
                                 </View>
 
                                 <TextInput 
-                                placeholder="Type your message..."
+                                placeholder={isTaskMessage ? "Type your task..." : "Type your message..."}
                                 onChangeText={setMessageContent}
                                 value={messageContent}
                                 editable={!isUploading}
@@ -2091,6 +2349,9 @@ const getMessages = async () => {
                 ) : activeTab === 'tasks' ? (
                     <JobTasks
                         jobId={jobId as string}
+                        messages={messages}
+                        currentUserId={user?.$id}
+                        onCompleteTask={handleCompleteTask}
                     />
                 ) : (
                     <JobUploads
