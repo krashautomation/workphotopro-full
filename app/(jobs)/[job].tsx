@@ -29,6 +29,8 @@ import * as SecureStore from 'expo-secure-store'
 import SaveImageModal from '@/components/SaveImageModal'
 import ShareJob from './share-job'
 import VideoPlayer from '@/components/VideoPlayer'
+import AudioRecorder from '@/components/AudioRecorder'
+import AudioPlayer from '@/components/AudioPlayer'
 import { ClipboardList, CalendarCheck, LayoutList } from 'lucide-react-native'
 
 
@@ -66,6 +68,8 @@ export default function Job() {
     const [selectedImage, setSelectedImage] = React.useState<string | null>(null);
     const [selectedVideo, setSelectedVideo] = React.useState<string | null>(null);
     const [selectedFile, setSelectedFile] = React.useState<DocumentPicker.DocumentPickerAsset | null>(null);
+    const [selectedAudio, setSelectedAudio] = React.useState<{ uri: string; duration: number } | null>(null);
+    const [showAudioRecorder, setShowAudioRecorder] = React.useState(false);
     const [isUploading, setIsUploading] = React.useState(false);
     const [uploadStatus, setUploadStatus] = React.useState<string>('');
     const [uploadProgress, setUploadProgress] = React.useState<number>(0);
@@ -455,8 +459,7 @@ const getMessages = async () => {
     };
 
     const handleRecordAudio = () => {
-        // TODO: Implement audio recording functionality
-        Alert.alert('Audio Recording', 'Audio recording feature coming soon!');
+        setShowAudioRecorder(true);
     };
 
     const uploadImage = async (imageUri: string): Promise<{ fileId: string; fileUrl: string } | null> => {
@@ -622,12 +625,64 @@ const getMessages = async () => {
         }
     };
 
+    const uploadAudio = async (audioUri: string): Promise<{ fileId: string; fileUrl: string } | null> => {
+        try {
+            if (!appwriteConfig.bucket) {
+                Alert.alert('Configuration Error', 'Bucket ID not configured.');
+                throw new Error('Bucket ID not configured');
+            }
+
+            const fileId = ID.unique();
+            
+            // Determine filename and MIME type
+            const filename = `audio_${Date.now()}.m4a`;
+            const mimeType = 'audio/m4a';
+            
+            // Fetch the audio and create a blob
+            const response = await fetch(audioUri);
+            const blob = await response.blob();
+            
+            // Create file object for React Native Appwrite
+            const file = {
+                uri: audioUri,
+                name: filename,
+                type: mimeType,
+                size: blob.size,
+            };
+
+            console.log('🎤 Uploading audio:', { filename, mimeType, size: blob.size });
+
+            const uploadResponse = await storage.createFile({
+                bucketId: appwriteConfig.bucket,
+                fileId: fileId,
+                file: file
+            });
+
+            if (!uploadResponse || !uploadResponse.$id) {
+                throw new Error(`Invalid upload response: ${JSON.stringify(uploadResponse)}`);
+            }
+
+            const fileUrl = `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${uploadResponse.$id}/view?project=${appwriteConfig.projectId}`;
+
+            console.log('✅ Audio uploaded successfully:', { fileId: uploadResponse.$id, fileUrl });
+
+            return {
+                fileId: uploadResponse.$id,
+                fileUrl: fileUrl,
+            };
+        } catch (error) {
+            console.error('Error uploading audio:', error);
+            Alert.alert('Upload Failed', `Failed to upload audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return null;
+        }
+    };
+
     const sendMessage = async () => {
        
        setShowAttachmentMenu(false);
        setShowClipboardMenu(false);
        
-       if(messageContent.trim() === '' && !selectedImage && !selectedVideo && !selectedFile) return;
+       if(messageContent.trim() === '' && !selectedImage && !selectedVideo && !selectedFile && !selectedAudio) return;
        
        // Check if we have required team and organization data
        if (!currentTeam?.$id || !currentOrganization?.$id) {
@@ -656,6 +711,9 @@ const getMessages = async () => {
         let fileName = undefined;
         let fileSize = undefined;
         let fileMimeType = undefined;
+        let audioUrl = undefined;
+        let audioFileId = undefined;
+        let audioDuration = undefined;
 
         // Get user's profile picture from Google OAuth or stored preferences
         const userProfilePicture = await getUserProfilePicture();
@@ -747,6 +805,39 @@ const getMessages = async () => {
             }
         }
 
+        // Upload audio if one is selected
+        if (selectedAudio) {
+            console.log('🔍 sendMessage: Uploading audio...');
+            setUploadStatus('Uploading audio...');
+            setUploadProgress(0);
+            
+            // Simulate progress
+            const progressInterval = setInterval(() => {
+                setUploadProgress(prev => {
+                    if (prev >= 90) return prev;
+                    return prev + 10;
+                });
+            }, 200);
+            
+            const uploadResult = await uploadAudio(selectedAudio.uri);
+            clearInterval(progressInterval);
+            
+            if (uploadResult) {
+                setUploadProgress(100);
+                audioUrl = uploadResult.fileUrl;
+                audioFileId = uploadResult.fileId;
+                audioDuration = selectedAudio.duration;
+                console.log('🔍 sendMessage: Audio uploaded successfully:', { audioUrl, audioFileId, audioDuration });
+                setUploadStatus('Audio uploaded!');
+            } else {
+                console.error('🔍 sendMessage: Audio upload failed');
+                setUploadStatus('');
+                setUploadProgress(0);
+                setIsUploading(false);
+                return; // Don't send message if audio upload failed
+            }
+        }
+
        const message: any = {
         content: messageContent || '', // Empty string if only media
         senderId: user?.$id,
@@ -779,6 +870,14 @@ const getMessages = async () => {
            message.fileMimeType = fileMimeType;
        }
 
+       // Add audio fields only if audio was uploaded
+       // Note: Audio messages detected by audioFileId presence (same pattern as videoFileId)
+       if (audioFileId) {
+           message.audioFileId = audioFileId;
+           message.audioUrl = audioUrl;
+           message.audioDuration = audioDuration;
+       }
+
        console.log('🔍 sendMessage: Creating message document:', message);
 
        const createdMessage = await db.createDocument(
@@ -795,6 +894,7 @@ const getMessages = async () => {
         setSelectedImage(null);
         setSelectedVideo(null);
         setSelectedFile(null);
+        setSelectedAudio(null);
         setIsUploading(false);
         setUploadStatus('');
         setUploadProgress(0);
@@ -1324,6 +1424,14 @@ const getMessages = async () => {
                                                     <IconSymbol name="arrow.down.circle" color={Colors.Primary} size={20} />
                                                 </TouchableOpacity>
                                             )}
+
+                                            {/* Audio Message */}
+                                            {item.audioFileId && item.content !== 'Message deleted by user' && (
+                                                <AudioPlayer
+                                                    uri={item.audioUrl || (appwriteConfig.bucket ? `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.audioFileId}/view?project=${appwriteConfig.projectId}` : '')}
+                                                    duration={item.audioDuration}
+                                                />
+                                            )}
                                             
                                             {item.content && (
                                                 <Text style={{ 
@@ -1530,6 +1638,92 @@ const getMessages = async () => {
                                         >
                                             <IconSymbol name="xmark" color={Colors.Gray} size={20} />
                                         </Pressable>
+                                    )}
+                                </View>
+                            )}
+
+                            {/* Audio Preview */}
+                            {selectedAudio && (
+                                <View style={{
+                                    position: 'relative',
+                                    marginBottom: 8,
+                                    borderRadius: 8,
+                                    overflow: 'hidden',
+                                    backgroundColor: Colors.Secondary,
+                                    borderWidth: 1,
+                                    borderColor: Colors.Primary,
+                                    padding: 12,
+                                }}>
+                                    <View style={{
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 12,
+                                    }}>
+                                        <IconSymbol name="mic" color={Colors.Primary} size={24} />
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{ 
+                                                color: Colors.Text, 
+                                                fontSize: 14,
+                                                fontWeight: '600'
+                                            }}>
+                                                Audio recording ready
+                                            </Text>
+                                            <Text style={{ 
+                                                color: Colors.Gray, 
+                                                fontSize: 12,
+                                                marginTop: 2
+                                            }}>
+                                                {Math.floor(selectedAudio.duration / 60)}:{(selectedAudio.duration % 60).toString().padStart(2, '0')}
+                                            </Text>
+                                        </View>
+                                        {!isUploading && (
+                                            <Pressable
+                                                onPress={() => setSelectedAudio(null)}
+                                                style={{
+                                                    backgroundColor: 'rgba(0,0,0,0.6)',
+                                                    borderRadius: 16,
+                                                    width: 32,
+                                                    height: 32,
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                }}
+                                            >
+                                                <IconSymbol name="xmark" color={Colors.White} size={20} />
+                                            </Pressable>
+                                        )}
+                                    </View>
+                                    
+                                    {/* Upload Progress Indicator */}
+                                    {isUploading && uploadStatus && (
+                                        <View style={{
+                                            marginTop: 8,
+                                            paddingTop: 8,
+                                            borderTopWidth: 1,
+                                            borderTopColor: Colors.Gray + '40',
+                                        }}>
+                                            <Text style={{ 
+                                                color: Colors.White, 
+                                                fontSize: 12 
+                                            }}>
+                                                {uploadStatus}
+                                            </Text>
+                                            {uploadProgress > 0 && (
+                                                <View style={{
+                                                    marginTop: 4,
+                                                    height: 4,
+                                                    backgroundColor: Colors.Gray + '40',
+                                                    borderRadius: 2,
+                                                    overflow: 'hidden',
+                                                }}>
+                                                    <View style={{
+                                                        height: '100%',
+                                                        width: `${uploadProgress}%`,
+                                                        backgroundColor: Colors.Primary,
+                                                        borderRadius: 2,
+                                                    }} />
+                                                </View>
+                                            )}
+                                        </View>
                                     )}
                                 </View>
                             )}
@@ -1759,7 +1953,7 @@ const getMessages = async () => {
                             
                                 {/* Send Button */}
                                 <Pressable 
-                                    disabled={(messageContent === '' && !selectedImage && !selectedVideo && !selectedFile) || isUploading} 
+                                    disabled={(messageContent === '' && !selectedImage && !selectedVideo && !selectedFile && !selectedAudio) || isUploading} 
                                     style={{
                                         width: 32,
                                         height: 32,
@@ -1773,7 +1967,7 @@ const getMessages = async () => {
                                     ) : (
                                         <IconSymbol 
                                         name="paperplane" 
-                                        color={(messageContent || selectedImage || selectedVideo) ? '#4A9EFF' : Colors.Gray}
+                                        color={(messageContent || selectedImage || selectedVideo || selectedAudio) ? '#4A9EFF' : Colors.Gray}
                                         />
                                     )}
                                 </Pressable>
@@ -2025,6 +2219,22 @@ const getMessages = async () => {
                 contentStyle={{ backgroundColor: Colors.Secondary }}
             >
                 <ShareJob onClose={() => setShowShareJobModal(false)} />
+            </BottomModal2>
+            <BottomModal2
+                visible={showAudioRecorder}
+                onClose={() => {
+                    setShowAudioRecorder(false);
+                    setSelectedAudio(null);
+                }}
+                contentStyle={{ backgroundColor: Colors.Secondary }}
+            >
+                <AudioRecorder
+                    onRecordingComplete={(uri, duration) => {
+                        setSelectedAudio({ uri, duration });
+                        setShowAudioRecorder(false);
+                    }}
+                    onCancel={() => setShowAudioRecorder(false)}
+                />
             </BottomModal2>
             </>
     )

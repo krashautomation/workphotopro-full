@@ -1,14 +1,25 @@
 # Audio Recording Implementation Guide
 
+## Overview
+
+**Note**: Video recording currently uses `expo-camera` (CameraView.recordAsync), but audio-only recording requires `expo-av` which provides the Audio.Recording API. This is a different library optimized for audio recording.
+
 ## Step 1: Install Dependencies
 
 ```bash
 npx expo install expo-av
 ```
 
+**Why expo-av?**
+- `expo-camera` is for video recording with camera
+- `expo-av` provides `Audio.Recording` API specifically for audio-only recording
+- Better audio quality and control for voice messages
+
 ## Step 2: Appwrite Database Setup
 
 ### Create/Update Messages Collection
+
+**Note**: Following the existing pattern (photos use `imageUrl`, videos use `videoFileId`), audio messages will be detected by checking if `audioFileId` exists. No `messageType` field needed - message types are inferred from which fields are present.
 
 1. Go to Appwrite Console → Databases → Your Database → Collections → `messages`
 2. Add new attributes if they don't exist:
@@ -31,12 +42,7 @@ npx expo install expo-av
 - Array: No
 - Min: 0
 
-**Attribute: `messageType`** (if not exists)
-- Type: String
-- Size: 50
-- Required: No
-- Array: No
-- Default: "text"
+**Note**: `fileMimeType` already exists and is used for file messages. Audio messages will be detected by `audioFileId` presence (same pattern as `videoFileId` for videos).
 
 ## Step 3: Update TypeScript Types
 
@@ -48,9 +54,12 @@ export interface Message {
   audioFileId?: string;
   audioUrl?: string;
   audioDuration?: number;
-  messageType?: 'text' | 'image' | 'video' | 'location' | 'file' | 'audio';
+  // Note: messageType already exists but is optional and inferred from field presence
+  // Audio messages detected by checking if audioFileId exists (like videoFileId for videos)
 }
 ```
+
+The `messageType` field already exists in the interface but is optional. Audio messages will be detected by checking `audioFileId` presence, following the same pattern as videos (`videoFileId`).
 
 ## Step 4: Create Audio Recording Component
 
@@ -328,14 +337,15 @@ const uploadAudio = async (audioUri: string): Promise<{ fileId: string; fileUrl:
 ### Update sendMessage to Handle Audio
 
 ```typescript
-// In sendMessage function, add audio handling:
+// In sendMessage function, add audio handling (following the video pattern):
+// Note: No need to set messageType - it's inferred from audioFileId presence
 if (selectedAudio) {
   const audioUpload = await uploadAudio(selectedAudio.uri);
   if (audioUpload) {
     messageData.audioFileId = audioUpload.fileId;
     messageData.audioUrl = audioUpload.fileUrl;
     messageData.audioDuration = selectedAudio.duration;
-    messageData.messageType = 'audio';
+    // messageType not needed - inferred from audioFileId presence (like videoFileId)
   }
 }
 ```
@@ -362,17 +372,19 @@ if (selectedAudio) {
 
 ### Display Audio Messages in Chat
 
-In the message rendering section, add:
+In the message rendering section, add (following the video pattern):
 
 ```typescript
 {/* Audio Message */}
-{item.messageType === 'audio' && item.audioUrl && (
+{item.audioFileId && item.content !== 'Message deleted by user' && (
   <AudioPlayer
-    uri={item.audioUrl}
+    uri={item.audioUrl || `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.audioFileId}/view?project=${appwriteConfig.projectId}`}
     duration={item.audioDuration}
   />
 )}
 ```
+
+**Note**: Audio messages are detected by checking `audioFileId` presence (same pattern as `videoFileId` for videos, `imageUrl` for photos). No need to check `messageType`.
 
 ## Step 7: Update sendMessage Cleanup
 
