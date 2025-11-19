@@ -1,6 +1,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { globalStyles, colors } from '@/styles/globalStyles';
+import { webColors } from '@/styles/webDesignTokens';
 import { Link, useRouter } from 'expo-router';
 import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
@@ -227,7 +228,7 @@ export default function Teams() {
       {/* Teams List */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={webColors.accent} />
         </View>
       ) : (
         <FlatList
@@ -237,8 +238,8 @@ export default function Teams() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
+              tintColor={webColors.accent}
+              colors={[webColors.accent]}
             />
           }
           ListEmptyComponent={() => (
@@ -259,6 +260,8 @@ export default function Teams() {
             const description = item.teamData?.description || item.description || '';
             const isActive = item.teamData?.isActive !== false;
             const isCurrentTeam = currentTeam?.$id === item.$id;
+            const membershipRole = (item as any).membershipRole || 'member';
+            const isOwner = membershipRole === 'owner';
             
             return (
               <TouchableOpacity 
@@ -272,11 +275,24 @@ export default function Teams() {
                 <View style={styles.teamContent}>
                   <View style={styles.teamHeader}>
                     <Text style={styles.teamName}>{teamName}</Text>
-                    {isCurrentTeam && (
-                      <View style={styles.currentTeamBadge}>
-                        <Text style={styles.currentTeamBadgeText}>Active</Text>
+                    <View style={styles.badgeContainer}>
+                      <View style={[
+                        styles.roleBadge,
+                        isOwner && styles.roleBadgeOwner
+                      ]}>
+                        <Text style={[
+                          styles.roleBadgeText,
+                          isOwner && styles.roleBadgeTextOwner
+                        ]}>
+                          {isOwner ? 'Owner' : 'Member'}
+                        </Text>
                       </View>
-                    )}
+                      {isCurrentTeam && (
+                        <View style={styles.currentTeamBadge}>
+                          <Text style={styles.currentTeamBadgeText}>Active</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
                   {description ? (
                     <Text style={styles.description}>{description}</Text>
@@ -425,7 +441,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeTab: {
-    backgroundColor: colors.primary,
+    backgroundColor: webColors.accent,
   },
   tabText: {
     fontSize: 14,
@@ -454,7 +470,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   currentTeamCard: {
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    backgroundColor: 'rgba(40, 247, 248, 0.1)', // Using accent cyan from webDesignTokens
   },
   teamContent: {
     flex: 1,
@@ -462,16 +478,43 @@ const styles = StyleSheet.create({
   teamHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
     marginBottom: 4,
+    flexWrap: 'wrap',
   },
   teamName: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+    flex: 1,
+  },
+  badgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  roleBadge: {
+    backgroundColor: 'rgba(40, 247, 248, 0.15)', // cyan accent with opacity
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  roleBadgeOwner: {
+    backgroundColor: 'rgba(34, 197, 94, 0.15)', // green (same as old Member color)
+  },
+  roleBadgeText: {
+    color: webColors.accent, // cyan
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+    letterSpacing: 0.3,
+  },
+  roleBadgeTextOwner: {
+    color: '#22c55e', // green
   },
   currentTeamBadge: {
-    backgroundColor: colors.primary,
+    backgroundColor: webColors.accent,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
