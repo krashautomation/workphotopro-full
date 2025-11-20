@@ -1498,12 +1498,16 @@ const getMessages = async () => {
                                 }
                                 
                                 return (
-                                    <View style={{ 
-                                        padding: 10,
-                                        borderRadius: 10,
-                                        flexDirection: 'row',
-                                        justifyContent: isSender ? 'flex-end' : 'flex-start',
-                                    }}>
+                                    <Pressable
+                                        onLongPress={() => handleLongPress(item)}
+                                        delayLongPress={500}
+                                        style={{ 
+                                            padding: 10,
+                                            borderRadius: 10,
+                                            flexDirection: 'row',
+                                            justifyContent: isSender ? 'flex-end' : 'flex-start',
+                                        }}
+                                    >
                                         {!isSender && (
                                         <Avatar 
                                             name={item.senderName || 'Unknown User'}
@@ -1513,8 +1517,6 @@ const getMessages = async () => {
                                         />
                                         )}
                                         <Pressable
-                                            onLongPress={() => handleLongPress(item)}
-                                            delayLongPress={500}
                                             style={{ 
                                                 backgroundColor: isSender ? Colors.Purple : Colors.Secondary,
                                                 padding: 10,
@@ -1739,7 +1741,7 @@ const getMessages = async () => {
                                             })}
                                             </Text>
                                         </Pressable>
-                                    </View>
+                                    </Pressable>
                                 );
                             }}
                             keyExtractor={(item) => item?.$id ?? "unknown"}
