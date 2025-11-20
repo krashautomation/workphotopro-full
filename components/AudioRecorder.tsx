@@ -1,9 +1,13 @@
 import { useState, useRef } from 'react';
-import { View, Text, Pressable, Alert, Platform } from 'react-native';
-import { Audio } from 'expo-av';
+import { View, Text, Pressable, Alert } from 'react-native';
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+} from 'expo-audio';
 import { IconSymbol } from './IconSymbol';
 import { Colors } from '@/utils/colors';
-import { PermissionsAndroid } from 'react-native';
 
 interface AudioRecorderProps {
   onRecordingComplete: (uri: string, duration: number) => void;
@@ -11,65 +15,53 @@ interface AudioRecorderProps {
 }
 
 export default function AudioRecorder({ onRecordingComplete, onCancel }: AudioRecorderProps) {
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
   const durationInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const ensureMicrophonePermission = async () => {
+    const { granted } = await requestRecordingPermissionsAsync();
+    if (!granted) {
+      Alert.alert(
+        'Permission Required',
+        'Microphone permission is required to record audio. Please enable it in your device settings.'
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const clearDurationInterval = () => {
+    if (durationInterval.current) {
+      clearInterval(durationInterval.current);
+      durationInterval.current = null;
+    }
+  };
+
   const startRecording = async () => {
     try {
-      // Request permissions
-      if (Platform.OS === 'android') {
-        const checkResult = await PermissionsAndroid.check(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
-        );
-
-        if (!checkResult) {
-          const audioPermission = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-            {
-              title: 'Microphone Permission',
-              message: 'WorkPhotoPro needs access to your microphone to record audio.',
-              buttonNeutral: 'Ask Me Later',
-              buttonNegative: 'Cancel',
-              buttonPositive: 'OK',
-            }
-          );
-
-          if (audioPermission !== PermissionsAndroid.RESULTS.GRANTED) {
-            Alert.alert(
-              'Permission Required',
-              'Microphone permission is required to record audio. Please enable it in your device settings.'
-            );
-            return;
-          }
-        }
-      } else {
-        const { status } = await Audio.requestPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert(
-            'Permission Required',
-            'Microphone permission is required to record audio. Please enable it in your device settings.'
-          );
-          return;
-        }
+      if (isRecording) {
+        return;
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      const hasPermission = await ensureMicrophonePermission();
+      if (!hasPermission) {
+        return;
+      }
+
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
 
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      
-      setRecording(recording);
+      await recorder.prepareToRecordAsync(RecordingPresets.HIGH_QUALITY);
+      recorder.record();
       setIsRecording(true);
       setDuration(0);
 
       durationInterval.current = setInterval(() => {
-        setDuration(prev => prev + 1);
+        setDuration((prev) => prev + 1);
       }, 1000);
     } catch (err) {
       Alert.alert('Error', 'Failed to start recording');
@@ -78,35 +70,41 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }: AudioRe
   };
 
   const stopRecording = async () => {
-    if (!recording) return;
+    if (!isRecording) return;
 
-    if (durationInterval.current) {
-      clearInterval(durationInterval.current);
-      durationInterval.current = null;
-    }
-
+    clearDurationInterval();
     setIsRecording(false);
-    await recording.stopAndUnloadAsync();
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-    });
+    try {
+      await recorder.stop();
+      await setAudioModeAsync({
+        allowsRecording: false,
+      });
 
-    const uri = recording.getURI();
-    if (uri) {
-      onRecordingComplete(uri, duration);
+      const uri = recorder.uri ?? recorder.getStatus().url ?? undefined;
+      if (uri) {
+        onRecordingComplete(uri, duration);
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Failed to stop recording');
+      console.error('Failed to stop recording', err);
     }
-    setRecording(null);
   };
 
   const cancelRecording = async () => {
-    if (recording) {
-      await recording.stopAndUnloadAsync();
-      setRecording(null);
+    clearDurationInterval();
+
+    if (isRecording) {
+      try {
+        await recorder.stop();
+      } catch (err) {
+        console.error('Failed to cancel recording', err);
+      }
     }
-    if (durationInterval.current) {
-      clearInterval(durationInterval.current);
-      durationInterval.current = null;
-    }
+
+    await setAudioModeAsync({
+      allowsRecording: false,
+    });
+
     setIsRecording(false);
     setDuration(0);
     onCancel();

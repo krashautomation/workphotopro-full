@@ -2,18 +2,27 @@
 
 ## Overview
 
-**Note**: Video recording currently uses `expo-camera` (CameraView.recordAsync), but audio-only recording requires `expo-av` which provides the Audio.Recording API. This is a different library optimized for audio recording.
+**Note**: Video recording currently uses `expo-camera` (CameraView.recordAsync), but audio-only recording now uses `expo-audio`, which provides the modern Audio.Recording API (split out from the deprecated `expo-av` package). This keeps us compatible with Expo SDK 54+.
 
 ## Step 1: Install Dependencies
 
 ```bash
-npx expo install expo-av
+npx expo install expo-audio
 ```
 
-**Why expo-av?**
-- `expo-camera` is for video recording with camera
-- `expo-av` provides `Audio.Recording` API specifically for audio-only recording
-- Better audio quality and control for voice messages
+Also add the plugin to `app.config.js`:
+
+```js
+plugins: [
+  // ...
+  'expo-audio',
+];
+```
+
+**Why expo-audio?**
+- `expo-audio` carries forward the Audio.Recording and Audio.Sound APIs from `expo-av`
+- Optimized for audio-only capture/playback (voice notes)
+- Supported going forward; `expo-av` is deprecated in SDK 54+
 
 ## Step 2: Appwrite Database Setup
 
@@ -68,7 +77,12 @@ Create `components/AudioRecorder.tsx`:
 ```typescript
 import { useState, useRef } from 'react';
 import { View, Text, Pressable, Alert } from 'react-native';
-import { Audio } from 'expo-av';
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+} from 'expo-audio';
 import { IconSymbol } from './IconSymbol';
 import { Colors } from '@/utils/colors';
 
@@ -78,29 +92,49 @@ interface AudioRecorderProps {
 }
 
 export default function AudioRecorder({ onRecordingComplete, onCancel }: AudioRecorderProps) {
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
   const durationInterval = useRef<NodeJS.Timeout | null>(null);
 
+  const ensureMicrophonePermission = async () => {
+    const { granted } = await requestRecordingPermissionsAsync();
+    if (!granted) {
+      Alert.alert(
+        'Permission Required',
+        'Microphone permission is required to record audio. Please enable it in your device settings.'
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const clearDurationInterval = () => {
+    if (durationInterval.current) {
+      clearInterval(durationInterval.current);
+      durationInterval.current = null;
+    }
+  };
+
   const startRecording = async () => {
     try {
-      await Audio.requestPermissionsAsync();
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      if (isRecording) return;
+
+      const hasPermission = await ensureMicrophonePermission();
+      if (!hasPermission) return;
+
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
 
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      
-      setRecording(recording);
+      await recorder.prepareToRecordAsync(RecordingPresets.HIGH_QUALITY);
+      recorder.record();
       setIsRecording(true);
       setDuration(0);
 
       durationInterval.current = setInterval(() => {
-        setDuration(prev => prev + 1);
+        setDuration((prev) => prev + 1);
       }, 1000);
     } catch (err) {
       Alert.alert('Error', 'Failed to start recording');
@@ -109,33 +143,41 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }: AudioRe
   };
 
   const stopRecording = async () => {
-    if (!recording) return;
+    if (!isRecording) return;
 
-    if (durationInterval.current) {
-      clearInterval(durationInterval.current);
-    }
-
+    clearDurationInterval();
     setIsRecording(false);
-    await recording.stopAndUnloadAsync();
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-    });
+    try {
+      await recorder.stop();
+      await setAudioModeAsync({
+        allowsRecording: false,
+      });
 
-    const uri = recording.getURI();
-    if (uri) {
-      onRecordingComplete(uri, duration);
+      const uri = recorder.uri ?? recorder.getStatus().url ?? undefined;
+      if (uri) {
+        onRecordingComplete(uri, duration);
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Failed to stop recording');
+      console.error('Failed to stop recording', err);
     }
-    setRecording(null);
   };
 
   const cancelRecording = async () => {
-    if (recording) {
-      await recording.stopAndUnloadAsync();
-      setRecording(null);
+    clearDurationInterval();
+
+    if (isRecording) {
+      try {
+        await recorder.stop();
+      } catch (err) {
+        console.error('Failed to cancel recording', err);
+      }
     }
-    if (durationInterval.current) {
-      clearInterval(durationInterval.current);
-    }
+
+    await setAudioModeAsync({
+      allowsRecording: false,
+    });
+
     setIsRecording(false);
     setDuration(0);
     onCancel();
@@ -144,7 +186,9 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }: AudioRe
   return (
     <View style={{ padding: 20, alignItems: 'center' }}>
       <Text style={{ color: Colors.Text, marginBottom: 20 }}>
-        {isRecording ? `${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}` : 'Ready to record'}
+        {isRecording
+          ? `${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}`
+          : 'Ready to record'}
       </Text>
       
       <View style={{ flexDirection: 'row', gap: 20 }}>
@@ -203,9 +247,8 @@ export default function AudioRecorder({ onRecordingComplete, onCancel }: AudioRe
 Create `components/AudioPlayer.tsx`:
 
 ```typescript
-import { useState, useEffect } from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { Audio } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { IconSymbol } from './IconSymbol';
 import { Colors } from '@/utils/colors';
 
@@ -215,54 +258,29 @@ interface AudioPlayerProps {
 }
 
 export default function AudioPlayer({ uri, duration }: AudioPlayerProps) {
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [position, setPosition] = useState(0);
+  const player = useAudioPlayer({ uri }, { updateInterval: 200 });
+  const status = useAudioPlayerStatus(player);
+  const isPlaying = status?.playing ?? false;
+  const currentTime = status?.currentTime ?? 0;
+  const detectedDuration = status?.duration ?? duration ?? 0;
 
-  useEffect(() => {
-    return sound
-      ? () => {
-          sound.unloadAsync();
-        }
-      : undefined;
-  }, [sound]);
-
-  const playSound = async () => {
+  const togglePlayback = () => {
     try {
-      if (sound) {
-        if (isPlaying) {
-          await sound.pauseAsync();
-          setIsPlaying(false);
-        } else {
-          await sound.playAsync();
-          setIsPlaying(true);
-        }
+      if (isPlaying) {
+        player.pause();
       } else {
-        const { sound: newSound } = await Audio.Sound.createAsync(
-          { uri },
-          { shouldPlay: true }
-        );
-        setSound(newSound);
-        setIsPlaying(true);
-
-        newSound.setOnPlaybackStatusUpdate((status) => {
-          if (status.isLoaded) {
-            setPosition(status.positionMillis || 0);
-            if (status.didJustFinish) {
-              setIsPlaying(false);
-              setPosition(0);
-            }
-          }
-        });
+        player.play();
       }
     } catch (error) {
-      console.error('Error playing sound', error);
+      console.error('Error controlling audio playback', error);
     }
   };
 
-  const formatTime = (ms: number) => {
-    const seconds = Math.floor(ms / 1000);
-    return `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`;
+  const formatTime = (seconds: number) => {
+    const wholeSeconds = Math.floor(seconds);
+    const mins = Math.floor(wholeSeconds / 60);
+    const secs = wholeSeconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -274,15 +292,15 @@ export default function AudioPlayer({ uri, duration }: AudioPlayerProps) {
       borderRadius: 8,
       gap: 12,
     }}>
-      <Pressable onPress={playSound}>
+      <Pressable onPress={togglePlayback}>
         <IconSymbol
-          name={isPlaying ? "pause.fill" : "play.fill"}
+          name={isPlaying ? 'pause.fill' : 'play.fill'}
           color={Colors.Primary}
           size={24}
         />
       </Pressable>
       <Text style={{ color: Colors.Text, flex: 1 }}>
-        {formatTime(position)} / {duration ? formatTime(duration * 1000) : '--:--'}
+        {formatTime(currentTime)} / {detectedDuration ? formatTime(detectedDuration) : '--:--'}
       </Text>
     </View>
   );
