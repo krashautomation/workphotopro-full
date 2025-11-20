@@ -65,6 +65,16 @@ export default function Job() {
     const [keyboardHeight, setKeyboardHeight] = React.useState(0);
     const headerHeight = Platform.OS === 'ios' ? useHeaderHeight() : 0;
     const listRef = React.useRef<any>(null);
+    
+    // Pagination state for loading older messages
+    const [hasMoreMessages, setHasMoreMessages] = React.useState(true);
+    const [isLoadingOlderMessages, setIsLoadingOlderMessages] = React.useState(false);
+    const [oldestMessageId, setOldestMessageId] = React.useState<string | null>(null);
+    const [isInitialLoad, setIsInitialLoad] = React.useState(true);
+    const [shouldScrollToBottom, setShouldScrollToBottom] = React.useState(true);
+    const [contentHeight, setContentHeight] = React.useState(0);
+    const scrollY = React.useRef(0);
+    const hasTriggeredLoadMore = React.useRef(false);
     const [selectedImage, setSelectedImage] = React.useState<string | null>(null);
     const [selectedVideo, setSelectedVideo] = React.useState<string | null>(null);
     const [selectedFile, setSelectedFile] = React.useState<DocumentPicker.DocumentPickerAsset | null>(null);
@@ -149,11 +159,6 @@ export default function Job() {
 
     React.useEffect(() => {
         handleFirstLoad();
-        
-        // Additional scroll attempt after component mounts
-        setTimeout(() => {
-            listRef.current?.scrollToEnd({ animated: false });
-        }, 1000);
     }, []);
 
     // Handle captured image from camera page
@@ -211,13 +216,14 @@ export default function Job() {
             }
             checkCapturedMedia()
             
-            // Refresh messages
+            // Refresh messages - only reload if we're not in the middle of loading older messages
             const refreshMessages = async () => {
-                await getMessages();
-                // Scroll to bottom after refresh
-                setTimeout(() => {
-                    listRef.current?.scrollToEnd({ animated: true });
-                }, 300);
+                if (!isLoadingOlderMessages) {
+                    setShouldScrollToBottom(true);
+                    setOldestMessageId(null);
+                    setHasMoreMessages(true);
+                    await getMessages(false);
+                }
             };
             refreshMessages();
         }, [jobId])
@@ -290,18 +296,42 @@ export default function Job() {
         };
     }, [jobId]);
 
-    // Scroll to end when messages change
+    // Scroll to end when messages change (only if shouldScrollToBottom is true)
+    // This prevents auto-scroll when loading older messages
     React.useEffect(() => {
         console.log('🔍 Messages effect: Messages array changed, length:', messages.length);
-        console.log('🔍 Messages effect: Messages content:', messages.map(m => ({ id: m.$id, content: m.content, senderId: m.senderId })));
+        console.log('🔍 Messages effect: shouldScrollToBottom:', shouldScrollToBottom, 'isLoadingOlder:', isLoadingOlderMessages);
         
-        if (messages.length > 0 && listRef.current) {
-            // Use requestAnimationFrame for better timing
-            requestAnimationFrame(() => {
-                listRef.current?.scrollToEnd({ animated: true });
-            });
+        // Don't scroll if we're loading older messages
+        if (isLoadingOlderMessages) {
+            return;
         }
-    }, [messages]);
+        
+        if (messages.length > 0 && listRef.current && shouldScrollToBottom) {
+            // Use multiple timing strategies to ensure scroll happens
+            const scrollToBottom = () => {
+                try {
+                    listRef.current?.scrollToEnd({ animated: !isInitialLoad });
+                } catch (error) {
+                    console.log('🔍 ScrollToEnd error:', error);
+                }
+            };
+            
+            // Try immediately
+            requestAnimationFrame(() => {
+                scrollToBottom();
+                // Also try after a short delay to ensure content is rendered
+                setTimeout(scrollToBottom, 100);
+                // One more attempt after content is fully laid out
+                setTimeout(scrollToBottom, 300);
+            });
+            
+            // After initial load, set isInitialLoad to false
+            if (isInitialLoad) {
+                setTimeout(() => setIsInitialLoad(false), 500);
+            }
+        }
+    }, [messages, shouldScrollToBottom, isInitialLoad, isLoadingOlderMessages]);
     
         const handleFirstLoad = async () => {
         try {
@@ -359,99 +389,164 @@ export default function Job() {
     };
         
 
-const getMessages = async () => {
+// Helper function to process and normalize messages
+const processMessages = (documents: any[]): Message[] => {
+    return documents.map((doc: any) => {
+        // Normalize isTask field (handle string "true" or boolean true)
+        if (doc.isTask === true || doc.isTask === 'true' || doc.isTask === 1) {
+            doc.isTask = true;
+            // Set default taskStatus if isTask is true but taskStatus is missing
+            if (!doc.taskStatus) {
+                doc.taskStatus = 'active';
+            }
+        } else {
+            doc.isTask = false;
+        }
+        
+        // Check if this message has locationData (infers it's a location message)
+        if (doc.locationData) {
+            // Parse locationData from attribute (stored as JSON string)
+            if (typeof doc.locationData === 'string') {
+                try {
+                    doc.locationData = JSON.parse(doc.locationData);
+                    doc.messageType = 'location'; // Infer messageType from locationData presence
+                    console.log('🔍 processMessages: Parsed locationData and inferred messageType=location for message:', doc.$id);
+                } catch (e) {
+                    console.error('🔍 processMessages: Error parsing locationData:', e, 'Raw data:', doc.locationData);
+                    // If parsing fails, try parsing from content field (backward compatibility)
+                    const locationMatch = doc.content?.match(/\|LOCATION_DATA:(.+?)\|/);
+                    if (locationMatch && locationMatch[1]) {
+                        try {
+                            doc.locationData = JSON.parse(locationMatch[1]);
+                            doc.content = doc.content.replace(/\|LOCATION_DATA:.+?\|/, '').trim();
+                            doc.messageType = 'location';
+                            console.log('🔍 processMessages: Parsed locationData from content (fallback) for message:', doc.$id);
+                        } catch (e2) {
+                            console.error('🔍 processMessages: Error parsing locationData from content:', e2);
+                        }
+                    }
+                }
+            } else if (typeof doc.locationData === 'object') {
+                // Already parsed (shouldn't happen, but handle it just in case)
+                doc.messageType = 'location';
+                console.log('🔍 processMessages: locationData already an object, inferred messageType=location for message:', doc.$id);
+            }
+        } else if (doc.messageType === 'location') {
+            // Backward compatibility: if messageType exists but no locationData, remove messageType
+            // This handles old messages that might have messageType but no locationData
+            console.log('🔍 processMessages: Found messageType=location but no locationData, removing messageType:', doc.$id);
+            delete doc.messageType;
+        }
+        return doc;
+    }) as Message[];
+};
+
+const getMessages = async (loadOlder: boolean = false) => {
     try {
-        console.log('🔍 getMessages: Fetching messages for jobId:', jobId);
+        setIsLoadingOlderMessages(loadOlder);
+        
+        console.log('🔍 getMessages: Fetching messages for jobId:', jobId, 'loadOlder:', loadOlder);
+        
+        // Determine query parameters based on whether we're loading older messages
+        const limit = loadOlder ? 20 : 10; // Load 10 initially, 20 when loading older
+        const queries: any[] = [
+            Query.equal('jobId', jobId as string),
+            Query.orderDesc('$createdAt'), // Get newest first
+            Query.limit(limit),
+        ];
+        
+        // If loading older messages, add a cursor to get messages before the oldest one
+        // Use cursorBefore with the oldest message ID
+        if (loadOlder && oldestMessageId) {
+            queries.push(Query.cursorBefore(oldestMessageId));
+            console.log('🔍 getMessages: Using cursorBefore with message ID:', oldestMessageId);
+        }
+        
         const { documents, total } = await db.listDocuments<Message>(
             appwriteConfig.db, 
             appwriteConfig.col.messages,
-            [
-                Query.equal('jobId', jobId as string),
-                Query.orderAsc('$createdAt'),
-                Query.limit(100),
-            ]
+            queries
         );
+        
         console.log('🔍 getMessages: Successfully fetched messages:', {
             count: documents.length,
             total: total,
-            messages: documents.map(m => ({ 
-                id: m.$id, 
-                content: m.content, 
-                senderId: m.senderId,
-                isTask: (m as any).isTask,
-                taskStatus: (m as any).taskStatus
-            }))
+            loadOlder,
+            hasMore: documents.length === limit
         });
         
-        // Update messages state with fresh data
-        // Parse locationData from locationData attribute (now defined in Appwrite)
-        // Infer messageType from locationData presence (since messageType attribute doesn't exist in Appwrite)
-        const freshMessages = documents.map((doc: any) => {
-            // Normalize isTask field (handle string "true" or boolean true)
-            if (doc.isTask === true || doc.isTask === 'true' || doc.isTask === 1) {
-                doc.isTask = true;
-                // Set default taskStatus if isTask is true but taskStatus is missing
-                if (!doc.taskStatus) {
-                    doc.taskStatus = 'active';
-                }
-            } else {
-                doc.isTask = false;
-            }
-            
-            // Check if this message has locationData (infers it's a location message)
-            if (doc.locationData) {
-                // Parse locationData from attribute (stored as JSON string)
-                if (typeof doc.locationData === 'string') {
-                    try {
-                        doc.locationData = JSON.parse(doc.locationData);
-                        doc.messageType = 'location'; // Infer messageType from locationData presence
-                        console.log('🔍 getMessages: Parsed locationData and inferred messageType=location for message:', doc.$id);
-                    } catch (e) {
-                        console.error('🔍 getMessages: Error parsing locationData:', e, 'Raw data:', doc.locationData);
-                        // If parsing fails, try parsing from content field (backward compatibility)
-                        const locationMatch = doc.content?.match(/\|LOCATION_DATA:(.+?)\|/);
-                        if (locationMatch && locationMatch[1]) {
-                            try {
-                                doc.locationData = JSON.parse(locationMatch[1]);
-                                doc.content = doc.content.replace(/\|LOCATION_DATA:.+?\|/, '').trim();
-                                doc.messageType = 'location';
-                                console.log('🔍 getMessages: Parsed locationData from content (fallback) for message:', doc.$id);
-                            } catch (e2) {
-                                console.error('🔍 getMessages: Error parsing locationData from content:', e2);
-                            }
-                        }
-                    }
-                } else if (typeof doc.locationData === 'object') {
-                    // Already parsed (shouldn't happen, but handle it just in case)
-                    doc.messageType = 'location';
-                    console.log('🔍 getMessages: locationData already an object, inferred messageType=location for message:', doc.$id);
-                }
-            } else if (doc.messageType === 'location') {
-                // Backward compatibility: if messageType exists but no locationData, remove messageType
-                // This handles old messages that might have messageType but no locationData
-                console.log('🔍 getMessages: Found messageType=location but no locationData, removing messageType:', doc.$id);
-                delete doc.messageType;
-            }
-            return doc;
-        }) as Message[];
+        // Process and normalize messages
+        const freshMessages = processMessages(documents);
         
-        // Sort messages by creation date (chronological order - no special sorting for tasks)
-        const sortedMessages = [...freshMessages].sort((a, b) => {
+        // Reverse to get chronological order (oldest to newest)
+        const sortedMessages = [...freshMessages].reverse().sort((a, b) => {
             return new Date(a.$createdAt).getTime() - new Date(b.$createdAt).getTime();
         });
         
-        setMessages(prevMessages => {
-            // Only update if the data is actually different to prevent unnecessary re-renders
-            if (JSON.stringify(prevMessages) !== JSON.stringify(sortedMessages)) {
-                console.log('🔍 getMessages: Updating messages state with fresh data (sorted by date)');
-                return sortedMessages;
+        if (loadOlder) {
+            // When loading older messages, prepend them to the existing messages
+            setMessages(prevMessages => {
+                // Combine old and new messages, avoiding duplicates
+                const combined = [...sortedMessages, ...prevMessages];
+                const unique = combined.filter((msg, index, self) => 
+                    index === self.findIndex(m => m.$id === msg.$id)
+                );
+                // Sort by date to maintain chronological order
+                const final = unique.sort((a, b) => 
+                    new Date(a.$createdAt).getTime() - new Date(b.$createdAt).getTime()
+                );
+                return final;
+            });
+            
+            
+            // Update hasMoreMessages based on whether we got a full page
+            // If we got fewer messages than requested, we've reached the end
+            setHasMoreMessages(documents.length === limit);
+        } else {
+            // Initial load - replace all messages
+            setMessages(sortedMessages);
+            setShouldScrollToBottom(true);
+            setIsInitialLoad(true);
+            
+            // Update pagination state
+            if (sortedMessages.length > 0) {
+                const oldest = sortedMessages[0];
+                setOldestMessageId(oldest.$id);
+                setHasMoreMessages(documents.length === limit && total > limit);
+            } else {
+                setHasMoreMessages(false);
             }
-            console.log('🔍 getMessages: Messages unchanged, keeping current state');
-            return prevMessages;
-        });
+        }
         
     } catch(e) {
         console.error('🔍 getMessages: Error fetching messages:', e);
+        setHasMoreMessages(false);
+    } finally {
+        setIsLoadingOlderMessages(false);
+    }
+}
+
+// Function to load older messages when user scrolls up
+const loadOlderMessages = async () => {
+    if (isLoadingOlderMessages || !hasMoreMessages || messages.length === 0) {
+        console.log('🔍 loadOlderMessages: Skipping - isLoading:', isLoadingOlderMessages, 'hasMore:', hasMoreMessages, 'messages:', messages.length);
+        return;
+    }
+    
+    console.log('🔍 loadOlderMessages: Loading older messages, current oldestMessageId:', oldestMessageId);
+    setShouldScrollToBottom(false); // Don't auto-scroll when loading older messages
+    
+    // Get the oldest message ID to use as cursor
+    const oldestMessage = messages[0];
+    if (oldestMessage && oldestMessage.$id) {
+        // Set the oldest message ID before loading
+        setOldestMessageId(oldestMessage.$id);
+        await getMessages(true);
+        
+        // After loading, reset the trigger flag
+        setTimeout(() => {
+            hasTriggeredLoadMore.current = false;
+        }, 1000);
     }
 }
 
@@ -999,7 +1094,8 @@ const getMessages = async () => {
 
         // Refresh messages to show the new message
         console.log('🔍 sendMessage: Refreshing messages after sending...');
-        await getMessages();
+        setShouldScrollToBottom(true); // Ensure we scroll to bottom after sending
+        await getMessages(false); // Reload recent messages, not older ones
 
         await db.updateDocument(
             appwriteConfig.db, 
@@ -1221,12 +1317,12 @@ const getMessages = async () => {
     const handleRefresh = async () => {
         console.log('🔍 handleRefresh: Starting pull-to-refresh');
         setIsRefreshing(true);
+        setShouldScrollToBottom(true);
         try {
-            await getMessages();
-            // Scroll to bottom after refresh
-            setTimeout(() => {
-                listRef.current?.scrollToEnd({ animated: true });
-            }, 300);
+            // Reset pagination state and reload from the beginning
+            setOldestMessageId(null);
+            setHasMoreMessages(true);
+            await getMessages(false);
         } catch (error) {
             console.error('🔍 handleRefresh: Error during refresh:', error);
         } finally {
@@ -1756,6 +1852,53 @@ const getMessages = async () => {
                             maintainScrollAtEnd
                             maintainScrollAtEndThreshold={0.1}
                             estimatedItemSize={120}
+                            onScroll={(event) => {
+                                const currentScrollY = event.nativeEvent.contentOffset.y;
+                                const previousScrollY = scrollY.current;
+                                scrollY.current = currentScrollY;
+                                
+                                // Only trigger if scrolling up (scrollY decreasing)
+                                const isScrollingUp = currentScrollY < previousScrollY;
+                                
+                                // Load older messages when user scrolls near the top (within 300px from top)
+                                // Only trigger if scrolling up, not already loading, and has more messages
+                                if (isScrollingUp && currentScrollY < 300 && !hasTriggeredLoadMore.current && hasMoreMessages && !isLoadingOlderMessages && messages.length > 0) {
+                                    console.log('🔍 onScroll: Triggering loadOlderMessages, scrollY:', currentScrollY);
+                                    hasTriggeredLoadMore.current = true;
+                                    loadOlderMessages();
+                                } else if (currentScrollY > 600) {
+                                    // Reset trigger when user scrolls well away from top
+                                    hasTriggeredLoadMore.current = false;
+                                }
+                            }}
+                            scrollEventThrottle={400}
+                            onContentSizeChange={(width, height) => {
+                                // Track content height changes
+                                const prevHeight = contentHeight;
+                                setContentHeight(height);
+                                
+                                // If content height increased and we should scroll to bottom
+                                if (height > prevHeight && shouldScrollToBottom && !isLoadingOlderMessages) {
+                                    // Scroll to bottom when new content is added (new messages)
+                                    requestAnimationFrame(() => {
+                                        try {
+                                            listRef.current?.scrollToEnd({ animated: !isInitialLoad });
+                                        } catch (error) {
+                                            console.log('🔍 onContentSizeChange scrollToEnd error:', error);
+                                        }
+                                    });
+                                }
+                            }}
+                            ListFooterComponent={
+                                isLoadingOlderMessages ? (
+                                    <View style={{ padding: 20, alignItems: 'center' }}>
+                                        <ActivityIndicator size="small" color={Colors.Primary} />
+                                        <Text style={{ color: Colors.Gray, marginTop: 8, fontSize: 12 }}>
+                                            Loading older messages...
+                                        </Text>
+                                    </View>
+                                ) : null
+                            }
                         />
 
                         <View style={{ marginHorizontal: 10, marginBottom: Platform.OS === 'ios' ? 34 : insets.bottom + 16 }}>
