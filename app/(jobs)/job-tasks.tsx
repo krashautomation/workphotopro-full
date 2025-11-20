@@ -17,6 +17,9 @@ type JobTasksProps = {
 }
 
 export default function JobTasks({ jobId, messages, currentUserId, onCompleteTask }: JobTasksProps) {
+    // Lighter, brighter blue for task highlighting
+    const taskBlue = '#3b82f6'; // Bright blue-500
+    
     // Filter and sort tasks
     const tasks = React.useMemo(() => {
         const taskMessages = messages.filter((msg) => msg.isTask === true)
@@ -45,19 +48,21 @@ export default function JobTasks({ jobId, messages, currentUserId, onCompleteTas
         return (
             <View style={[
                 styles.taskItem,
-                isCompleted && styles.taskItemCompleted
+                isCompleted && styles.taskItemCompleted,
+                !isCompleted && { borderColor: taskBlue }
             ]}>
                 {/* Task Header */}
                 <View style={styles.taskHeader}>
                     <View style={styles.taskHeaderLeft}>
                         <IconSymbol 
                             name={isCompleted ? 'checkmark.circle.fill' : 'circle'} 
-                            color={isCompleted ? Colors.Gray : Colors.Primary} 
+                            color={isCompleted ? Colors.Gray : taskBlue} 
                             size={16} 
                         />
                         <Text style={[
                             styles.taskStatusBadge,
-                            isCompleted && styles.taskStatusBadgeCompleted
+                            isCompleted && styles.taskStatusBadgeCompleted,
+                            !isCompleted && { color: taskBlue }
                         ]}>
                             {isCompleted ? 'Completed' : 'Active'}
                         </Text>
@@ -90,9 +95,9 @@ export default function JobTasks({ jobId, messages, currentUserId, onCompleteTas
                     {!isCompleted && isSender && (
                         <TouchableOpacity
                             onPress={() => onCompleteTask(item.$id)}
-                            style={styles.completeButton}
+                            style={[styles.completeButton, { backgroundColor: taskBlue + '20' }]}
                         >
-                            <Text style={styles.completeButtonText}>Complete</Text>
+                            <Text style={[styles.completeButtonText, { color: taskBlue }]}>Complete</Text>
                         </TouchableOpacity>
                     )}
                 </View>
@@ -139,11 +144,11 @@ export default function JobTasks({ jobId, messages, currentUserId, onCompleteTas
                             const fileUrl = item.fileUrl || `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.fileFileId}/view?project=${appwriteConfig.projectId}`
                             Linking.openURL(fileUrl)
                         }}
-                        style={styles.taskFile}
+                        style={[styles.taskFile, { borderColor: taskBlue }]}
                     >
-                        <IconSymbol name="doc.text" color={Colors.Primary} size={18} />
+                        <IconSymbol name="doc.text" color={taskBlue} size={18} />
                         <View style={styles.taskFileInfo}>
-                            <Text style={styles.taskFileName} numberOfLines={1}>{item.fileName || 'Document'}</Text>
+                            <Text style={[styles.taskFileName, { color: taskBlue }]} numberOfLines={1}>{item.fileName || 'Document'}</Text>
                             {item.fileSize && (
                                 <Text style={styles.taskFileSize}>
                                     {(item.fileSize / 1024).toFixed(2)} KB
@@ -274,7 +279,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         padding: 10,
         borderWidth: 1,
-        borderColor: Colors.Primary,
+        borderColor: '#3b82f6', // Bright blue for tasks (will be overridden by inline styles)
     },
     taskItemCompleted: {
         borderColor: Colors.Gray,
@@ -297,7 +302,7 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
     },
     taskStatusBadge: {
-        color: Colors.Primary,
+        color: '#3b82f6', // Bright blue for tasks (will be overridden by inline styles)
         fontWeight: '600',
         fontSize: 10,
         textTransform: 'uppercase',
@@ -319,10 +324,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 4,
-        backgroundColor: Colors.Primary + '20',
+        backgroundColor: '#3b82f620', // Bright blue for tasks (will be overridden by inline styles)
     },
     completeButtonText: {
-        color: Colors.Primary,
+        color: '#3b82f6', // Bright blue for tasks (will be overridden by inline styles)
         fontSize: 11,
         fontWeight: '600',
     },
@@ -356,14 +361,14 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         marginBottom: 8,
         borderWidth: 1,
-        borderColor: Colors.Primary,
+        borderColor: '#3b82f6', // Bright blue for tasks (will be overridden by inline styles)
         gap: 8,
     },
     taskFileInfo: {
         flex: 1,
     },
     taskFileName: {
-        color: Colors.Primary,
+        color: '#3b82f6', // Bright blue for tasks (will be overridden by inline styles)
         fontWeight: '600',
         fontSize: 13,
     },

@@ -88,6 +88,9 @@ export default function Job() {
     const [isTaskMessage, setIsTaskMessage] = React.useState(false); // Flag to mark message as task when sending
     const [currentPinnedTaskIndex, setCurrentPinnedTaskIndex] = React.useState(0); // Index of currently displayed pinned task
     const [taskToScrollTo, setTaskToScrollTo] = React.useState<string | null>(null); // Task message ID to scroll to
+    
+    // Lighter, brighter blue for task highlighting
+    const taskBlue = '#3b82f6'; // Bright blue-500
 
     // Reset pinned task index when active tasks change
     React.useEffect(() => {
@@ -1412,9 +1415,9 @@ const getMessages = async () => {
                                 setActiveTab('chat');
                             }}
                             style={{
-                                backgroundColor: Colors.Primary + '15',
+                                backgroundColor: taskBlue + '15',
                                 borderLeftWidth: 3,
-                                borderLeftColor: Colors.Primary,
+                                borderLeftColor: taskBlue,
                                 paddingVertical: 8,
                                 paddingHorizontal: 12,
                                 flexDirection: 'row',
@@ -1423,8 +1426,8 @@ const getMessages = async () => {
                             }}
                         >
                             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <IconSymbol name="pin.fill" color={Colors.Primary} size={16} />
-                                <Text style={{ color: Colors.Primary, fontWeight: '600', fontSize: 12, marginRight: 4 }}>
+                                <IconSymbol name="pin.fill" color={taskBlue} size={16} />
+                                <Text style={{ color: taskBlue, fontWeight: '600', fontSize: 12, marginRight: 4 }}>
                                     Task:
                                 </Text>
                                 <Text style={{ color: Colors.Text, fontSize: 13, flex: 1 }} numberOfLines={1}>
@@ -1439,7 +1442,7 @@ const getMessages = async () => {
                                 }}
                                 style={{ padding: 4 }}
                             >
-                                <IconSymbol name="chevron.right" color={Colors.Primary} size={16} />
+                                <IconSymbol name="chevron.right" color={taskBlue} size={16} />
                             </TouchableOpacity>
                         </TouchableOpacity>
                     );
@@ -1518,14 +1521,14 @@ const getMessages = async () => {
                                         )}
                                         <Pressable
                                             style={{ 
-                                                backgroundColor: isSender ? Colors.Purple : Colors.Secondary,
+                                                backgroundColor: isSender ? '#1d1d24' : Colors.Secondary, // Slightly bluish gray for sender messages
                                                 padding: 10,
                                                 borderRadius: 10,
                                                 minWidth: '70%',
                                                 maxWidth: '70%',
                                                 opacity: isPressed ? 0.7 : 1,
                                                 borderWidth: isPressed ? 2 : (item.isTask ? 2 : 0),
-                                                borderColor: isPressed ? Colors.Primary : (item.isTask ? (item.taskStatus === 'completed' ? Colors.Gray : Colors.Primary) : 'transparent'),
+                                                borderColor: isPressed ? Colors.Primary : (item.isTask ? (item.taskStatus === 'completed' ? Colors.Gray : taskBlue) : 'transparent'),
                                             }}
                                         >
                                             {/* Task Badge and Status */}
@@ -1540,11 +1543,11 @@ const getMessages = async () => {
                                                 }}>
                                                     <IconSymbol 
                                                         name={item.taskStatus === 'completed' ? 'checkmark.circle.fill' : 'circle'} 
-                                                        color={item.taskStatus === 'completed' ? Colors.Gray : Colors.Primary} 
+                                                        color={item.taskStatus === 'completed' ? Colors.Gray : taskBlue} 
                                                         size={18} 
                                                     />
                                                     <Text style={{
-                                                        color: item.taskStatus === 'completed' ? Colors.Gray : Colors.Primary,
+                                                        color: item.taskStatus === 'completed' ? Colors.Gray : taskBlue,
                                                         fontWeight: '600',
                                                         fontSize: 12,
                                                         marginLeft: 6,
@@ -1561,11 +1564,11 @@ const getMessages = async () => {
                                                                 paddingHorizontal: 8,
                                                                 paddingVertical: 4,
                                                                 borderRadius: 6,
-                                                                backgroundColor: Colors.Primary + '20',
+                                                                backgroundColor: taskBlue + '20',
                                                             }}
                                                         >
                                                             <Text style={{
-                                                                color: Colors.Primary,
+                                                                color: taskBlue,
                                                                 fontSize: 11,
                                                                 fontWeight: '600',
                                                             }}>
