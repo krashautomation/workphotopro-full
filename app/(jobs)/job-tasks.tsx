@@ -1,5 +1,5 @@
 import React from 'react'
-import { FlatList, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { FlatList, Image, Linking, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Colors } from '@/utils/colors'
 import { CalendarCheck, LayoutList } from 'lucide-react-native'
 import { Message } from '@/utils/types'
@@ -8,6 +8,7 @@ import Avatar from '@/components/Avatar'
 import { appwriteConfig } from '@/utils/appwrite'
 import VideoPlayer from '@/components/VideoPlayer'
 import AudioPlayer from '@/components/AudioPlayer'
+import { webColors } from '@/styles/webDesignTokens'
 
 type JobTasksProps = {
     jobId: string
@@ -16,7 +17,11 @@ type JobTasksProps = {
     onCompleteTask: (messageId: string) => Promise<void>
 }
 
+type SubTab = 'tasks' | 'duties'
+
 export default function JobTasks({ jobId, messages, currentUserId, onCompleteTask }: JobTasksProps) {
+    const [activeSubTab, setActiveSubTab] = React.useState<SubTab>('tasks')
+    
     // Lighter, brighter blue for task highlighting
     const taskBlue = '#3b82f6'; // Bright blue-500
     
@@ -161,10 +166,9 @@ export default function JobTasks({ jobId, messages, currentUserId, onCompleteTas
         )
     }
 
-    return (
-        <View style={styles.container}>
+    const renderDutiesContent = () => {
+        return (
             <View style={styles.content}>
-                {/* Duties Section */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <LayoutList color={Colors.Primary} size={24} />
@@ -180,8 +184,13 @@ export default function JobTasks({ jobId, messages, currentUserId, onCompleteTas
                         </Text>
                     </View>
                 </View>
+            </View>
+        )
+    }
 
-                {/* Tasks Section */}
+    const renderTasksContent = () => {
+        return (
+            <View style={styles.content}>
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <CalendarCheck color={Colors.Primary} size={24} />
@@ -215,6 +224,52 @@ export default function JobTasks({ jobId, messages, currentUserId, onCompleteTas
                     )}
                 </View>
             </View>
+        )
+    }
+
+    return (
+        <View style={styles.container}>
+            {/* Sub-tabs */}
+            <View style={styles.subTabsContainer}>
+                <Pressable
+                    style={[
+                        styles.subTab,
+                        activeSubTab === 'tasks' && styles.subTabActive,
+                    ]}
+                    onPress={() => setActiveSubTab('tasks')}
+                >
+                    <Text
+                        style={[
+                            styles.subTabText,
+                            activeSubTab === 'tasks' && styles.subTabTextActive,
+                        ]}
+                    >
+                        Tasks
+                    </Text>
+                </Pressable>
+                <Pressable
+                    style={[
+                        styles.subTab,
+                        activeSubTab === 'duties' && styles.subTabActive,
+                    ]}
+                    onPress={() => setActiveSubTab('duties')}
+                >
+                    <Text
+                        style={[
+                            styles.subTabText,
+                            activeSubTab === 'duties' && styles.subTabTextActive,
+                        ]}
+                    >
+                        Duties
+                    </Text>
+                </Pressable>
+            </View>
+
+            {/* Content */}
+            <View style={styles.tabContent}>
+                {activeSubTab === 'tasks' && renderTasksContent()}
+                {activeSubTab === 'duties' && renderDutiesContent()}
+            </View>
         </View>
     )
 }
@@ -223,6 +278,34 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: Colors.Background,
+    },
+    subTabsContainer: {
+        flexDirection: 'row',
+        backgroundColor: Colors.Secondary,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.Gray,
+    },
+    subTab: {
+        flex: 1,
+        paddingVertical: 12,
+        alignItems: 'center',
+        borderBottomWidth: 2,
+        borderBottomColor: 'transparent',
+    },
+    subTabActive: {
+        borderBottomColor: webColors.primary,
+    },
+    subTabText: {
+        color: Colors.Gray,
+        fontSize: 14,
+        fontWeight: '400',
+    },
+    subTabTextActive: {
+        color: webColors.primary,
+        fontWeight: '600',
+    },
+    tabContent: {
+        flex: 1,
     },
     content: {
         flex: 1,
