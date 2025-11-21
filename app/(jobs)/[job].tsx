@@ -17,7 +17,7 @@ import * as ImagePicker from 'expo-image-picker'
 import * as DocumentPicker from 'expo-document-picker'
 import { Stack, useLocalSearchParams, useFocusEffect, useRouter } from 'expo-router'
 import * as React from 'react'
-import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Alert, Dimensions, Image, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { Query } from 'react-native-appwrite'
 import ImageViewing from 'react-native-image-viewing'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -89,6 +89,8 @@ export default function Job() {
     const [messageToDelete, setMessageToDelete] = React.useState<Message | null>(null);
     const [fullScreenImage, setFullScreenImage] = React.useState<string | null>(null);
     const [isImageViewVisible, setIsImageViewVisible] = React.useState(false);
+    const [viewingMessage, setViewingMessage] = React.useState<Message | null>(null);
+    const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
     const [showSaveImageModal, setShowSaveImageModal] = React.useState(false);
     const [isRefreshing, setIsRefreshing] = React.useState(false);
     const [showShareLocation, setShowShareLocation] = React.useState(false);
@@ -1767,6 +1769,8 @@ const loadOlderMessages = async () => {
                                                         <TouchableOpacity
                                                             key={index}
                                                             onPress={() => {
+                                                                setViewingMessage(item);
+                                                                setCurrentImageIndex(index);
                                                                 setFullScreenImage(url);
                                                                 setIsImageViewVisible(true);
                                                             }}
@@ -1810,6 +1814,8 @@ const loadOlderMessages = async () => {
                                             {(!item.imageUrls || item.imageUrls.length === 0) && item.imageUrl && item.content !== 'Message deleted by user' && (
                                                 <TouchableOpacity 
                                                     onPress={() => {
+                                                        setViewingMessage(item);
+                                                        setCurrentImageIndex(0);
                                                         setFullScreenImage(item.imageUrl || null);
                                                         setIsImageViewVisible(true);
                                                     }}
@@ -2634,8 +2640,27 @@ const loadOlderMessages = async () => {
                     <JobUploads
                         messages={messages}
                         onImagePress={uri => {
-                            setFullScreenImage(uri)
-                            setIsImageViewVisible(true)
+                            // Find the message that contains this image
+                            const message = messages.find(msg => 
+                                (msg.imageUrls && msg.imageUrls.includes(uri)) ||
+                                msg.imageUrl === uri
+                            );
+                            if (message) {
+                                const imageUrls = message.imageUrls && message.imageUrls.length > 0
+                                    ? message.imageUrls
+                                    : message.imageUrl
+                                    ? [message.imageUrl]
+                                    : [];
+                                const index = imageUrls.indexOf(uri);
+                                setViewingMessage(message);
+                                setCurrentImageIndex(index >= 0 ? index : 0);
+                                setFullScreenImage(uri);
+                                setIsImageViewVisible(true);
+                            } else {
+                                // Fallback for single image
+                                setFullScreenImage(uri);
+                                setIsImageViewVisible(true);
+                            }
                         }}
                     />
                 )}
@@ -2699,41 +2724,219 @@ const loadOlderMessages = async () => {
                 }
             />
 
-            {/* Full Screen Image Viewer with Zoom */}
+            {/* Full Screen Image Viewer with Zoom and Album Navigation */}
             <ImageViewing
-                images={fullScreenImage ? [{ uri: fullScreenImage }] : []}
-                imageIndex={0}
+                images={
+                    viewingMessage && viewingMessage.imageUrls && viewingMessage.imageUrls.length > 0
+                        ? viewingMessage.imageUrls.map(uri => ({ uri }))
+                        : viewingMessage && viewingMessage.imageUrl
+                        ? [{ uri: viewingMessage.imageUrl }]
+                        : fullScreenImage
+                        ? [{ uri: fullScreenImage }]
+                        : []
+                }
+                imageIndex={currentImageIndex}
                 visible={isImageViewVisible}
                 onRequestClose={() => {
                     setIsImageViewVisible(false);
                     setFullScreenImage(null);
+                    setViewingMessage(null);
+                    setCurrentImageIndex(0);
+                }}
+                onImageIndexChange={(index) => {
+                    setCurrentImageIndex(index);
+                    if (viewingMessage?.imageUrls && viewingMessage.imageUrls[index]) {
+                        setFullScreenImage(viewingMessage.imageUrls[index]);
+                    }
                 }}
                 {...({ onLongPress: () => setShowSaveImageModal(true) } as any)}
-                HeaderComponent={() => (
-                    <View style={{
-                        position: 'absolute',
-                        top: Platform.OS === 'ios' ? 50 : 10,
-                        right: 20,
-                        zIndex: 1,
-                    }}>
-                        <Pressable
-                            onPress={() => {
-                                setIsImageViewVisible(false);
-                                setFullScreenImage(null);
-                            }}
-                            style={{
-                                backgroundColor: 'rgba(0,0,0,0.6)',
-                                borderRadius: 20,
-                                width: 40,
-                                height: 40,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            <IconSymbol name="xmark" color={Colors.White} size={24} />
-                        </Pressable>
-                    </View>
-                )}
+                HeaderComponent={() => {
+                    const imageUrls = viewingMessage?.imageUrls && viewingMessage.imageUrls.length > 0
+                        ? viewingMessage.imageUrls
+                        : viewingMessage?.imageUrl
+                        ? [viewingMessage.imageUrl]
+                        : [];
+                    const hasMultipleImages = imageUrls.length > 1;
+                    const canGoBack = currentImageIndex > 0;
+                    const canGoForward = currentImageIndex < imageUrls.length - 1;
+                    const screenHeight = Dimensions.get('window').height;
+                    const arrowYPosition = screenHeight / 2 - 25; // 50% of screen minus half button height
+
+                    return (
+                        <>
+                            {/* Close Button */}
+                            <View style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                paddingTop: Platform.OS === 'ios' ? insets.top + 10 : insets.top + 10,
+                                paddingHorizontal: 20,
+                                zIndex: 1,
+                            }}>
+                                <View style={{
+                                    flexDirection: 'row',
+                                    justifyContent: 'flex-end',
+                                    alignItems: 'center',
+                                }}>
+                                    <Pressable
+                                        onPress={() => {
+                                            setIsImageViewVisible(false);
+                                            setFullScreenImage(null);
+                                            setViewingMessage(null);
+                                            setCurrentImageIndex(0);
+                                        }}
+                                        style={{
+                                            backgroundColor: 'rgba(0,0,0,0.6)',
+                                            borderRadius: 20,
+                                            width: 40,
+                                            height: 40,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                        }}
+                                    >
+                                        <IconSymbol name="xmark" color={Colors.White} size={24} />
+                                    </Pressable>
+                                </View>
+                            </View>
+
+                            {/* Navigation Arrows - Vertically Centered at 50% of screen */}
+                            {hasMultipleImages && (
+                                <View style={{
+                                    position: 'absolute',
+                                    top: arrowYPosition,
+                                    left: 0,
+                                    right: 0,
+                                    height: 50,
+                                    zIndex: 10,
+                                    flexDirection: 'row',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    pointerEvents: 'box-none',
+                                }}>
+                                    {/* Previous Button */}
+                                    <Pressable
+                                        onPress={() => {
+                                            if (canGoBack) {
+                                                const newIndex = currentImageIndex - 1;
+                                                setCurrentImageIndex(newIndex);
+                                                if (viewingMessage?.imageUrls && viewingMessage.imageUrls[newIndex]) {
+                                                    setFullScreenImage(viewingMessage.imageUrls[newIndex]);
+                                                }
+                                            }
+                                        }}
+                                        disabled={!canGoBack}
+                                        style={{
+                                            backgroundColor: canGoBack ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
+                                            borderRadius: 25,
+                                            width: 50,
+                                            height: 50,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            opacity: canGoBack ? 1 : 0.5,
+                                            marginLeft: 20,
+                                        }}
+                                    >
+                                        <IconSymbol 
+                                            name="chevron.left" 
+                                            color={Colors.White} 
+                                            size={28} 
+                                        />
+                                    </Pressable>
+
+                                    {/* Next Button */}
+                                    <Pressable
+                                        onPress={() => {
+                                            if (canGoForward) {
+                                                const newIndex = currentImageIndex + 1;
+                                                setCurrentImageIndex(newIndex);
+                                                if (viewingMessage?.imageUrls && viewingMessage.imageUrls[newIndex]) {
+                                                    setFullScreenImage(viewingMessage.imageUrls[newIndex]);
+                                                }
+                                            }
+                                        }}
+                                        disabled={!canGoForward}
+                                        style={{
+                                            backgroundColor: canGoForward ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
+                                            borderRadius: 25,
+                                            width: 50,
+                                            height: 50,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            opacity: canGoForward ? 1 : 0.5,
+                                            marginRight: 20,
+                                        }}
+                                    >
+                                        <IconSymbol 
+                                            name="chevron.right" 
+                                            color={Colors.White} 
+                                            size={28} 
+                                        />
+                                    </Pressable>
+                                </View>
+                            )}
+                        </>
+                    );
+                }}
+                FooterComponent={() => {
+                    const imageUrls = viewingMessage?.imageUrls && viewingMessage.imageUrls.length > 0
+                        ? viewingMessage.imageUrls
+                        : viewingMessage?.imageUrl
+                        ? [viewingMessage.imageUrl]
+                        : [];
+                    const hasMultipleImages = imageUrls.length > 1;
+                    const canGoBack = currentImageIndex > 0;
+                    const canGoForward = currentImageIndex < imageUrls.length - 1;
+                    return (
+                        <>
+                            {/* Bottom Content - Counter and Message */}
+                            <View style={{
+                                position: 'absolute',
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                paddingBottom: Platform.OS === 'ios' ? insets.bottom + 10 : insets.bottom + 20,
+                                paddingHorizontal: 20,
+                                zIndex: 1,
+                                backgroundColor: 'rgba(0,0,0,0.7)',
+                                paddingTop: 15,
+                            }}>
+                                {/* Image Counter */}
+                                {hasMultipleImages && (
+                                    <View style={{
+                                        alignItems: 'center',
+                                        marginBottom: viewingMessage?.content && viewingMessage.content !== 'Message deleted by user' ? 12 : 0,
+                                    }}>
+                                        <Text style={{
+                                            color: Colors.White,
+                                            fontSize: 16,
+                                            fontWeight: '600',
+                                        }}>
+                                            {currentImageIndex + 1} / {imageUrls.length}
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {/* Message Content */}
+                                {viewingMessage?.content && viewingMessage.content !== 'Message deleted by user' && (
+                                    <View style={{
+                                        backgroundColor: 'rgba(255,255,255,0.1)',
+                                        borderRadius: 8,
+                                        padding: 12,
+                                    }}>
+                                        <Text style={{
+                                            color: Colors.White,
+                                            fontSize: 14,
+                                            lineHeight: 20,
+                                        }} numberOfLines={3}>
+                                            {viewingMessage.content}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        </>
+                    );
+                }}
             />
 
             <SaveImageModal
