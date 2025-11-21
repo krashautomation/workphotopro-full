@@ -124,7 +124,10 @@ export default function JobTasks({ jobId, messages, currentUserId, onCompleteTas
                             <Image 
                                 key={index}
                                 source={{ uri: url }} 
-                                style={styles.taskImage}
+                                style={[
+                                    styles.taskImage,
+                                    item.imageUrls && item.imageUrls.length > 1 && styles.taskImageInGrid
+                                ]}
                                 resizeMode="cover"
                             />
                         ))}
@@ -442,6 +445,10 @@ const styles = StyleSheet.create({
         height: 150,
         borderRadius: 6,
         marginBottom: 8,
+    },
+    taskImageInGrid: {
+        width: '48%', // 2 columns with gap
+        flex: 0, // Don't grow
     },
     taskImageGrid: {
         flexDirection: 'row',
