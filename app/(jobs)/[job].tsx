@@ -31,6 +31,7 @@ import ShareJob from './share-job'
 import VideoPlayer from '@/components/VideoPlayer'
 import AudioRecorder from '@/components/AudioRecorder'
 import AudioPlayer from '@/components/AudioPlayer'
+import EmojiPicker, { EmojiPickerView } from '@/components/EmojiPicker'
 import { ClipboardList, CalendarCheck, LayoutList } from 'lucide-react-native'
 
 
@@ -2169,26 +2170,17 @@ const loadOlderMessages = async () => {
                                 borderRadius: 8,
                             }}>
                                 {/* Emoji Picker Button */}
-                                <Pressable 
-                                    onPress={() => {
-                                        setShowEmojiPicker(!showEmojiPicker);
+                                <EmojiPicker
+                                    onEmojiSelect={(emoji) => setMessageContent(emoji)}
+                                    isOpen={showEmojiPicker}
+                                    onOpenChange={setShowEmojiPicker}
+                                    isDisabled={isUploading}
+                                    renderPickerSeparately={true}
+                                    onCloseOtherMenus={() => {
                                         setShowAttachmentMenu(false);
                                         setShowClipboardMenu(false);
                                     }}
-                                    disabled={isUploading}
-                                    style={{
-                                        width: 32,
-                                        height: 32,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    <IconSymbol 
-                                        name="face.smiling" 
-                                        color={isUploading ? Colors.Gray : '#4A9EFF'}
-                                        size={24}
-                                    />
-                                </Pressable>
+                                />
 
                                 {/* Attachment Menu */}
                                 <View style={{ position: 'relative' }}>
@@ -2369,6 +2361,7 @@ const loadOlderMessages = async () => {
                                 onFocus={() => {
                                     setShowAttachmentMenu(false);
                                     setShowClipboardMenu(false);
+                                    setShowEmojiPicker(false);
                                 }}
                                 style={{minHeight: 40, color: Colors.Text, flexGrow: 1,
                                     paddingVertical: 2, paddingHorizontal: 3, flexShrink: 1,
@@ -2401,39 +2394,14 @@ const loadOlderMessages = async () => {
                                 </Pressable>
                             </View>
 
-                            {/* Emoji Picker */}
-                            {showEmojiPicker && (
-                                <View style={{
-                                    flexDirection: 'row',
-                                    gap: 8,
-                                    paddingHorizontal: 10,
-                                    paddingVertical: 12,
-                                    borderWidth: 1,
-                                    borderColor: Colors.Gray,
-                                    borderRadius: 8,
-                                    marginTop: 8,
-                                    backgroundColor: Colors.Secondary,
-                                }}>
-                                    {['👍', '❤️', '😂', '😮', '🔥'].map((emoji) => (
-                                        <Pressable
-                                            key={emoji}
-                                            onPress={() => {
-                                                setMessageContent(emoji);
-                                                setShowEmojiPicker(false);
-                                            }}
-                                            style={{
-                                                padding: 12,
-                                                backgroundColor: Colors.Primary + '20',
-                                                borderRadius: 8,
-                                                borderWidth: 1,
-                                                borderColor: Colors.Primary,
-                                            }}
-                                        >
-                                            <Text style={{ fontSize: 24 }}>{emoji}</Text>
-                                        </Pressable>
-                                    ))}
-                                </View>
-                            )}
+                            {/* Emoji Picker View */}
+                            <EmojiPickerView
+                                isOpen={showEmojiPicker}
+                                onEmojiSelect={(emoji) => {
+                                    setMessageContent(emoji);
+                                    setShowEmojiPicker(false);
+                                }}
+                            />
 
                             {/* Camera Menu Row */}
                             <View
