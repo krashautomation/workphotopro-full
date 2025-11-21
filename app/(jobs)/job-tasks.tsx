@@ -117,8 +117,21 @@ export default function JobTasks({ jobId, messages, currentUserId, onCompleteTas
                     </Text>
                 )}
 
-                {/* Task Attachments */}
-                {item.imageUrl && item.content !== 'Message deleted by user' && (
+                {/* Task Attachments - Multiple Images */}
+                {item.imageUrls && item.imageUrls.length > 0 && item.content !== 'Message deleted by user' && (
+                    <View style={styles.taskImageGrid}>
+                        {item.imageUrls.map((url, index) => (
+                            <Image 
+                                key={index}
+                                source={{ uri: url }} 
+                                style={styles.taskImage}
+                                resizeMode="cover"
+                            />
+                        ))}
+                    </View>
+                )}
+                {/* Backward compatibility: Single Image */}
+                {(!item.imageUrls || item.imageUrls.length === 0) && item.imageUrl && item.content !== 'Message deleted by user' && (
                     <Image 
                         source={{ uri: item.imageUrl }} 
                         style={styles.taskImage}
@@ -428,6 +441,12 @@ const styles = StyleSheet.create({
         width: '100%',
         height: 150,
         borderRadius: 6,
+        marginBottom: 8,
+    },
+    taskImageGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 4,
         marginBottom: 8,
     },
     taskVideo: {

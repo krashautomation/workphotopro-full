@@ -17,7 +17,7 @@ import * as ImagePicker from 'expo-image-picker'
 import * as DocumentPicker from 'expo-document-picker'
 import { Stack, useLocalSearchParams, useFocusEffect, useRouter } from 'expo-router'
 import * as React from 'react'
-import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, RefreshControl, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { Query } from 'react-native-appwrite'
 import ImageViewing from 'react-native-image-viewing'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -76,7 +76,7 @@ export default function Job() {
     const [contentHeight, setContentHeight] = React.useState(0);
     const scrollY = React.useRef(0);
     const hasTriggeredLoadMore = React.useRef(false);
-    const [selectedImage, setSelectedImage] = React.useState<string | null>(null);
+    const [selectedImages, setSelectedImages] = React.useState<string[]>([]);
     const [selectedVideo, setSelectedVideo] = React.useState<string | null>(null);
     const [selectedFile, setSelectedFile] = React.useState<DocumentPicker.DocumentPickerAsset | null>(null);
     const [selectedAudio, setSelectedAudio] = React.useState<{ uri: string; duration: number } | null>(null);
@@ -169,7 +169,7 @@ export default function Job() {
                 const capturedImageUri = await SecureStore.getItemAsync('capturedImageUri')
                 if (capturedImageUri) {
                     console.log('🔍 Received captured image URI:', capturedImageUri)
-                    setSelectedImage(capturedImageUri)
+                    setSelectedImages([capturedImageUri])
                     // Clear the stored image URI
                     await SecureStore.deleteItemAsync('capturedImageUri')
                 }
@@ -199,7 +199,7 @@ export default function Job() {
                     const capturedImageUri = await SecureStore.getItemAsync('capturedImageUri')
                     if (capturedImageUri) {
                         console.log('🔍 Received captured image URI from camera:', capturedImageUri)
-                        setSelectedImage(capturedImageUri)
+                        setSelectedImages([capturedImageUri])
                         // Clear the stored image URI
                         await SecureStore.deleteItemAsync('capturedImageUri')
                     }
@@ -565,13 +565,15 @@ const loadOlderMessages = async () => {
 
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ['images'],
-                allowsEditing: true,
-                aspect: [4, 3],
+                allowsEditing: false, // Can't edit multiple images
+                allowsMultipleSelection: true, // Enable multiple selection
                 quality: 0.8,
+                selectionLimit: 9, // Limit to 9 images max
             });
 
-            if (!result.canceled && result.assets[0]) {
-                setSelectedImage(result.assets[0].uri);
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const uris = result.assets.map(asset => asset.uri);
+                setSelectedImages(uris);
             }
         } catch (error) {
             console.error('Error picking image:', error);
@@ -860,7 +862,7 @@ const loadOlderMessages = async () => {
        setShowAttachmentMenu(false);
        setShowClipboardMenu(false);
        
-       if(messageContent.trim() === '' && !selectedImage && !selectedVideo && !selectedFile && !selectedAudio) return;
+       if(messageContent.trim() === '' && selectedImages.length === 0 && !selectedVideo && !selectedFile && !selectedAudio) return;
        
        // Check if we have required team and organization data
        if (!currentTeam?.$id || !currentOrganization?.$id) {
@@ -882,6 +884,8 @@ const loadOlderMessages = async () => {
         
         let imageUrl = undefined;
         let imageFileId = undefined;
+        let imageUrls: string[] = [];
+        let imageFileIds: string[] = [];
         let videoUrl = undefined;
         let videoFileId = undefined;
         let fileUrl = undefined;
@@ -897,18 +901,51 @@ const loadOlderMessages = async () => {
         const userProfilePicture = await getUserProfilePicture();
         console.log('🔍 sendMessage: User profile picture:', userProfilePicture);
 
-        // Upload image if one is selected
-        if (selectedImage) {
-            console.log('🔍 sendMessage: Uploading image...');
-            const uploadResult = await uploadImage(selectedImage);
-            if (uploadResult) {
-                imageUrl = uploadResult.fileUrl;
-                imageFileId = uploadResult.fileId;
-                console.log('🔍 sendMessage: Image uploaded successfully:', { imageUrl, imageFileId });
-            } else {
-                console.error('🔍 sendMessage: Image upload failed');
+        // Upload multiple images if any are selected
+        if (selectedImages.length > 0) {
+            console.log('🔍 sendMessage: Uploading', selectedImages.length, 'image(s)...');
+            setUploadStatus('Uploading images...');
+            setUploadProgress(0);
+            
+            // Upload all images in parallel
+            const uploadPromises = selectedImages.map((imageUri, index) => {
+                return uploadImage(imageUri).then(result => {
+                    // Update progress
+                    setUploadProgress(Math.round(((index + 1) / selectedImages.length) * 90));
+                    return result;
+                });
+            });
+            
+            const uploadResults = await Promise.all(uploadPromises);
+            
+            // Filter out failed uploads and collect URLs/IDs
+            uploadResults.forEach((result, index) => {
+                if (result) {
+                    imageUrls.push(result.fileUrl);
+                    imageFileIds.push(result.fileId);
+                } else {
+                    console.warn(`🔍 sendMessage: Failed to upload image ${index + 1}`);
+                }
+            });
+            
+            // Only proceed if at least one image uploaded successfully
+            if (imageUrls.length === 0) {
+                console.error('🔍 sendMessage: All image uploads failed');
+                setUploadStatus('');
+                setUploadProgress(0);
                 setIsUploading(false);
-                return; // Don't send message if image upload failed
+                Alert.alert('Upload Failed', 'Failed to upload images. Please try again.');
+                return; // Don't send message if all image uploads failed
+            }
+            
+            setUploadProgress(100);
+            setUploadStatus('Images uploaded!');
+            console.log('🔍 sendMessage: Successfully uploaded', imageUrls.length, 'image(s)');
+            
+            // For backward compatibility, also set single image fields if only one image
+            if (imageUrls.length === 1) {
+                imageUrl = imageUrls[0];
+                imageFileId = imageFileIds[0];
             }
         }
 
@@ -1026,9 +1063,19 @@ const loadOlderMessages = async () => {
         orgId: currentOrganization?.$id, // Add orgId from current organization
        };
 
-       // Add image fields only if image was uploaded
-       // Note: messageType is not stored in Appwrite, inferred from imageUrl/videoUrl presence
-       if (imageUrl) {
+       // Add image fields only if images were uploaded
+       // Note: messageType is not stored in Appwrite, inferred from imageUrl/imageUrls/videoUrl presence
+       if (imageUrls.length > 0) {
+           // Add array fields for multiple images
+           message.imageUrls = imageUrls;
+           message.imageFileIds = imageFileIds;
+           // Also set single fields for backward compatibility if only one image
+           if (imageUrls.length === 1) {
+               message.imageUrl = imageUrls[0];
+               message.imageFileId = imageFileIds[0];
+           }
+       } else if (imageUrl) {
+           // Backward compatibility: single image from old code path
            message.imageUrl = imageUrl;
            message.imageFileId = imageFileId;
        }
@@ -1084,7 +1131,7 @@ const loadOlderMessages = async () => {
 
         // Clear input fields immediately
         setMessageContent('');
-        setSelectedImage(null);
+        setSelectedImages([]);
         setSelectedVideo(null);
         setSelectedFile(null);
         setSelectedAudio(null);
@@ -1118,11 +1165,21 @@ const loadOlderMessages = async () => {
         try {
             // Hard delete associated image/video files from storage (if any)
             try {
-                if ((message as any).imageFileId) {
+                // Delete multiple images if present
+                if ((message as any).imageFileIds && Array.isArray((message as any).imageFileIds)) {
+                    const deletePromises = (message as any).imageFileIds.map((fileId: string) =>
+                        storage.deleteFile(appwriteConfig.bucket, fileId).catch(err => {
+                            console.error(`Error deleting image file ${fileId} from storage:`, err);
+                        })
+                    );
+                    await Promise.all(deletePromises);
+                }
+                // Backward compatibility: delete single image if present
+                else if ((message as any).imageFileId) {
                     await storage.deleteFile(appwriteConfig.bucket, (message as any).imageFileId);
                 }
             } catch (fileError) {
-                console.error('Error deleting image file from storage:', fileError);
+                console.error('Error deleting image file(s) from storage:', fileError);
             }
 
             try {
@@ -1356,7 +1413,7 @@ const loadOlderMessages = async () => {
         isLoading: isLoading,
         isUploading: isUploading,
         messageContent: messageContent,
-        selectedImage: !!selectedImage
+        selectedImages: selectedImages.length
     });
 
     return (
@@ -1698,7 +1755,59 @@ const loadOlderMessages = async () => {
                                                 </Text>
                                             </Pressable>
                                             
-                                            {item.imageUrl && item.content !== 'Message deleted by user' && (
+                                            {/* Multiple Images Display */}
+                                            {(item.imageUrls && item.imageUrls.length > 0) && item.content !== 'Message deleted by user' && (
+                                                <View style={{
+                                                    flexDirection: 'row',
+                                                    flexWrap: 'wrap',
+                                                    gap: 4,
+                                                    marginBottom: 8,
+                                                }}>
+                                                    {item.imageUrls.map((url, index) => (
+                                                        <TouchableOpacity
+                                                            key={index}
+                                                            onPress={() => {
+                                                                setFullScreenImage(url);
+                                                                setIsImageViewVisible(true);
+                                                            }}
+                                                            activeOpacity={0.9}
+                                                            style={{
+                                                                width: item.imageUrls && item.imageUrls.length === 1 ? '100%' : '48%',
+                                                                aspectRatio: item.imageUrls && item.imageUrls.length === 1 ? undefined : 1,
+                                                                position: 'relative',
+                                                            }}
+                                                        >
+                                                            <Image 
+                                                                source={{ uri: url }} 
+                                                                style={{ 
+                                                                    width: '100%', 
+                                                                    height: item.imageUrls && item.imageUrls.length === 1 ? 200 : undefined,
+                                                                    aspectRatio: item.imageUrls && item.imageUrls.length === 1 ? undefined : 1,
+                                                                    borderRadius: 8,
+                                                                }}
+                                                                resizeMode="cover"
+                                                            />
+                                                            {item.imageUrls && item.imageUrls.length > 1 && (
+                                                                <View style={{
+                                                                    position: 'absolute',
+                                                                    top: 4,
+                                                                    right: 4,
+                                                                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                                                                    paddingHorizontal: 6,
+                                                                    paddingVertical: 2,
+                                                                    borderRadius: 4,
+                                                                }}>
+                                                                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '600' }}>
+                                                                        {index + 1}/{item.imageUrls.length}
+                                                                    </Text>
+                                                                </View>
+                                                            )}
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </View>
+                                            )}
+                                            {/* Backward Compatibility: Single Image Display */}
+                                            {(!item.imageUrls || item.imageUrls.length === 0) && item.imageUrl && item.content !== 'Message deleted by user' && (
                                                 <TouchableOpacity 
                                                     onPress={() => {
                                                         setFullScreenImage(item.imageUrl || null);
@@ -1904,38 +2013,68 @@ const loadOlderMessages = async () => {
 
                         <View style={{ marginHorizontal: 10, marginBottom: Platform.OS === 'ios' ? 34 : insets.bottom + 16 }}>
                             {/* Image Preview */}
-                            {selectedImage && (
+                            {selectedImages.length > 0 && (
                                 <View style={{
-                                    position: 'relative',
                                     marginBottom: 8,
+                                    backgroundColor: Colors.Secondary,
                                     borderRadius: 8,
-                                    overflow: 'hidden',
+                                    padding: 8,
+                                    borderWidth: 1,
+                                    borderColor: Colors.Gray,
                                 }}>
-                                    <Image 
-                                        source={{ uri: selectedImage }}
-                                        style={{
-                                            width: '100%',
-                                            height: 200,
-                                            borderRadius: 8,
-                                        }}
-                                        resizeMode="cover"
-                                    />
-                                    <Pressable
-                                        onPress={() => setSelectedImage(null)}
-                                        style={{
-                                            position: 'absolute',
-                                            top: 8,
-                                            right: 8,
-                                            backgroundColor: 'rgba(0,0,0,0.6)',
-                                            borderRadius: 16,
-                                            width: 32,
-                                            height: 32,
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                        }}
-                                    >
-                                        <IconSymbol name="xmark" color={Colors.White} size={20} />
-                                    </Pressable>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                                            {selectedImages.map((uri, index) => (
+                                                <View key={index} style={{
+                                                    position: 'relative',
+                                                    width: 80,
+                                                    height: 80,
+                                                    borderRadius: 8,
+                                                    overflow: 'hidden',
+                                                }}>
+                                                    <Image 
+                                                        source={{ uri }}
+                                                        style={{
+                                                            width: '100%',
+                                                            height: '100%',
+                                                        }}
+                                                        resizeMode="cover"
+                                                    />
+                                                    <Pressable
+                                                        onPress={() => {
+                                                            setSelectedImages(prev => prev.filter((_, i) => i !== index));
+                                                        }}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: 4,
+                                                            right: 4,
+                                                            backgroundColor: 'rgba(0,0,0,0.6)',
+                                                            borderRadius: 12,
+                                                            width: 24,
+                                                            height: 24,
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                        }}
+                                                    >
+                                                        <IconSymbol name="xmark" color={Colors.White} size={14} />
+                                                    </Pressable>
+                                                    <View style={{
+                                                        position: 'absolute',
+                                                        bottom: 4,
+                                                        right: 4,
+                                                        backgroundColor: 'rgba(0,0,0,0.6)',
+                                                        paddingHorizontal: 4,
+                                                        paddingVertical: 2,
+                                                        borderRadius: 4,
+                                                    }}>
+                                                        <Text style={{ color: Colors.White, fontSize: 10, fontWeight: '600' }}>
+                                                            {index + 1}/{selectedImages.length}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    </ScrollView>
                                 </View>
                             )}
 
@@ -2374,7 +2513,7 @@ const loadOlderMessages = async () => {
                             
                                 {/* Send Button */}
                                 <Pressable 
-                                    disabled={(messageContent === '' && !selectedImage && !selectedVideo && !selectedFile && !selectedAudio) || isUploading} 
+                                    disabled={(messageContent === '' && selectedImages.length === 0 && !selectedVideo && !selectedFile && !selectedAudio) || isUploading} 
                                     style={{
                                         width: 32,
                                         height: 32,
@@ -2388,7 +2527,7 @@ const loadOlderMessages = async () => {
                                     ) : (
                                         <IconSymbol 
                                         name="paperplane" 
-                                        color={(messageContent || selectedImage || selectedVideo || selectedAudio) ? '#4A9EFF' : Colors.Gray}
+                                        color={(messageContent || selectedImages.length > 0 || selectedVideo || selectedAudio) ? '#4A9EFF' : Colors.Gray}
                                         />
                                     )}
                                 </Pressable>

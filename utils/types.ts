@@ -150,8 +150,10 @@ export interface Message {
   // Multi-tenant fields
   teamId: string; // References Teams
   orgId: string; // References Organizations
-  imageUrl?: string; // Optional image URL
-  imageFileId?: string; // Optional Appwrite file ID for deletion
+  imageUrl?: string; // Optional image URL (single image - kept for backward compatibility)
+  imageFileId?: string; // Optional Appwrite file ID for deletion (single image - kept for backward compatibility)
+  imageUrls?: string[]; // Optional array of image URLs (multiple images)
+  imageFileIds?: string[]; // Optional array of Appwrite file IDs for deletion (multiple images)
   videoUrl?: string; // Optional video URL
   videoFileId?: string; // Optional Appwrite file ID for deletion
   audioUrl?: string; // Optional audio URL
