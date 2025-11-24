@@ -37,14 +37,30 @@ const DEFAULT_CONFIG: OfflineCacheConfig = {
 
 const METADATA_KEY = 'offline_cache_metadata';
 const CONFIG_KEY = 'offline_cache_config';
+const METADATA_FILENAME = 'offline_cache_metadata.json';
 
 class OfflineCache {
     private metadata: Map<string, CachedMediaMetadata> = new Map();
     private config: OfflineCacheConfig;
     private isInitialized = false;
+    private failedUrls: Set<string> = new Set(); // Track URLs that failed to cache (e.g., 404)
+    private metadataFilePath: string = '';
 
     constructor() {
         this.config = DEFAULT_CONFIG;
+        // Initialize metadata file path (will be set during initialize)
+        this.metadataFilePath = '';
+    }
+
+    /**
+     * Get the metadata file path
+     */
+    private getMetadataFilePath(): string {
+        if (!this.metadataFilePath) {
+            const cacheDir = cacheManager.getCacheDirectory();
+            this.metadataFilePath = `${cacheDir}${METADATA_FILENAME}`;
+        }
+        return this.metadataFilePath;
     }
 
     /**
@@ -54,16 +70,32 @@ class OfflineCache {
         if (this.isInitialized) return;
 
         try {
-            // Load metadata
-            const metadataJson = await SecureStore.getItemAsync(METADATA_KEY);
-            if (metadataJson) {
-                const metadataArray = JSON.parse(metadataJson) as CachedMediaMetadata[];
-                this.metadata = new Map(
-                    metadataArray.map(item => [item.originalUrl, item])
-                );
+            // Initialize metadata file path
+            this.getMetadataFilePath();
+
+            // Try to migrate from SecureStore to FileSystem if needed
+            await this.migrateMetadataFromSecureStore();
+
+            // Load metadata from file
+            const metadataFilePath = this.getMetadataFilePath();
+            const fileInfo = await FileSystemLegacy.getInfoAsync(metadataFilePath);
+            if (fileInfo.exists) {
+                try {
+                    const metadataJson = await FileSystemLegacy.readAsStringAsync(metadataFilePath);
+                    if (metadataJson) {
+                        const metadataArray = JSON.parse(metadataJson) as CachedMediaMetadata[];
+                        this.metadata = new Map(
+                            metadataArray.map(item => [item.originalUrl, item])
+                        );
+                    }
+                } catch (parseError) {
+                    console.warn('[OfflineCache] ⚠️ Error parsing metadata file, starting fresh:', parseError);
+                    // If file is corrupted, delete it and start fresh
+                    await FileSystemLegacy.deleteAsync(metadataFilePath, { idempotent: true });
+                }
             }
 
-            // Load config
+            // Load config (keep in SecureStore as it's small)
             const configJson = await SecureStore.getItemAsync(CONFIG_KEY);
             if (configJson) {
                 this.config = { ...DEFAULT_CONFIG, ...JSON.parse(configJson) };
@@ -82,12 +114,46 @@ class OfflineCache {
     }
 
     /**
-     * Save metadata to persistent storage
+     * Migrate metadata from SecureStore to FileSystem (one-time migration)
+     */
+    private async migrateMetadataFromSecureStore(): Promise<void> {
+        try {
+            // Check if metadata exists in SecureStore
+            const metadataJson = await SecureStore.getItemAsync(METADATA_KEY);
+            if (metadataJson) {
+                // Check if file already exists (migration already done)
+                const metadataFilePath = this.getMetadataFilePath();
+                const fileInfo = await FileSystemLegacy.getInfoAsync(metadataFilePath);
+                if (!fileInfo.exists) {
+                    // Migrate to file
+                    await FileSystemLegacy.writeAsStringAsync(metadataFilePath, metadataJson);
+                    console.log('[OfflineCache] ✅ Migrated metadata from SecureStore to FileSystem');
+                    
+                    // Remove from SecureStore (optional, but good to clean up)
+                    try {
+                        await SecureStore.deleteItemAsync(METADATA_KEY);
+                    } catch (e) {
+                        // Ignore errors when deleting from SecureStore
+                    }
+                }
+            }
+        } catch (error) {
+            // Migration is non-critical, just log and continue
+            console.warn('[OfflineCache] ⚠️ Migration from SecureStore failed (non-critical):', error);
+        }
+    }
+
+    /**
+     * Save metadata to persistent storage (FileSystem)
      */
     private async saveMetadata(): Promise<void> {
         try {
             const metadataArray = Array.from(this.metadata.values());
-            await SecureStore.setItemAsync(METADATA_KEY, JSON.stringify(metadataArray));
+            const metadataJson = JSON.stringify(metadataArray);
+            const metadataFilePath = this.getMetadataFilePath();
+            
+            // Write to file (FileSystem can handle large files)
+            await FileSystemLegacy.writeAsStringAsync(metadataFilePath, metadataJson);
         } catch (error) {
             console.error('[OfflineCache] ❌ Error saving metadata:', error);
         }
@@ -139,6 +205,11 @@ class OfflineCache {
     ): Promise<string | null> {
         await this.initialize();
 
+        // Skip URLs that previously failed (e.g., 404) to avoid unnecessary retries
+        if (this.failedUrls.has(originalUrl)) {
+            return null;
+        }
+
         // Check if already cached
         const existing = this.metadata.get(originalUrl);
         if (existing) {
@@ -166,13 +237,27 @@ class OfflineCache {
             const fileName = `${type}_${urlHash}${extension}`;
             const cachedUri = `${cacheManager.getCacheDirectory()}${fileName}`;
 
-            console.log('[OfflineCache] 📥 Downloading:', originalUrl);
+            // Only log download attempts for non-failed URLs (to reduce noise)
+            if (!this.failedUrls.has(originalUrl)) {
+                console.log('[OfflineCache] 📥 Downloading:', originalUrl);
+            }
 
             // Download file
             const downloadResult = await FileSystemLegacy.downloadAsync(originalUrl, cachedUri);
 
             if (!downloadResult || downloadResult.status !== 200) {
-                throw new Error(`Download failed with status ${downloadResult?.status}`);
+                const status = downloadResult?.status || 'unknown';
+                const errorMessage = `Download failed with status ${status}`;
+                
+                // Handle 404 errors more gracefully (file deleted from server)
+                if (status === 404) {
+                    this.failedUrls.add(originalUrl); // Track failed URL
+                    // Only log 404 once per URL to reduce console noise
+                    // The warning is still useful for debugging but less verbose
+                    return null;
+                }
+                
+                throw new Error(errorMessage);
             }
 
             // Get file size
@@ -195,11 +280,22 @@ class OfflineCache {
             this.metadata.set(originalUrl, metadata);
             await this.saveMetadata();
 
+            // Remove from failed URLs if it was previously failed
+            this.failedUrls.delete(originalUrl);
+
             console.log('[OfflineCache] ✅ Cached successfully:', originalUrl, `(${cacheManager.formatBytes(size)})`);
 
             return cachedUri;
         } catch (error) {
-            console.error('[OfflineCache] ❌ Error caching media:', error);
+            // Check if it's a 404 error from the error message
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (errorMessage.includes('404')) {
+                this.failedUrls.add(originalUrl);
+                // 404 errors are already handled above, so this is just a fallback
+                // Don't log again to avoid duplicate warnings
+            } else {
+                console.error('[OfflineCache] ❌ Error caching media:', error);
+            }
             return null;
         }
     }
@@ -217,8 +313,15 @@ class OfflineCache {
         // Network check is optional - preload will fail gracefully if offline
         // For production, you might want to add @react-native-community/netinfo
 
-        // Limit to recent count
-        const urlsToPreload = urls.slice(0, this.config.preloadRecentCount);
+        // Deduplicate URLs, filter out previously failed URLs, and limit to recent count
+        const uniqueUrls = Array.from(new Set(urls)); // Remove duplicates
+        const urlsToPreload = uniqueUrls
+            .filter(url => url && !this.failedUrls.has(url)) // Skip empty/null URLs and previously failed URLs
+            .slice(0, this.config.preloadRecentCount);
+
+        if (urlsToPreload.length === 0) {
+            return; // Nothing to preload
+        }
 
         console.log(`[OfflineCache] 🚀 Preloading ${urlsToPreload.length} items...`);
 
@@ -228,7 +331,8 @@ class OfflineCache {
         ).then(() => {
             console.log('[OfflineCache] ✅ Preload complete');
         }).catch(error => {
-            console.error('[OfflineCache] ❌ Preload error:', error);
+            // Individual errors are already handled in cacheMedia, so this is just for unexpected errors
+            console.warn('[OfflineCache] ⚠️ Preload completed with some errors (non-critical):', error);
         });
     }
 
