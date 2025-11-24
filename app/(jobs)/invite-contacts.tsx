@@ -1,8 +1,7 @@
 import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, Text, StyleSheet, Pressable, ScrollView, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Alert, Platform, Share } from 'react-native';
 import { Stack, router } from 'expo-router';
-import * as Sharing from 'expo-sharing';
 import * as Linking from 'expo-linking';
 import { Colors } from '@/utils/colors';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -51,26 +50,21 @@ export default function InviteContactsScreen() {
     const message = `Join me on WorkPhotoPro! ${inviteLink}`;
 
     try {
-      // Check if sharing is available
-      const isAvailable = await Sharing.isAvailableAsync();
-      
-      if (isAvailable) {
-        // expo-sharing shares the link directly
-        // The native share sheet will let users choose how to share
-        await Sharing.shareAsync(inviteLink, {
-          dialogTitle: 'Invite friends to WorkPhotoPro',
-        });
-      } else {
-        // Fallback: Show link modal
-        Alert.alert('Sharing not available', 'Please copy the link manually.');
-        handleCopyInviteLink();
+      // Use React Native's Share API (works with links/text)
+      const result = await Share.share({
+        message: message,
+        url: inviteLink, // Some platforms use this
+        title: 'Invite friends to WorkPhotoPro',
+      });
+
+      // result.action can be: Share.sharedAction, Share.dismissedAction, or Share.dismissedAction (iOS)
+      if (result.action === Share.sharedAction) {
+        // User shared successfully
+        console.log('Shared successfully');
       }
     } catch (error: any) {
-      // User cancelled sharing - that's okay, don't show error
-      if (error.code !== 'ERR_CANCELLED') {
-        console.error('Error sharing invite:', error);
-        Alert.alert('Error', error.message || 'Failed to share invite. Please try again.');
-      }
+      console.error('Error sharing invite:', error);
+      Alert.alert('Error', error.message || 'Failed to share invite. Please try again.');
     }
   };
 
