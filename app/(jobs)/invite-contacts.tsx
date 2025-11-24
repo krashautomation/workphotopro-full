@@ -1,7 +1,9 @@
 import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Alert, Platform } from 'react-native';
 import { Stack, router } from 'expo-router';
+import * as Sharing from 'expo-sharing';
+import * as Linking from 'expo-linking';
 import { Colors } from '@/utils/colors';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Users, MessageCircle, Copy, Share2, MessageSquare } from 'lucide-react-native';
@@ -39,22 +41,130 @@ export default function InviteContactsScreen() {
     setShowInviteLinkModal(true);
   };
 
+  const handleShareInvite = async () => {
+    if (!user) {
+      Alert.alert('Error', 'Please log in to share invites.');
+      return;
+    }
+
+    const inviteLink = generateInviteLink(user.$id);
+    const message = `Join me on WorkPhotoPro! ${inviteLink}`;
+
+    try {
+      // Check if sharing is available
+      const isAvailable = await Sharing.isAvailableAsync();
+      
+      if (isAvailable) {
+        // expo-sharing shares the link directly
+        // The native share sheet will let users choose how to share
+        await Sharing.shareAsync(inviteLink, {
+          dialogTitle: 'Invite friends to WorkPhotoPro',
+        });
+      } else {
+        // Fallback: Show link modal
+        Alert.alert('Sharing not available', 'Please copy the link manually.');
+        handleCopyInviteLink();
+      }
+    } catch (error: any) {
+      // User cancelled sharing - that's okay, don't show error
+      if (error.code !== 'ERR_CANCELLED') {
+        console.error('Error sharing invite:', error);
+        Alert.alert('Error', error.message || 'Failed to share invite. Please try again.');
+      }
+    }
+  };
+
+  const handleWhatsAppShare = async () => {
+    if (!user) {
+      Alert.alert('Error', 'Please log in to share invites.');
+      return;
+    }
+
+    const inviteLink = generateInviteLink(user.$id);
+    const message = `Join me on WorkPhotoPro! ${inviteLink}`;
+    
+    // WhatsApp URL format: whatsapp://send?text=MESSAGE
+    const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+    
+    try {
+      const canOpen = await Linking.canOpenURL(whatsappUrl);
+      
+      if (canOpen) {
+        await Linking.openURL(whatsappUrl);
+      } else {
+        Alert.alert(
+          'WhatsApp not installed',
+          'Please install WhatsApp to share via WhatsApp, or use another sharing method.',
+          [
+            { text: 'Copy Link Instead', onPress: handleCopyInviteLink },
+            { text: 'OK', style: 'cancel' },
+          ]
+        );
+      }
+    } catch (error: any) {
+      console.error('Error opening WhatsApp:', error);
+      Alert.alert('Error', 'Failed to open WhatsApp. Please try again.');
+    }
+  };
+
+  const handleMessagesShare = async () => {
+    if (!user) {
+      Alert.alert('Error', 'Please log in to share invites.');
+      return;
+    }
+
+    const inviteLink = generateInviteLink(user.$id);
+    const message = `Join me on WorkPhotoPro! ${inviteLink}`;
+    
+    // SMS URL format: sms:?body=MESSAGE (iOS) or sms:?body=MESSAGE (Android)
+    const smsUrl = Platform.select({
+      ios: `sms:&body=${encodeURIComponent(message)}`,
+      android: `sms:?body=${encodeURIComponent(message)}`,
+      default: `sms:?body=${encodeURIComponent(message)}`,
+    });
+    
+    try {
+      const canOpen = await Linking.canOpenURL(smsUrl!);
+      
+      if (canOpen) {
+        await Linking.openURL(smsUrl!);
+      } else {
+        Alert.alert(
+          'Messages not available',
+          'Unable to open Messages app. Please try another sharing method.',
+          [
+            { text: 'Copy Link Instead', onPress: handleCopyInviteLink },
+            { text: 'OK', style: 'cancel' },
+          ]
+        );
+      }
+    } catch (error: any) {
+      console.error('Error opening Messages:', error);
+      Alert.alert('Error', 'Failed to open Messages. Please try again.');
+    }
+  };
+
+  const handleContactsPicker = () => {
+    // Navigate to contacts screen where user can select contacts
+    router.push('/(jobs)/contacts');
+  };
+
   const handleOptionPress = (label: string) => {
     switch (label) {
       case 'Copy invite link':
         handleCopyInviteLink();
         break;
       case 'Contacts':
-        // TODO: Implement contact picker
+        handleContactsPicker();
         break;
       case 'WhatsApp':
-        // TODO: Implement WhatsApp sharing
+        handleWhatsAppShare();
         break;
       case 'Invite friends by…':
-        // TODO: Implement native share sheet
+        handleShareInvite();
         break;
       case 'Messages':
-        // TODO: Implement Messages sharing
+        handleMessagesShare();
         break;
       default:
         break;
