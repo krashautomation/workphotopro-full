@@ -486,6 +486,23 @@ const getMessages = async (loadOlder: boolean = false) => {
             return new Date(a.$createdAt).getTime() - new Date(b.$createdAt).getTime();
         });
         
+        // Preload media for offline access (in background)
+        if (!loadOlder && sortedMessages.length > 0) {
+            const imageUrls: string[] = [];
+            sortedMessages.forEach(msg => {
+                if (msg.imageUrl) imageUrls.push(msg.imageUrl);
+                if (msg.imageUrls) imageUrls.push(...msg.imageUrls);
+            });
+            if (imageUrls.length > 0) {
+                // Preload images in background (don't await)
+                import('@/utils/offlineCache').then(({ offlineCache }) => {
+                    offlineCache.preloadRecentMedia(imageUrls, 'image').catch(err => {
+                        console.warn('[Job] Preload error (non-critical):', err);
+                    });
+                });
+            }
+        }
+
         if (loadOlder) {
             // When loading older messages, prepend them to the existing messages
             setMessages(prevMessages => {
@@ -1013,6 +1030,16 @@ const loadOlderMessages = async () => {
                 fileMimeType = selectedFile.mimeType || 'application/octet-stream';
                 console.log('🔍 sendMessage: File uploaded successfully:', { fileUrl, fileFileId, fileName });
                 setUploadStatus('File uploaded!');
+                
+                // Clean up cached document file after successful upload
+                try {
+                    const { cacheManager } = await import('@/utils/cacheManager');
+                    await cacheManager.deleteCacheFile(selectedFile.uri);
+                    console.log('🔍 sendMessage: ✅ Cached document file cleaned up');
+                } catch (cleanupError) {
+                    console.warn('🔍 sendMessage: ⚠️ Could not clean up cached document file (non-critical):', cleanupError);
+                    // Non-critical error - file is uploaded, cache cleanup is optional
+                }
             } else {
                 console.error('🔍 sendMessage: File upload failed');
                 setUploadStatus('');

@@ -14,7 +14,7 @@ interface SaveImageModalProps {
 }
 
 // Album name for organizing saved photos
-const ALBUM_NAME = 'WorkPhotoPro Photos'
+const ALBUM_NAME = 'All WorkPhotoPro'
 
 export default function SaveImageModal({ visible, imageUrl, onClose }: SaveImageModalProps) {
     const [isWorking, setIsWorking] = React.useState(false)
@@ -313,6 +313,17 @@ export default function SaveImageModal({ visible, imageUrl, onClose }: SaveImage
                 ? `Image saved to ${ALBUM_NAME} album.`
                 : 'Image saved to your Photos.'
             
+            // Step 6: Clean up cache file after saving to media library
+            console.log('[SaveImage] 🧹 Step 6: Cleaning up cache file...')
+            try {
+                const { cacheManager } = await import('@/utils/cacheManager')
+                await cacheManager.deleteCacheFile(localPath)
+                console.log('[SaveImage] ✅ Cache file cleaned up')
+            } catch (cleanupError) {
+                console.warn('[SaveImage] ⚠️ Could not clean up cache file (non-critical):', cleanupError)
+                // Non-critical error - file is saved, cache cleanup is optional
+            }
+            
             Alert.alert('Saved', successMessage)
             onClose()
             console.log('[SaveImage] ✅ ========== Save Complete ==========')
@@ -348,14 +359,24 @@ export default function SaveImageModal({ visible, imageUrl, onClose }: SaveImage
     const handleShare = async () => {
         if (!imageUrl) return
         setIsWorking(true)
+        let localPath: string | null = null
         try {
-            const localPath = await downloadToCache(imageUrl)
+            localPath = await downloadToCache(imageUrl)
             const canShare = await Sharing.isAvailableAsync()
             if (canShare) {
                 await Sharing.shareAsync(localPath, {
                     UTI: 'public.jpeg',
                     mimeType: 'image/jpeg',
                 })
+                // Clean up cache file after sharing (platform may keep a copy)
+                if (localPath) {
+                    try {
+                        const { cacheManager } = await import('@/utils/cacheManager')
+                        await cacheManager.deleteCacheFile(localPath)
+                    } catch (cleanupError) {
+                        console.warn('[SaveImage] ⚠️ Could not clean up cache file after share:', cleanupError)
+                    }
+                }
             } else {
                 Alert.alert('Downloaded', 'File downloaded to app cache (sharing not available).')
             }

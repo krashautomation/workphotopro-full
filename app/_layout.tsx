@@ -11,6 +11,40 @@ function RootLayoutNav() {
   const router = useRouter();
 
   useEffect(() => {
+    // Initialize cache monitoring and cleanup on app start
+    const initializeCache = async () => {
+      try {
+        const { cacheManager } = await import('@/utils/cacheManager');
+        const { offlineCache } = await import('@/utils/offlineCache');
+        
+        // Initialize offline cache
+        await offlineCache.initialize();
+        
+        const stats = await cacheManager.getCacheStats();
+        const offlineStats = await offlineCache.getCacheStats();
+        
+        console.log('[App] 📊 Cache stats on startup:', {
+          size: cacheManager.formatBytes(stats.totalSize),
+          fileCount: stats.fileCount,
+          offlineCached: offlineStats.totalCached,
+          offlineSize: cacheManager.formatBytes(offlineStats.totalSize),
+        });
+        
+        // Perform automatic cleanup if enabled
+        if (cacheManager.getConfig().enableAutoCleanup) {
+          const cleanupResult = await cacheManager.performAutoCleanup();
+          if (cleanupResult.expired > 0 || cleanupResult.sizeLimit > 0) {
+            console.log('[App] 🧹 Cache cleanup completed:', cleanupResult);
+          }
+        }
+      } catch (error) {
+        console.warn('[App] ⚠️ Cache initialization failed (non-critical):', error);
+        // Non-critical - app can continue without cache management
+      }
+    };
+    
+    initializeCache();
+    
     // Complete any pending OAuth sessions
     WebBrowser.maybeCompleteAuthSession();
     

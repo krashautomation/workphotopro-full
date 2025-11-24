@@ -963,6 +963,17 @@ useEffect(() => {
               </View>
               <IconSymbol name="chevron.right" color={Colors.Gray} size={16} />
             </Pressable>
+            
+            <Pressable 
+              style={styles.settingItem}
+              onPress={() => router.push('/(jobs)/settings/cache')}
+            >
+              <View style={styles.settingLeft}>
+                <IconSymbol name="externaldrive" color="#22C55E" size={20} />
+                <Text style={styles.settingText}>Cache Settings</Text>
+              </View>
+              <IconSymbol name="chevron.right" color={Colors.Gray} size={16} />
+            </Pressable>
           </View>
         </View>
 
