@@ -248,6 +248,7 @@ export default function SaveImageModal({ visible, imageUrl, onClose }: SaveImage
         }
         
         setIsWorking(true)
+        let localPath: string | null = null
         try {
             // Step 1: Check permissions
             console.log('[SaveImage] 📋 Step 1: Checking permissions...')
@@ -260,7 +261,7 @@ export default function SaveImageModal({ visible, imageUrl, onClose }: SaveImage
             
             // Step 2: Download image to cache
             console.log('[SaveImage] 📥 Step 2: Downloading image to cache...')
-            const localPath = await downloadToCache(imageUrl)
+            localPath = await downloadToCache(imageUrl)
             console.log('[SaveImage] ✅ Image downloaded to:', localPath)
             
             // Step 3: Save to media library
@@ -313,17 +314,6 @@ export default function SaveImageModal({ visible, imageUrl, onClose }: SaveImage
                 ? `Image saved to ${ALBUM_NAME} album.`
                 : 'Image saved to your Photos.'
             
-            // Step 6: Clean up cache file after saving to media library
-            console.log('[SaveImage] 🧹 Step 6: Cleaning up cache file...')
-            try {
-                const { cacheManager } = await import('@/utils/cacheManager')
-                await cacheManager.deleteCacheFile(localPath)
-                console.log('[SaveImage] ✅ Cache file cleaned up')
-            } catch (cleanupError) {
-                console.warn('[SaveImage] ⚠️ Could not clean up cache file (non-critical):', cleanupError)
-                // Non-critical error - file is saved, cache cleanup is optional
-            }
-            
             Alert.alert('Saved', successMessage)
             onClose()
             console.log('[SaveImage] ✅ ========== Save Complete ==========')
@@ -351,6 +341,18 @@ export default function SaveImageModal({ visible, imageUrl, onClose }: SaveImage
                 `Could not save the image.\n\nError: ${errorMessage}\n\nCheck console for details.`
             )
         } finally {
+            // Always clean up cache file, even if save operation failed
+            if (localPath) {
+                console.log('[SaveImage] 🧹 Cleaning up cache file...')
+                try {
+                    const { cacheManager } = await import('@/utils/cacheManager')
+                    await cacheManager.deleteCacheFile(localPath)
+                    console.log('[SaveImage] ✅ Cache file cleaned up')
+                } catch (cleanupError) {
+                    console.warn('[SaveImage] ⚠️ Could not clean up cache file (non-critical):', cleanupError)
+                    // Non-critical error - cache cleanup is optional
+                }
+            }
             setIsWorking(false)
             console.log('[SaveImage] 🏁 ========== Save Process Ended ==========')
         }
@@ -368,15 +370,6 @@ export default function SaveImageModal({ visible, imageUrl, onClose }: SaveImage
                     UTI: 'public.jpeg',
                     mimeType: 'image/jpeg',
                 })
-                // Clean up cache file after sharing (platform may keep a copy)
-                if (localPath) {
-                    try {
-                        const { cacheManager } = await import('@/utils/cacheManager')
-                        await cacheManager.deleteCacheFile(localPath)
-                    } catch (cleanupError) {
-                        console.warn('[SaveImage] ⚠️ Could not clean up cache file after share:', cleanupError)
-                    }
-                }
             } else {
                 Alert.alert('Downloaded', 'File downloaded to app cache (sharing not available).')
             }
@@ -384,6 +377,16 @@ export default function SaveImageModal({ visible, imageUrl, onClose }: SaveImage
         } catch (e) {
             Alert.alert('Share failed', 'Could not share the image.')
         } finally {
+            // Always clean up cache file, even if share operation failed
+            if (localPath) {
+                try {
+                    const { cacheManager } = await import('@/utils/cacheManager')
+                    await cacheManager.deleteCacheFile(localPath)
+                    console.log('[SaveImage] ✅ Cache file cleaned up after share')
+                } catch (cleanupError) {
+                    console.warn('[SaveImage] ⚠️ Could not clean up cache file after share:', cleanupError)
+                }
+            }
             setIsWorking(false)
         }
     }
