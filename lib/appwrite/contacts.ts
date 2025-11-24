@@ -1,6 +1,6 @@
 import { databaseService } from './database';
 import { ID, Query } from 'react-native-appwrite';
-import { hashContacts } from '@/utils/contactHashing';
+import { hashContacts, hashEmail, hashPhoneNumber } from '@/utils/contactHashing';
 
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID || '';
 
@@ -132,22 +132,75 @@ export const contactService = {
   /**
    * Find matches between user's contacts and app users
    * This should be called after syncing contacts or periodically
+   * 
+   * Note: For production, this should be a server-side function that has access to all user emails/phones.
+   * This client-side version requires you to provide user data to match against.
    */
-  async findMatches(userId: string): Promise<ContactMatch[]> {
+  async findMatches(userId: string, userDataToMatch?: Array<{ userId: string; email?: string; phone?: string }>): Promise<ContactMatch[]> {
     try {
       // Get user's contacts
       const userContacts = await this.getUserContacts(userId);
 
-      // Get all app users' emails/phones (you'll need to implement this based on your user storage)
-      // For now, this is a placeholder - you'll need to hash all user emails/phones and compare
-      
-      // TODO: Implement matching logic
-      // 1. Get all user emails/phones from Appwrite Users or your users collection
-      // 2. Hash them
-      // 3. Compare with userContacts
-      // 4. Create ContactMatch entries for matches
+      if (userContacts.length === 0) {
+        console.log('No contacts to match');
+        return [];
+      }
 
-      return [];
+      // If no user data provided, try to get from a users collection (if it exists)
+      // Otherwise, return empty matches
+      if (!userDataToMatch || userDataToMatch.length === 0) {
+        console.warn('No user data provided for matching. For production, use a server-side function.');
+        return [];
+      }
+
+      const matches: ContactMatch[] = [];
+
+      // Hash all user emails/phones and create a lookup map
+      const userHashMap = new Map<string, { userId: string; matchType: 'phone' | 'email' | 'both' }>();
+
+      for (const userData of userDataToMatch) {
+        if (userData.userId === userId) continue; // Skip self
+
+        let emailHash: string | null = null;
+        let phoneHash: string | null = null;
+
+        if (userData.email) {
+          emailHash = await hashEmail(userData.email);
+          userHashMap.set(emailHash, { userId: userData.userId, matchType: 'email' });
+        }
+
+        if (userData.phone) {
+          phoneHash = await hashPhoneNumber(userData.phone);
+          const existing = userHashMap.get(phoneHash);
+          if (existing) {
+            // User already matched via email, update to 'both'
+            existing.matchType = 'both';
+          } else {
+            userHashMap.set(phoneHash, { userId: userData.userId, matchType: 'phone' });
+          }
+        }
+      }
+
+      // Compare user's contact hashes with app user hashes
+      for (const contact of userContacts) {
+        const match = userHashMap.get(contact.contactHash);
+        if (match) {
+          try {
+            const createdMatch = await this.createMatch(
+              userId,
+              match.userId,
+              contact.contactHash,
+              match.matchType
+            );
+            matches.push(createdMatch);
+          } catch (error) {
+            console.error('Error creating match:', error);
+          }
+        }
+      }
+
+      console.log(`Found ${matches.length} matches for user ${userId}`);
+      return matches;
     } catch (error) {
       console.error('Error finding matches:', error);
       throw error;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, Text, StyleSheet, FlatList, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { Stack, router } from 'expo-router';
 import * as Contacts from 'expo-contacts';
 import * as SecureStore from 'expo-secure-store';
@@ -8,6 +8,8 @@ import { Colors } from '@/utils/colors';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
 import ContactsPermissionModal from '@/components/ContactsPermissionModal';
+import { contactService, ContactMatch } from '@/lib/appwrite/contacts';
+import { useAuth } from '@/context/AuthContext';
 
 const contacts = [
   {
@@ -57,15 +59,28 @@ const PERMISSION_STORAGE_KEY = 'contacts_permission_requested';
 const PERMISSION_STATUS_KEY = 'contacts_permission_status';
 
 export default function ContactsScreen() {
+  const { user } = useAuth();
   const [showPermissionModal, setShowPermissionModal] = React.useState(false);
   const [isPermissionDenied, setIsPermissionDenied] = React.useState(false);
   const [permissionStatus, setPermissionStatus] = React.useState<Contacts.PermissionStatus | null>(null);
   const [isCheckingPermission, setIsCheckingPermission] = React.useState(true);
+  const [isSyncing, setIsSyncing] = React.useState(false);
+  const [syncStatus, setSyncStatus] = React.useState<{ contactsCount: number; matchesCount: number; lastSyncedAt: string | null } | null>(null);
+  const [peopleYouMayKnow, setPeopleYouMayKnow] = React.useState<ContactMatch[]>([]);
+  const [isLoadingMatches, setIsLoadingMatches] = React.useState(false);
 
   // Check permission status on mount
   React.useEffect(() => {
     checkPermissionStatus();
   }, []);
+
+  // Load sync status and matches when permission is granted
+  React.useEffect(() => {
+    if (permissionStatus === Contacts.PermissionStatus.GRANTED && user) {
+      loadSyncStatus();
+      loadPeopleYouMayKnow();
+    }
+  }, [permissionStatus, user]);
 
   const checkPermissionStatus = async () => {
     try {
@@ -117,7 +132,11 @@ export default function ContactsScreen() {
       if (status === Contacts.PermissionStatus.GRANTED) {
         setShowPermissionModal(false);
         setIsPermissionDenied(false);
-        // TODO: Load contacts here
+        // Load sync status after permission granted
+        if (user) {
+          loadSyncStatus();
+          loadPeopleYouMayKnow();
+        }
       } else {
         // Permission denied
         setShowPermissionModal(true);
@@ -139,6 +158,95 @@ export default function ContactsScreen() {
     setPermissionStatus(Contacts.PermissionStatus.DENIED);
   };
 
+  const loadSyncStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const syncRecord = await contactService.getSyncRecord(user.$id);
+      if (syncRecord) {
+        setSyncStatus({
+          contactsCount: syncRecord.contactsCount || 0,
+          matchesCount: syncRecord.matchesCount || 0,
+          lastSyncedAt: syncRecord.lastSyncedAt || null,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading sync status:', error);
+    }
+  };
+
+  const loadPeopleYouMayKnow = async () => {
+    if (!user) return;
+    
+    setIsLoadingMatches(true);
+    try {
+      const matches = await contactService.getPeopleYouMayKnow(user.$id);
+      setPeopleYouMayKnow(matches);
+    } catch (error) {
+      console.error('Error loading people you may know:', error);
+    } finally {
+      setIsLoadingMatches(false);
+    }
+  };
+
+  const handleSyncContacts = async () => {
+    if (!user || permissionStatus !== Contacts.PermissionStatus.GRANTED) {
+      Alert.alert('Permission Required', 'Please grant contacts permission first.');
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      // Get contacts from device
+      const { data } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails],
+      });
+
+      if (data.length === 0) {
+        Alert.alert('No Contacts', 'No contacts found on your device.');
+        setIsSyncing(false);
+        return;
+      }
+
+      // Filter and format contacts for syncing (only include contacts with phone or email)
+      const contactsToSync = data
+        .filter(contact => 
+          (contact.phoneNumbers && contact.phoneNumbers.length > 0 && contact.phoneNumbers[0].number) ||
+          (contact.emails && contact.emails.length > 0 && contact.emails[0].email)
+        )
+        .map(contact => ({
+          phoneNumbers: contact.phoneNumbers?.filter(p => p.number).map(p => ({ number: p.number! })),
+          emails: contact.emails?.filter(e => e.email).map(e => ({ email: e.email! })),
+        }));
+
+      if (contactsToSync.length === 0) {
+        Alert.alert('No Valid Contacts', 'No contacts with phone numbers or emails found.');
+        setIsSyncing(false);
+        return;
+      }
+
+      // Sync contacts (hash and store)
+      const result = await contactService.syncUserContacts(user.$id, contactsToSync);
+      
+      // Find matches
+      await contactService.findMatches(user.$id);
+
+      // Reload sync status and matches
+      await loadSyncStatus();
+      await loadPeopleYouMayKnow();
+
+      Alert.alert(
+        'Sync Complete',
+        `Synced ${result.synced} contacts${result.errors > 0 ? ` (${result.errors} errors)` : ''}.`
+      );
+    } catch (error: any) {
+      console.error('Error syncing contacts:', error);
+      Alert.alert('Sync Failed', error.message || 'Failed to sync contacts. Please try again.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: 'Your Contacts' }} />
@@ -150,6 +258,34 @@ export default function ContactsScreen() {
         </View>
         <IconSymbol name="chevron.right" color={Colors.Gray} size={18} />
       </Pressable>
+
+      {permissionStatus === Contacts.PermissionStatus.GRANTED && (
+        <Pressable 
+          style={[styles.syncBanner, isSyncing && styles.syncBannerDisabled]} 
+          onPress={handleSyncContacts}
+          disabled={isSyncing}
+        >
+          {isSyncing ? (
+            <View style={styles.syncContent}>
+              <ActivityIndicator size="small" color={Colors.Primary} />
+              <Text style={styles.syncBannerText}>Syncing contacts...</Text>
+            </View>
+          ) : (
+            <View style={styles.syncContent}>
+              <IconSymbol name="arrow.clockwise" color={Colors.Primary} size={18} />
+              <View style={styles.syncTextContainer}>
+                <Text style={styles.syncBannerText}>Sync contacts</Text>
+                {syncStatus && (
+                  <Text style={styles.syncBannerSubtext}>
+                    {syncStatus.contactsCount} contacts • {syncStatus.matchesCount} matches
+                    {syncStatus.lastSyncedAt && ` • Last synced ${formatLastSynced(syncStatus.lastSyncedAt)}`}
+                  </Text>
+                )}
+              </View>
+            </View>
+          )}
+        </Pressable>
+      )}
 
       <Text style={styles.contactListHeading}>Contact list</Text>
 
@@ -188,18 +324,31 @@ export default function ContactsScreen() {
             
             <View style={styles.peopleYouMayKnowSection}>
               <Text style={styles.sectionTitle}>People You May Know</Text>
-              {peopleYouMayKnow.map((person) => (
-                <View key={person.id} style={styles.contactRow}>
-                  <Avatar name={person.name} size={48} />
-                  <View style={styles.contactInfo}>
-                    <Text style={styles.contactName}>{person.name}</Text>
-                    <Text style={styles.contactRole}>{person.role}</Text>
-                  </View>
-                  <Pressable style={styles.inviteButton}>
-                    <Text style={styles.inviteButtonText}>Invite</Text>
-                  </Pressable>
+              {isLoadingMatches ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color={Colors.Gray} />
+                  <Text style={styles.loadingText}>Loading matches...</Text>
                 </View>
-              ))}
+              ) : peopleYouMayKnow.length > 0 ? (
+                peopleYouMayKnow.map((match) => (
+                  <View key={match.$id} style={styles.contactRow}>
+                    <Avatar name={match.matchedUserId} size={48} />
+                    <View style={styles.contactInfo}>
+                      <Text style={styles.contactName}>User {match.matchedUserId.slice(0, 8)}</Text>
+                      <Text style={styles.contactRole}>Matched via {match.matchType}</Text>
+                    </View>
+                    <Pressable style={styles.inviteButton}>
+                      <Text style={styles.inviteButtonText}>Invite</Text>
+                    </Pressable>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.emptyStateText}>
+                  {syncStatus && syncStatus.contactsCount > 0
+                    ? 'No matches found yet. More matches will appear as users join.'
+                    : 'Sync your contacts to find people you may know.'}
+                </Text>
+              )}
             </View>
           </>
         }
@@ -318,6 +467,71 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  syncBanner: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 8,
+    padding: 16,
+    backgroundColor: Colors.Secondary,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.Primary + '30',
+  },
+  syncBannerDisabled: {
+    opacity: 0.6,
+  },
+  syncContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  syncTextContainer: {
+    flex: 1,
+  },
+  syncBannerText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.Text,
+  },
+  syncBannerSubtext: {
+    fontSize: 12,
+    color: Colors.Gray,
+    marginTop: 2,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: Colors.Gray,
+  },
+  emptyStateText: {
+    textAlign: 'center',
+    color: Colors.Gray,
+    fontSize: 14,
+    paddingVertical: 20,
+    fontStyle: 'italic',
+  },
 });
+
+// Helper function to format last synced time
+function formatLastSynced(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  return date.toLocaleDateString();
+}
 
 
