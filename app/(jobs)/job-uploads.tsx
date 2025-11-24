@@ -5,6 +5,7 @@ import { Colors } from '@/utils/colors'
 import { appwriteConfig } from '@/utils/appwrite'
 import { IconSymbol } from '@/components/IconSymbol'
 import { webColors } from '@/styles/webDesignTokens'
+import CachedImage from '@/components/CachedImage'
 
 type JobUploadsProps = {
     messages: Message[]
@@ -165,8 +166,9 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                         style={[styles.imageWrapper, { width: itemSize, height: itemSize }]}
                         onPress={() => onImagePress(item.uri)}
                     >
-                        <Image
+                        <CachedImage
                             source={{ uri: item.uri }}
+                            autoCache={true}
                             style={styles.image}
                             resizeMode="cover"
                         />

@@ -18,6 +18,7 @@ import * as DocumentPicker from 'expo-document-picker'
 import { Stack, useLocalSearchParams, useFocusEffect, useRouter } from 'expo-router'
 import * as React from 'react'
 import { ActivityIndicator, Alert, Dimensions, Image, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import CachedImage from '@/components/CachedImage'
 import { Query } from 'react-native-appwrite'
 import ImageViewing from 'react-native-image-viewing'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -1808,8 +1809,10 @@ const loadOlderMessages = async () => {
                                                                 position: 'relative',
                                                             }}
                                                         >
-                                                            <Image 
+                                                            <CachedImage 
                                                                 source={{ uri: url }} 
+                                                                fileId={item.imageFileIds?.[index]}
+                                                                autoCache={true}
                                                                 style={{ 
                                                                     width: '100%', 
                                                                     height: item.imageUrls && item.imageUrls.length === 1 ? 200 : undefined,
@@ -1848,8 +1851,10 @@ const loadOlderMessages = async () => {
                                                     }}
                                                     activeOpacity={0.9}
                                                 >
-                                                    <Image 
+                                                    <CachedImage 
                                                         source={{ uri: item.imageUrl }} 
+                                                        fileId={item.imageFileId}
+                                                        autoCache={true}
                                                         style={{ 
                                                             width: '100%', 
                                                             height: 200, 
@@ -1869,8 +1874,10 @@ const loadOlderMessages = async () => {
                                                 }}>
                                                     <VideoPlayer
                                                         uri={appwriteConfig.bucket ? `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.videoFileId}/view?project=${appwriteConfig.projectId}` : ''}
+                                                        fileId={item.videoFileId}
                                                         showControls={true}
                                                         autoPlay={false}
+                                                        autoCache={true}
                                                         onError={(error) => {
                                                             console.error('Video playback error:', error);
                                                             Alert.alert('Video Error', 'Failed to play video. You can try opening it in your browser.');
@@ -1952,7 +1959,9 @@ const loadOlderMessages = async () => {
                                             {item.audioFileId && item.content !== 'Message deleted by user' && (
                                                 <AudioPlayer
                                                     uri={item.audioUrl || (appwriteConfig.bucket ? `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.audioFileId}/view?project=${appwriteConfig.projectId}` : '')}
+                                                    fileId={item.audioFileId}
                                                     duration={item.audioDuration}
+                                                    autoCache={true}
                                                 />
                                             )}
                                             
@@ -2065,8 +2074,9 @@ const loadOlderMessages = async () => {
                                                     borderRadius: 8,
                                                     overflow: 'hidden',
                                                 }}>
-                                                    <Image 
+                                                    <CachedImage 
                                                         source={{ uri }}
+                                                        autoCache={false}
                                                         style={{
                                                             width: '100%',
                                                             height: '100%',
@@ -2755,7 +2765,11 @@ const loadOlderMessages = async () => {
             <ImageViewing
                 images={
                     viewingMessage && viewingMessage.imageUrls && viewingMessage.imageUrls.length > 0
-                        ? viewingMessage.imageUrls.map(uri => ({ uri }))
+                        ? viewingMessage.imageUrls.map(uri => {
+                            // Use cached URI if available (will be resolved by ImageViewing's internal caching)
+                            // For now, pass original URI - ImageViewing uses expo-image internally which has HTTP caching
+                            return { uri };
+                        })
                         : viewingMessage && viewingMessage.imageUrl
                         ? [{ uri: viewingMessage.imageUrl }]
                         : fullScreenImage

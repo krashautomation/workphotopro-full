@@ -3,28 +3,48 @@ import { View, StyleSheet, Pressable, ActivityIndicator, Text } from 'react-nati
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { IconSymbol } from './IconSymbol';
 import { Colors } from '@/utils/colors';
+import { useCachedMedia } from '@/hooks/useOfflineCache';
+import { offlineCache } from '@/utils/offlineCache';
 
 interface VideoPlayerProps {
     uri: string;
+    fileId?: string; // Appwrite file ID for caching
     style?: any;
     showControls?: boolean;
     autoPlay?: boolean;
     onError?: (error: Error) => void;
+    autoCache?: boolean; // Automatically cache when viewed (default: true)
 }
 
 export default function VideoPlayer({ 
     uri, 
+    fileId,
     style, 
     showControls = true,
     autoPlay = false,
-    onError 
+    onError,
+    autoCache = true,
 }: VideoPlayerProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
     const [retryKey, setRetryKey] = useState(0);
+    
+    // Get cached URI (cache-first strategy)
+    const cachedUri = useCachedMedia(uri);
+
+    // Auto-cache video when viewed (if enabled and not already cached)
+    useEffect(() => {
+        if (autoCache && uri && cachedUri === uri) {
+            offlineCache.initialize().then(() => {
+                offlineCache.cacheMedia(uri, fileId, 'video').catch(err => {
+                    console.warn('[VideoPlayer] Cache error (non-critical):', err);
+                });
+            });
+        }
+    }, [uri, cachedUri, autoCache, fileId]);
 
     // Use retryKey to force player recreation on retry
-    const playerUri = retryKey > 0 ? `${uri}?retry=${retryKey}` : uri;
+    const playerUri = retryKey > 0 ? `${cachedUri}?retry=${retryKey}` : cachedUri;
     const player = useVideoPlayer(playerUri, (player) => {
         player.loop = false;
     });

@@ -144,8 +144,10 @@ export default function JobTasks({ jobId, messages, currentUserId, onCompleteTas
 
                 {item.videoFileId && item.content !== 'Message deleted by user' && (
                     <View style={styles.taskVideo}>
-                        <VideoPlayer
-                            uri={appwriteConfig.bucket ? `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.videoFileId}/view?project=${appwriteConfig.projectId}` : ''}
+                    <VideoPlayer
+                        uri={appwriteConfig.bucket ? `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.videoFileId}/view?project=${appwriteConfig.projectId}` : ''}
+                        fileId={item.videoFileId}
+                        autoCache={true}
                             showControls={true}
                             autoPlay={false}
                         />
@@ -155,7 +157,9 @@ export default function JobTasks({ jobId, messages, currentUserId, onCompleteTas
                 {item.audioFileId && item.content !== 'Message deleted by user' && (
                     <AudioPlayer
                         uri={item.audioUrl || (appwriteConfig.bucket ? `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.audioFileId}/view?project=${appwriteConfig.projectId}` : '')}
+                        fileId={item.audioFileId}
                         duration={item.audioDuration}
+                        autoCache={true}
                     />
                 )}
 

@@ -1,15 +1,34 @@
+import { useEffect } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { IconSymbol } from './IconSymbol';
 import { Colors } from '@/utils/colors';
+import { useCachedMedia } from '@/hooks/useOfflineCache';
+import { offlineCache } from '@/utils/offlineCache';
 
 interface AudioPlayerProps {
   uri: string;
+  fileId?: string; // Appwrite file ID for caching
   duration?: number;
+  autoCache?: boolean; // Automatically cache when viewed (default: true)
 }
 
-export default function AudioPlayer({ uri, duration }: AudioPlayerProps) {
-  const player = useAudioPlayer({ uri }, { updateInterval: 200 });
+export default function AudioPlayer({ uri, fileId, duration, autoCache = true }: AudioPlayerProps) {
+  // Get cached URI (cache-first strategy)
+  const cachedUri = useCachedMedia(uri);
+
+  // Auto-cache audio when viewed (if enabled and not already cached)
+  useEffect(() => {
+    if (autoCache && uri && cachedUri === uri) {
+      offlineCache.initialize().then(() => {
+        offlineCache.cacheMedia(uri, fileId, 'audio').catch(err => {
+          console.warn('[AudioPlayer] Cache error (non-critical):', err);
+        });
+      });
+    }
+  }, [uri, cachedUri, autoCache, fileId]);
+
+  const player = useAudioPlayer({ uri: cachedUri }, { updateInterval: 200 });
   const status = useAudioPlayerStatus(player);
   const isPlaying = status?.playing ?? false;
   const currentTime = status?.currentTime ?? 0;
