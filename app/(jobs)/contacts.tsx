@@ -1,10 +1,13 @@
 import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable, ScrollView } from 'react-native';
 import { Stack, router } from 'expo-router';
+import * as Contacts from 'expo-contacts';
+import * as SecureStore from 'expo-secure-store';
 import { Colors } from '@/utils/colors';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
+import ContactsPermissionModal from '@/components/ContactsPermissionModal';
 
 const contacts = [
   {
@@ -27,7 +30,115 @@ const contacts = [
   },
 ] as const;
 
+const peopleYouMayKnow = [
+  {
+    id: 'p1',
+    name: 'Jordan Smith',
+    role: 'Designer',
+  },
+  {
+    id: 'p2',
+    name: 'Taylor Chen',
+    role: 'Photographer',
+  },
+  {
+    id: 'p3',
+    name: 'Alex Rivera',
+    role: 'Videographer',
+  },
+  {
+    id: 'p4',
+    name: 'Sam Williams',
+    role: 'Editor',
+  },
+] as const;
+
+const PERMISSION_STORAGE_KEY = 'contacts_permission_requested';
+const PERMISSION_STATUS_KEY = 'contacts_permission_status';
+
 export default function ContactsScreen() {
+  const [showPermissionModal, setShowPermissionModal] = React.useState(false);
+  const [isPermissionDenied, setIsPermissionDenied] = React.useState(false);
+  const [permissionStatus, setPermissionStatus] = React.useState<Contacts.PermissionStatus | null>(null);
+  const [isCheckingPermission, setIsCheckingPermission] = React.useState(true);
+
+  // Check permission status on mount
+  React.useEffect(() => {
+    checkPermissionStatus();
+  }, []);
+
+  const checkPermissionStatus = async () => {
+    try {
+      setIsCheckingPermission(true);
+      
+      // Check if we've previously requested permission
+      const previouslyRequested = await SecureStore.getItemAsync(PERMISSION_STORAGE_KEY);
+      
+      // Get current permission status
+      const { status } = await Contacts.getPermissionsAsync();
+      setPermissionStatus(status);
+
+      // Show modal if:
+      // 1. Permission hasn't been requested before, OR
+      // 2. Permission was denied
+      if (status === Contacts.PermissionStatus.UNDETERMINED) {
+        // First time - show modal
+        setShowPermissionModal(true);
+        setIsPermissionDenied(false);
+      } else if (status === Contacts.PermissionStatus.DENIED) {
+        // Permission was denied - show modal with denied message
+        setShowPermissionModal(true);
+        setIsPermissionDenied(true);
+      } else {
+        // Permission granted - hide modal
+        setShowPermissionModal(false);
+        setIsPermissionDenied(false);
+      }
+    } catch (error) {
+      console.error('Error checking contacts permission:', error);
+      // On error, don't show modal
+      setShowPermissionModal(false);
+    } finally {
+      setIsCheckingPermission(false);
+    }
+  };
+
+  const handleAllowPermission = async () => {
+    try {
+      // Request permission
+      const { status } = await Contacts.requestPermissionsAsync();
+      
+      // Store that we've requested permission
+      await SecureStore.setItemAsync(PERMISSION_STORAGE_KEY, 'true');
+      await SecureStore.setItemAsync(PERMISSION_STATUS_KEY, status);
+      
+      setPermissionStatus(status);
+      
+      if (status === Contacts.PermissionStatus.GRANTED) {
+        setShowPermissionModal(false);
+        setIsPermissionDenied(false);
+        // TODO: Load contacts here
+      } else {
+        // Permission denied
+        setShowPermissionModal(true);
+        setIsPermissionDenied(true);
+      }
+    } catch (error) {
+      console.error('Error requesting contacts permission:', error);
+      setShowPermissionModal(false);
+    }
+  };
+
+  const handleDenyPermission = async () => {
+    // Store that user denied permission
+    await SecureStore.setItemAsync(PERMISSION_STORAGE_KEY, 'true');
+    await SecureStore.setItemAsync(PERMISSION_STATUS_KEY, Contacts.PermissionStatus.DENIED);
+    
+    setShowPermissionModal(false);
+    setIsPermissionDenied(false);
+    setPermissionStatus(Contacts.PermissionStatus.DENIED);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: 'Your Contacts' }} />
@@ -39,6 +150,8 @@ export default function ContactsScreen() {
         </View>
         <IconSymbol name="chevron.right" color={Colors.Gray} size={18} />
       </Pressable>
+
+      <Text style={styles.contactListHeading}>Contact list</Text>
 
       <FlatList
         data={contacts}
@@ -62,10 +175,41 @@ export default function ContactsScreen() {
           </View>
         )}
         ListFooterComponent={
-          <Text style={styles.placeholderNote}>
-            This is placeholder data. Real contacts will appear here once synced.
-          </Text>
+          <>
+            {permissionStatus === Contacts.PermissionStatus.GRANTED ? (
+              <Text style={styles.placeholderNote}>
+                Real contacts will appear here once synced.
+              </Text>
+            ) : (
+              <Text style={styles.placeholderNote}>
+                This is placeholder data. Real contacts will appear here once synced.
+              </Text>
+            )}
+            
+            <View style={styles.peopleYouMayKnowSection}>
+              <Text style={styles.sectionTitle}>People You May Know</Text>
+              {peopleYouMayKnow.map((person) => (
+                <View key={person.id} style={styles.contactRow}>
+                  <Avatar name={person.name} size={48} />
+                  <View style={styles.contactInfo}>
+                    <Text style={styles.contactName}>{person.name}</Text>
+                    <Text style={styles.contactRole}>{person.role}</Text>
+                  </View>
+                  <Pressable style={styles.inviteButton}>
+                    <Text style={styles.inviteButtonText}>Invite</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          </>
         }
+      />
+
+      <ContactsPermissionModal
+        visible={showPermissionModal}
+        onAllow={handleAllowPermission}
+        onDeny={handleDenyPermission}
+        isDenied={isPermissionDenied}
       />
     </SafeAreaView>
   );
@@ -94,6 +238,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.Gray,
     marginTop: 4,
+  },
+  contactListHeading: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.Text,
+    marginHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 12,
   },
   listContent: {
     paddingHorizontal: 20,
@@ -141,6 +293,30 @@ const styles = StyleSheet.create({
     color: Colors.Gray,
     fontSize: 13,
     marginTop: 8,
+    marginBottom: 32,
+  },
+  peopleYouMayKnowSection: {
+    marginTop: 24,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: Colors.Secondary,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.Text,
+    marginBottom: 16,
+  },
+  inviteButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.Primary,
+    borderRadius: 8,
+  },
+  inviteButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
 

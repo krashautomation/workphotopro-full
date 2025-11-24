@@ -32,6 +32,8 @@ module.exports = {
           'WorkPhotoPro needs access to your photo library to save job site photos.',
         NSPhotoLibraryUsageDescription:
           'WorkPhotoPro needs access to your photo library to save job site photos.',
+        NSContactsUsageDescription:
+          'To find your friends faster, allow WorkPhotoPro to access your contacts in your device settings.',
       },
     },
     android: {
@@ -108,6 +110,13 @@ module.exports = {
           savePhotosPermission:
             'Allow WorkPhotoPro to save photos to your library.',
           isAccessMediaLocationEnabled: false,
+        },
+      ],
+      [
+        'expo-contacts',
+        {
+          contactsPermission:
+            'To find your friends faster, allow WorkPhotoPro to access your contacts in your device settings.',
         },
       ],
     ],
