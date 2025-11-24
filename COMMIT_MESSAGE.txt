@@ -1,0 +1,24 @@
+feat: implement contacts feature with privacy-focused SHA-256 hashing
+
+- Add ContactsPermissionModal component for requesting contacts permission
+- Update contacts.tsx with permission checking and modal integration
+- Add iOS contacts permission description to app.config.js
+- Create contact hashing utilities (utils/contactHashing.ts) for SHA-256 hashing
+- Create contact service (lib/appwrite/contacts.ts) for syncing and matching contacts
+- Add comprehensive database schema documentation (docs/CONTACTS_DATABASE_SCHEMA.md)
+- Add manual setup guide for Appwrite collections (docs/CONTACTS_MANUAL_SETUP_GUIDE.md)
+- Add implementation summary and libraries guide (docs/CONTACTS_IMPLEMENTATION_SUMMARY.md, docs/CONTACTS_LIBRARIES_REQUIRED.md)
+
+Features:
+- Privacy-first design using SHA-256 hashing for phone numbers and emails
+- Permission modal matching Instagram-style UX
+- Contact syncing with hashed identifiers
+- "People You May Know" matching system
+- Three database collections: user_contacts, contact_matches, user_contact_sync
+
+Next steps:
+- Install expo-crypto: npx expo install expo-crypto
+- Create database collections in Appwrite Console
+- Implement contact syncing UI
+- Implement matching algorithm
+
