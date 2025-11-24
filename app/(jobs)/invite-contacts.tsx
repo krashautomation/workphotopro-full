@@ -5,6 +5,9 @@ import { Stack, router } from 'expo-router';
 import { Colors } from '@/utils/colors';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Users, MessageCircle, Copy, Share2, MessageSquare } from 'lucide-react-native';
+import { useAuth } from '@/context/AuthContext';
+import InviteLinkModal from '@/components/InviteLinkModal';
+import { generateInviteLink } from '@/utils/inviteLink';
 
 const introBullets = [
   'Add people as contacts and send invites.',
@@ -21,6 +24,43 @@ const inviteOptions = [
 ] as const;
 
 export default function InviteContactsScreen() {
+  const { user } = useAuth();
+  const [showInviteLinkModal, setShowInviteLinkModal] = React.useState(false);
+  const [inviteLink, setInviteLink] = React.useState('');
+
+  const handleCopyInviteLink = () => {
+    if (!user) {
+      // Handle case where user is not logged in
+      return;
+    }
+    
+    const link = generateInviteLink(user.$id);
+    setInviteLink(link);
+    setShowInviteLinkModal(true);
+  };
+
+  const handleOptionPress = (label: string) => {
+    switch (label) {
+      case 'Copy invite link':
+        handleCopyInviteLink();
+        break;
+      case 'Contacts':
+        // TODO: Implement contact picker
+        break;
+      case 'WhatsApp':
+        // TODO: Implement WhatsApp sharing
+        break;
+      case 'Invite friends by…':
+        // TODO: Implement native share sheet
+        break;
+      case 'Messages':
+        // TODO: Implement Messages sharing
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ title: 'Invite Contacts' }} />
@@ -45,7 +85,11 @@ export default function InviteContactsScreen() {
           {inviteOptions.map(option => {
             const OptionIcon = option.Icon;
             return (
-              <Pressable key={option.label} style={styles.option}>
+              <Pressable 
+                key={option.label} 
+                style={styles.option}
+                onPress={() => handleOptionPress(option.label)}
+              >
                 <View style={styles.left}>
                   <OptionIcon color={Colors.Text} size={22} strokeWidth={1.7} />
                   <Text style={styles.optionLabel}>{option.label}</Text>
@@ -56,6 +100,12 @@ export default function InviteContactsScreen() {
           })}
         </View>
       </ScrollView>
+
+      <InviteLinkModal
+        visible={showInviteLinkModal}
+        inviteLink={inviteLink}
+        onClose={() => setShowInviteLinkModal(false)}
+      />
     </SafeAreaView>
   );
 }
