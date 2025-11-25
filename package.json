@@ -11,6 +11,7 @@
     "add-team-member": "node scripts/add-team-member.js",
     "migrate-membership-emails": "node scripts/migrate-membership-emails.js",
     "migrate-team-appwrite-ids": "node scripts/migrate-team-appwrite-ids.js",
+    "setup-revenuecat": "node scripts/setup-revenuecat-collections.js",
     "postinstall": "patch-package"
   },
   "dependencies": {

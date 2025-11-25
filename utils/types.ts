@@ -24,6 +24,61 @@ export interface UserPreferences {
   $updatedAt?: string;
 }
 
+// RevenueCat subscription types
+export type SubscriptionStatus = 
+  | 'active' 
+  | 'grace_period' 
+  | 'billing_issue' 
+  | 'canceled' 
+  | 'expired' 
+  | 'refunded' 
+  | 'paused';
+
+export interface Subscription {
+  $id: string; // Appwrite document ID
+  userId: string; // Appwrite user ID
+  orgId: string; // Organization ID
+  revenueCatCustomerId: string; // RevenueCat customer ID
+  productId: string; // RevenueCat product identifier (e.g., "premium_2_members_monthly")
+  status: SubscriptionStatus; // Subscription status
+  startDate: string; // ISO date string
+  expiryDate: string; // ISO date string
+  autoRenewing: boolean; // Whether subscription auto-renews (default: true)
+  canceledAt?: string; // ISO date string - when subscription was canceled (null if active)
+  lastSyncedAt: string; // ISO date string - last sync with RevenueCat
+  trialEndDate?: string; // ISO date string - end of trial period
+  packageId?: string; // Package ID (1-10) - only if manually mapping tiers
+  $createdAt: string;
+  $updatedAt: string;
+  $permissions: string[];
+  $databaseId: string;
+  $collectionId: string;
+}
+
+export type RevenueCatEventCategory = 'subscription' | 'entitlement' | 'customer';
+export type RevenueCatProcessedStatus = 'pending' | 'success' | 'failed' | 'ignored';
+
+export interface RevenueCatEvent {
+  $id: string; // Appwrite document ID
+  eventId: string; // RevenueCat event ID (unique)
+  eventType: string; // Event type from RevenueCat (e.g., "INITIAL_PURCHASE", "RENEWAL")
+  eventCategory: RevenueCatEventCategory; // Event category
+  customerId: string; // RevenueCat customer ID
+  userId?: string; // Appwrite user ID (populated after processing)
+  orgId?: string; // Organization ID (populated after processing)
+  productId?: string; // Product ID (extracted from event)
+  eventData?: string; // Full event payload as JSON string
+  attemptNumber: number; // Retry attempt number (default: 0)
+  processedStatus: RevenueCatProcessedStatus; // Processing status
+  processedAt?: string; // ISO date string - when event was processed
+  errorMessage?: string; // Error message if processing failed
+  $createdAt: string;
+  $updatedAt: string;
+  $permissions: string[];
+  $databaseId: string;
+  $collectionId: string;
+}
+
 // Multi-tenant Organization types
 export interface Organization {
   $id: string; // Appwrite document ID
@@ -33,6 +88,11 @@ export interface Organization {
   isActive: boolean;
   settings?: string; // JSON string for organization settings
   premiumTier?: string;
+  // RevenueCat subscription fields
+  currentProductId?: string; // Current active product ID (e.g., "free", "premium_2_members_monthly")
+  subscriptionId?: string; // Reference to active subscription document ID
+  subscriptionExpiryDate?: string; // ISO date string - quick expiry check
+  revenueCatCustomerId?: string; // RevenueCat customer ID
   hdCaptureEnabled?: boolean;
   timestampEnabled?: boolean;
   watermarkEnabled?: boolean;
