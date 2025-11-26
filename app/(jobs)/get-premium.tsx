@@ -1,12 +1,16 @@
 import { useAuth } from '@/context/AuthContext';
+import { useOrganization } from '@/context/OrganizationContext';
 import { globalStyles, colors } from '@/styles/globalStyles';
 import { webGradients, webColors } from '@/styles/webDesignTokens';
 import { useRouter } from 'expo-router';
-import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { useState } from 'react';
+import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { useState, useEffect } from 'react';
 import { Rocket } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
+import { paymentService } from '@/lib/appwrite/payments';
+import { subscriptionService } from '@/lib/appwrite/subscriptions';
+import { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 
 import BottomModal from '@/components/BottomModal';
 import PackageModal from './get-package';
@@ -105,10 +109,52 @@ const premiumPackages: PremiumPackage[] = [
 
 export default function GetPremium() {
   const { user, isAuthenticated } = useAuth();
+  const { currentOrganization, loadUserData } = useOrganization();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'monthly' | 'annual'>('monthly');
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<PremiumPackage | null>(null);
+  const [offerings, setOfferings] = useState<PurchasesOffering | null>(null);
+  const [loadingOfferings, setLoadingOfferings] = useState(true);
+  const [purchasing, setPurchasing] = useState(false);
+  const [revenueCatPackageMap, setRevenueCatPackageMap] = useState<Map<string, PurchasesPackage>>(new Map());
+
+  // Initialize RevenueCat and load offerings
+  useEffect(() => {
+    if (!isAuthenticated || !user?.$id) return;
+
+    const initializeRevenueCat = async () => {
+      try {
+        setLoadingOfferings(true);
+        
+        // Link user to RevenueCat
+        await subscriptionService.linkUserToRevenueCat(user.$id);
+        
+        // Load offerings
+        const currentOffering = await paymentService.getOfferings();
+        setOfferings(currentOffering);
+        
+        // Build package map for quick lookup
+        if (currentOffering) {
+          const packageMap = new Map<string, PurchasesPackage>();
+          currentOffering.availablePackages.forEach((pkg) => {
+            packageMap.set(pkg.identifier, pkg);
+          });
+          setRevenueCatPackageMap(packageMap);
+        }
+      } catch (error) {
+        console.error('Error initializing RevenueCat:', error);
+        Alert.alert(
+          'Error',
+          'Failed to load subscription options. Please try again later.'
+        );
+      } finally {
+        setLoadingOfferings(false);
+      }
+    };
+
+    initializeRevenueCat();
+  }, [isAuthenticated, user?.$id]);
 
   // Show sign in prompt if not authenticated
   if (!isAuthenticated) {
@@ -119,27 +165,118 @@ export default function GetPremium() {
     );
   }
 
+  /**
+   * Get RevenueCat package for a premium package
+   */
+  const getRevenueCatPackage = (packageId: string, isMonthly: boolean): PurchasesPackage | null => {
+    const productId = `premium_${packageId}_members_${isMonthly ? 'monthly' : 'annual'}`;
+    return revenueCatPackageMap.get(productId) || null;
+  };
+
+  /**
+   * Handle purchase
+   */
+  const handlePurchase = async (pkg: PremiumPackage) => {
+    if (!user?.$id || !currentOrganization?.$id) {
+      Alert.alert('Error', 'User or organization not found');
+      return;
+    }
+
+    try {
+      setPurchasing(true);
+      
+      // Get RevenueCat package
+      const revenueCatPackage = getRevenueCatPackage(pkg.id, activeTab === 'monthly');
+      
+      if (!revenueCatPackage) {
+        Alert.alert(
+          'Product Not Available',
+          'This subscription package is not available. Please try again later.'
+        );
+        return;
+      }
+
+      // Purchase through RevenueCat
+      await paymentService.purchasePackage(revenueCatPackage);
+      
+      // Sync subscription status to database
+      await subscriptionService.syncSubscriptionStatus(user.$id, currentOrganization.$id);
+      
+      // Refresh organization data
+      await loadUserData();
+      
+      // Show success
+      Alert.alert(
+        'Success! 🎉',
+        'Your subscription is now active. Premium features are unlocked!',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              setModalVisible(false);
+              router.back();
+            }
+          }
+        ]
+      );
+    } catch (error: any) {
+      console.error('Purchase error:', error);
+      
+      if (error.message === 'Purchase cancelled') {
+        // User cancelled - no action needed
+        return;
+      }
+      
+      Alert.alert(
+        'Purchase Failed',
+        error.message || 'Failed to complete purchase. Please try again.'
+      );
+    } finally {
+      setPurchasing(false);
+    }
+  };
+
   const renderPackageCard = ({ item }: { item: PremiumPackage }) => {
     const price = activeTab === 'monthly' ? item.monthlyPrice : item.annualPrice;
+    const revenueCatPackage = getRevenueCatPackage(item.id, activeTab === 'monthly');
+    const isCurrentPackage = currentOrganization?.currentProductId === revenueCatPackage?.identifier;
     
     return (
       <TouchableOpacity 
-        style={styles.packageCard}
+        style={[
+          styles.packageCard,
+          isCurrentPackage && styles.currentPackageCard
+        ]}
         onPress={() => {
           setSelectedPackage(item);
           setModalVisible(true);
         }}
+        disabled={loadingOfferings || purchasing}
       >
         <View style={styles.cardContent}>
           <View style={styles.cardLeft}>
             <Text style={styles.packageName}>{item.name}</Text>
             <Text style={styles.packageDescription}>{item.description}</Text>
+            {isCurrentPackage && (
+              <Text style={styles.currentPackageBadge}>Current Plan</Text>
+            )}
           </View>
           <View style={styles.cardRight}>
-            <Text style={styles.packagePrice}>{price}</Text>
-            <Text style={styles.pricePeriod}>
-              {activeTab === 'monthly' ? '/month' : '/year'}
-            </Text>
+            {revenueCatPackage ? (
+              <>
+                <Text style={styles.packagePrice}>{revenueCatPackage.product.priceString}</Text>
+                <Text style={styles.pricePeriod}>
+                  {activeTab === 'monthly' ? '/month' : '/year'}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.packagePrice}>{price}</Text>
+                <Text style={styles.pricePeriod}>
+                  {activeTab === 'monthly' ? '/month' : '/year'}
+                </Text>
+              </>
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -210,14 +347,21 @@ export default function GetPremium() {
       </View>
 
       {/* Packages List */}
-      <FlatList
-        data={premiumPackages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderPackageCard}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+      {loadingOfferings ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={webColors.primary} />
+          <Text style={styles.loadingText}>Loading subscription options...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={premiumPackages}
+          keyExtractor={(item) => item.id}
+          renderItem={renderPackageCard}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       {/* Package Details Modal */}
       <BottomModal
@@ -228,11 +372,8 @@ export default function GetPremium() {
             <PackageModal
               package={selectedPackage}
               isMonthly={activeTab === 'monthly'}
-              onUpgrade={() => {
-                console.log('Upgrade clicked for:', selectedPackage.name);
-                // TODO: Implement upgrade logic
-                setModalVisible(false);
-              }}
+              onUpgrade={() => handlePurchase(selectedPackage)}
+              isLoading={purchasing}
             />
           )
         }
@@ -351,5 +492,27 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  currentPackageCard: {
+    borderColor: webColors.primary,
+    borderWidth: 2,
+    backgroundColor: webColors.card,
+  },
+  currentPackageBadge: {
+    fontSize: 12,
+    color: webColors.primary,
+    fontWeight: '600',
+    marginTop: 4,
   },
 });

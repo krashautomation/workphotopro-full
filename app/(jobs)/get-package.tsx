@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, ActivityIndicator } from 'react-native';
 import { colors } from '@/styles/globalStyles';
 import { webColors } from '@/styles/webDesignTokens';
 
@@ -16,9 +16,10 @@ interface PackageModalProps {
   package: PremiumPackage;
   isMonthly: boolean;
   onUpgrade: () => void;
+  isLoading?: boolean;
 }
 
-export default function PackageModal({ package: pkg, isMonthly, onUpgrade }: PackageModalProps) {
+export default function PackageModal({ package: pkg, isMonthly, onUpgrade, isLoading = false }: PackageModalProps) {
   const price = isMonthly ? pkg.monthlyPrice : pkg.annualPrice;
   const period = isMonthly ? 'month' : 'year';
   
@@ -60,8 +61,16 @@ export default function PackageModal({ package: pkg, isMonthly, onUpgrade }: Pac
       </View>
 
       {/* Upgrade Button */}
-      <TouchableOpacity style={styles.upgradeButton} onPress={onUpgrade}>
-        <Text style={styles.upgradeButtonText}>Upgrade</Text>
+      <TouchableOpacity 
+        style={[styles.upgradeButton, isLoading && styles.upgradeButtonDisabled]} 
+        onPress={onUpgrade}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator color={webColors.primaryForeground} />
+        ) : (
+          <Text style={styles.upgradeButtonText}>Upgrade</Text>
+        )}
       </TouchableOpacity>
 
       {/* Manage Subscription Link */}
@@ -114,6 +123,9 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     marginBottom: 16,
+  },
+  upgradeButtonDisabled: {
+    opacity: 0.6,
   },
   upgradeButtonText: {
     color: webColors.primaryForeground,
