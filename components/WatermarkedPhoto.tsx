@@ -242,7 +242,6 @@ export function WatermarkedPhoto({ image, options, onDone, onCancel, isCapturing
               width: captureWidth,
               height: captureHeight,
             }}
-            collapsable={false}
           >
             <Image
               source={{ uri: image?.uri }}

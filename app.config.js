@@ -92,6 +92,7 @@ module.exports = {
     plugins: [
       'expo-router',
       'expo-dev-client',
+      'expo-asset',
       'expo-audio',
       'expo-video',
       'expo-secure-store',
