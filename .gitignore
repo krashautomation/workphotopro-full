@@ -8,6 +8,12 @@ node_modules/
 dist/
 web-build/
 
+# Build artifacts (do not commit - EAS stores builds in cloud)
+*.aab
+*.apk
+*.apks
+builds/
+
 # Native (excluded when using Prebuild/CNG)
 android/
 ios/
