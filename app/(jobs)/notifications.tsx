@@ -1,97 +1,43 @@
-import { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { globalStyles, colors } from '@/styles/globalStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-
-type Notification = {
-  id: string;
-  title: string;
-  message: string;
-  timestamp: string;
-  isRead: boolean;
-  type: 'info' | 'warning' | 'success' | 'error';
-};
-
-// Fake placeholder notifications
-const initialNotifications: Notification[] = [
-  {
-    id: '1',
-    title: 'New job assigned',
-    message: 'You have been assigned to the "Kitchen Remodel" job',
-    timestamp: '2 hours ago',
-    isRead: false,
-    type: 'info',
-  },
-  {
-    id: '2',
-    title: 'Photo uploaded',
-    message: 'John uploaded 5 new photos to "Bathroom Renovation"',
-    timestamp: '5 hours ago',
-    isRead: false,
-    type: 'success',
-  },
-  {
-    id: '3',
-    title: 'Team invitation',
-    message: 'You have been invited to join "ABC Construction" team',
-    timestamp: '1 day ago',
-    isRead: true,
-    type: 'info',
-  },
-  {
-    id: '4',
-    title: 'Job completed',
-    message: 'The "Office Space" job has been marked as completed',
-    timestamp: '2 days ago',
-    isRead: true,
-    type: 'success',
-  },
-  {
-    id: '5',
-    title: 'Comment added',
-    message: 'Sarah added a comment on photo #23 in "Kitchen Remodel"',
-    timestamp: '3 days ago',
-    isRead: true,
-    type: 'info',
-  },
-  {
-    id: '6',
-    title: 'Permission update',
-    message: 'Your role in "Design Team" has been updated to Admin',
-    timestamp: '1 week ago',
-    isRead: true,
-    type: 'success',
-  },
-  {
-    id: '7',
-    title: 'New team member',
-    message: 'Mike joined the "Construction Crew" team',
-    timestamp: '1 week ago',
-    isRead: true,
-    type: 'info',
-  },
-];
+import { useNotifications } from '@/hooks/useNotifications';
+import { Notification } from '@/lib/appwrite/notifications';
 
 export default function Notifications() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+  const { notifications, unreadCount, loading, error, markAsRead, markAllAsRead, refresh } = useNotifications();
 
-  const toggleReadStatus = (id: string) => {
-    setNotifications(prev =>
-      prev.map(notif =>
-        notif.id === id ? { ...notif, isRead: !notif.isRead } : notif
-      )
-    );
+  const formatTimestamp = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
+  const getNotificationType = (type: string): 'info' | 'warning' | 'success' | 'error' => {
+    switch (type) {
+      case 'task_completed':
+      case 'job_assigned':
+      case 'photo_uploaded':
+        return 'success';
+      case 'job_updated':
+        return 'warning';
+      default:
+        return 'info';
+    }
   };
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  const getNotificationIcon = (type: Notification['type']) => {
+  const getNotificationIcon = (type: 'info' | 'warning' | 'success' | 'error') => {
     switch (type) {
       case 'success':
         return 'checkmark.circle';
@@ -104,7 +50,7 @@ export default function Notifications() {
     }
   };
 
-  const getNotificationColor = (type: Notification['type']) => {
+  const getNotificationColor = (type: 'info' | 'warning' | 'success' | 'error') => {
     switch (type) {
       case 'success':
         return colors.primary;
@@ -116,6 +62,27 @@ export default function Notifications() {
         return colors.textSecondary;
     }
   };
+
+  if (loading && notifications.length === 0) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (error && notifications.length === 0) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <IconSymbol name="exclamationmark.triangle" size={48} color={colors.textMuted} />
+        <Text style={styles.emptyText}>Error loading notifications</Text>
+        <Text style={styles.emptySubtext}>{error.message}</Text>
+        <TouchableOpacity onPress={refresh} style={styles.retryButton}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -143,50 +110,66 @@ export default function Notifications() {
       {/* Notifications List */}
       <FlatList
         data={notifications}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[
-              styles.notificationCard,
-              !item.isRead && styles.notificationCardUnread,
-            ]}
-            onPress={() => toggleReadStatus(item.id)}
-          >
-            <View style={styles.notificationContent}>
-              <View style={styles.notificationLeft}>
-                <View
-                  style={[
-                    styles.iconContainer,
-                    { backgroundColor: getNotificationColor(item.type) + '20' },
-                  ]}
-                >
-                  <IconSymbol
-                    name={getNotificationIcon(item.type)}
-                    size={20}
-                    color={getNotificationColor(item.type)}
-                  />
+        keyExtractor={(item) => item.$id}
+        renderItem={({ item }) => {
+          const notificationType = getNotificationType(item.type);
+          const timestamp = formatTimestamp(item.$createdAt);
+          
+          return (
+            <TouchableOpacity
+              style={[
+                styles.notificationCard,
+                !item.isRead && styles.notificationCardUnread,
+              ]}
+              onPress={() => {
+                if (!item.isRead) {
+                  markAsRead(item.$id);
+                }
+              }}
+            >
+              <View style={styles.notificationContent}>
+                <View style={styles.notificationLeft}>
+                  <View
+                    style={[
+                      styles.iconContainer,
+                      { backgroundColor: getNotificationColor(notificationType) + '20' },
+                    ]}
+                  >
+                    <IconSymbol
+                      name={getNotificationIcon(notificationType)}
+                      size={20}
+                      color={getNotificationColor(notificationType)}
+                    />
+                  </View>
+                  <View style={styles.notificationTextContainer}>
+                    <View style={styles.notificationHeader}>
+                      <Text
+                        style={[
+                          styles.notificationTitle,
+                          !item.isRead && styles.notificationTitleUnread,
+                        ]}
+                      >
+                        {item.title}
+                      </Text>
+                      {!item.isRead && <View style={styles.unreadDot} />}
+                    </View>
+                    <Text style={styles.notificationMessage}>{item.message}</Text>
+                    <Text style={styles.notificationTimestamp}>{timestamp}</Text>
+                  </View>
                 </View>
-                                                  <View style={styles.notificationTextContainer}>
-                   <View style={styles.notificationHeader}>
-                     <Text
-                       style={[
-                         styles.notificationTitle,
-                         !item.isRead && styles.notificationTitleUnread,
-                       ]}
-                     >
-                       {item.title}
-                     </Text>
-                     {!item.isRead && <View style={styles.unreadDot} />}
-                   </View>
-                   <Text style={styles.notificationMessage}>{item.message}</Text>
-                   <Text style={styles.notificationTimestamp}>{item.timestamp}</Text>
-                 </View>
               </View>
-            </View>
-          </TouchableOpacity>
-        )}
+            </TouchableOpacity>
+          );
+        }}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={refresh}
+            tintColor={colors.primary}
+          />
+        }
         ListEmptyComponent={() => (
           <View style={styles.emptyState}>
             <IconSymbol
@@ -321,5 +304,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

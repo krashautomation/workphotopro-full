@@ -7,6 +7,14 @@ import { ID } from 'react-native-appwrite';
 
 // Safely import expo-notifications (may not be available in Expo Go)
 let Notifications: typeof import('expo-notifications') | null = null;
+let isExpoGo = false;
+try {
+  const Constants = require('expo-constants');
+  isExpoGo = Constants.executionEnvironment === 'storeClient';
+} catch (e) {
+  // Ignore
+}
+
 try {
   Notifications = require('expo-notifications');
   // Configure notification behavior (only if module is available)
@@ -22,7 +30,11 @@ try {
     });
   }
 } catch (error) {
-  console.warn('⚠️ expo-notifications not available (requires development build, not Expo Go)');
+  if (isExpoGo) {
+    console.warn('⚠️ expo-notifications not available (requires development build, not Expo Go)');
+  } else {
+    console.warn('⚠️ expo-notifications not available (requires development build)');
+  }
 }
 
 export function useFCMToken() {

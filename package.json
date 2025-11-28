@@ -13,6 +13,8 @@
     "migrate-team-appwrite-ids": "node scripts/migrate-team-appwrite-ids.js",
     "setup-revenuecat": "node scripts/setup-revenuecat-collections.js",
     "setup-push-tokens": "node scripts/setup-push-tokens-collection.js",
+    "setup-notification-preferences": "node scripts/setup-notification-preferences-collection.js",
+    "setup-notifications": "node scripts/setup-notifications-collection.js",
     "postinstall": "patch-package"
   },
   "dependencies": {

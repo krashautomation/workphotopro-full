@@ -7,13 +7,29 @@ import { StatusBar } from 'expo-status-bar';
 import { Linking } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { useFCMToken } from '@/hooks/useFCMToken';
+// Removed import to avoid bundling app.config.js (which uses dotenv/Node.js modules)
+// import { logNotificationsDiagnostics } from '@/utils/notificationsCheck';
 
 // Safely import expo-notifications (may not be available in Expo Go)
 let Notifications: typeof import('expo-notifications') | null = null;
+let isExpoGo = false;
+try {
+  const Constants = require('expo-constants');
+  isExpoGo = Constants.executionEnvironment === 'storeClient';
+} catch (e) {
+  // Ignore
+}
+
 try {
   Notifications = require('expo-notifications');
 } catch (error) {
-  console.warn('⚠️ expo-notifications not available (requires development build)');
+  if (isExpoGo) {
+    console.warn('⚠️ expo-notifications not available (requires development build, not Expo Go)');
+    console.warn('   To fix: Run "npx expo run:android" to build a development client');
+  } else {
+    console.warn('⚠️ expo-notifications not available (requires development build)');
+    console.warn('   To fix: Run "npx expo run:android" to rebuild with native modules');
+  }
 }
 
 function RootLayoutNav() {
@@ -22,12 +38,19 @@ function RootLayoutNav() {
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
   
+  // Check notifications availability on mount (only once)
+  // Removed logNotificationsDiagnostics() to avoid bundling app.config.js
+  // useEffect(() => {
+  //   logNotificationsDiagnostics();
+  // }, []);
+  
   // Register for push notifications when user is authenticated
   const { fcmToken, loading: tokenLoading, error: tokenError } = useFCMToken();
   
   useEffect(() => {
     if (user && fcmToken) {
       console.log('✅ Push token registered:', fcmToken.substring(0, 20) + '...');
+      console.log('📱 Full push token (copy this):', fcmToken);
     }
     if (tokenError) {
       console.warn('⚠️ Push token registration error:', tokenError);

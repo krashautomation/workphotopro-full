@@ -27,11 +27,13 @@ export const pushTokenService = {
         );
       } else {
         // Create new token
+        const now = new Date().toISOString();
         return await databaseService.createDocument(COLLECTION_ID, {
           userId,
           token,
           platform,
-          createdAt: new Date().toISOString(),
+          createdAt: now,
+          updatedAt: now, // Required field - set to same as createdAt for new documents
         });
       }
     } catch (error) {

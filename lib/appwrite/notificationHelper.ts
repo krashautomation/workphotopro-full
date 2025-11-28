@@ -1,6 +1,7 @@
 import { messagingService } from './messaging';
 import { pushTokenService } from './pushTokens';
 import { databaseService } from './database';
+import { notificationService } from './notifications';
 
 /**
  * Notification preferences stored in user preferences or a separate collection
@@ -19,19 +20,32 @@ export type NotificationType =
 
 /**
  * Check if user has notifications enabled for a specific type
- * For now, defaults to true - you can enhance this to check user preferences
  */
 async function isNotificationEnabled(userId: string, type: NotificationType): Promise<boolean> {
   try {
-    // TODO: Check user preferences from database
-    // For now, always return true (notifications enabled)
-    // You can implement this later by storing preferences in a collection
+    const { notificationPreferencesService } = await import('./notificationPreferences');
     
-    // Example future implementation:
-    // const prefs = await getUserNotificationPreferences(userId);
-    // return prefs[type] ?? true;
+    // Map notification event types to preference keys
+    const preferenceMap: Record<NotificationType, string> = {
+      'task_created': 'task_created',
+      'task_completed': 'task_completed',
+      'message': 'message',
+      'job_assigned': 'job_assigned',
+      'job_updated': 'job_updated',
+      'photo_uploaded': 'photo_uploaded',
+      'team_invite': 'team_invite',
+      'comment_added': 'message', // Use message preference for comments
+    };
     
-    return true;
+    // First check if push notifications are enabled globally
+    const pushEnabled = await notificationPreferencesService.isEnabled(userId, 'push_notifications');
+    if (!pushEnabled) {
+      return false; // If push notifications are disabled globally, don't send any
+    }
+    
+    // Then check the specific notification type preference
+    const preferenceKey = preferenceMap[type] || 'push_notifications';
+    return await notificationPreferencesService.isEnabled(userId, preferenceKey as any);
   } catch (error) {
     console.error('Error checking notification preferences:', error);
     return true; // Default to enabled on error
@@ -63,7 +77,21 @@ export async function sendNotification(
       return { success: false, reason: 'no_token' };
     }
 
-    // Send notification
+    // Create in-app notification record
+    try {
+      await notificationService.createNotification(
+        userId,
+        type,
+        title,
+        body,
+        data
+      );
+    } catch (error) {
+      // Don't fail if notification record creation fails, but log it
+      console.warn('Failed to create notification record:', error);
+    }
+
+    // Send push notification
     const result = await messagingService.sendPushNotification(
       userId,
       title,
