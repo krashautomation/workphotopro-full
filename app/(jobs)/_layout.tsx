@@ -10,11 +10,13 @@ import { Rocket } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/styles/globalStyles';
 import { webGradients } from '@/styles/webDesignTokens';
+import { useNotifications } from '@/hooks/useNotifications';
 
 function HeaderRight() {
   const router = useRouter();
   const { getUserProfilePicture, getGoogleUserData, user } = useAuth();
   const { currentOrganization } = useOrganization();
+  const { unreadCount } = useNotifications();
   const [profilePicture, setProfilePicture] = React.useState<string | null>(null);
   const [googleData, setGoogleData] = React.useState<any>(null);
 
@@ -48,13 +50,20 @@ function HeaderRight() {
       
       <TouchableOpacity 
         onPress={() => router.push('/(jobs)/notifications')}
+        style={styles.bellButton}
       >
         <IconSymbol
           name="bell"
-          size={20}
+          size={24}
           color={colors.textSecondary}
         />
-        {/* TODO: Add notification badge when unread count > 0 */}
+        {unreadCount > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
       
       <TouchableOpacity 
@@ -261,5 +270,29 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 14,
     fontWeight: '600',
+  },
+  bellButton: {
+    position: 'relative',
+    padding: 4,
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#1a1a1a',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });

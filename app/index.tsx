@@ -1,12 +1,15 @@
 import { useAuth } from '@/context/AuthContext';
 import { globalStyles } from '@/styles/globalStyles';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Link, Redirect } from 'expo-router';
-import { Camera, UserCircle } from 'lucide-react-native';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { Link, Redirect, useRouter } from 'expo-router';
+import { Camera, UserCircle, Bell } from 'lucide-react-native';
+import { ActivityIndicator, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { useNotifications } from '@/hooks/useNotifications';
 
 export default function Index() {
   const { isAuthenticated, loading } = useAuth();
+  const router = useRouter();
+  const { unreadCount } = useNotifications();
 
   if (loading) {
     return (
@@ -22,14 +25,31 @@ export default function Index() {
 
   return (
     <View style={globalStyles.welcomeContainer}>
-      <View style={{ width: '100%', alignItems: 'flex-end' }}>
+      <View style={styles.headerActions}>
+        <TouchableOpacity
+          onPress={() => {
+            if (isAuthenticated) {
+              router.push('/(jobs)/notifications');
+            } else {
+              router.push('/(auth)/sign-in');
+            }
+          }}
+          style={styles.iconButton}
+          accessibilityRole="button"
+          accessibilityLabel={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+        >
+          <Bell size={28} color="#fff" />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
         <Link href="/(jobs)/user-profile" asChild>
           <TouchableOpacity
-            style={{
-              padding: 8,
-              borderRadius: 999,
-              backgroundColor: 'rgba(255,255,255,0.06)',
-            }}
+            style={styles.iconButton}
             accessibilityRole="button"
             accessibilityLabel="Open user profile"
           >
@@ -96,4 +116,40 @@ export default function Index() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  headerActions: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconButton: {
+    padding: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#000',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+});
 

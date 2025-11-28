@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { notificationService, Notification, COLLECTION_ID } from '@/lib/appwrite/notifications';
 import { useAuth } from '@/context/AuthContext';
 import { databases } from '@/lib/appwrite/client';
+import { useFocusEffect } from 'expo-router';
 
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID || '';
 
@@ -63,8 +64,26 @@ export function useNotifications() {
       //   }
       // });
       // return () => unsubscribe();
+
+      // Poll for updates every 10 seconds to keep badge in sync
+      // This ensures the header badge updates when notifications change elsewhere
+      const interval = setInterval(() => {
+        loadNotifications();
+      }, 10000);
+
+      return () => clearInterval(interval);
     }
   }, [user, loadNotifications]);
+
+  // Refresh notifications when screen comes into focus
+  // This ensures the badge updates when returning from notifications screen
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        loadNotifications();
+      }
+    }, [user, loadNotifications])
+  );
 
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
@@ -90,6 +109,27 @@ export function useNotifications() {
     }
   }, [user]);
 
+  const clearRead = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      const result = await notificationService.clearReadNotifications(user.$id);
+      // Remove read notifications from local state
+      setNotifications(prev => {
+        const remaining = prev.filter(n => !n.isRead);
+        // Update unread count based on remaining notifications
+        setUnreadCount(remaining.length);
+        return remaining;
+      });
+      // Also refresh from server to ensure accuracy
+      await loadNotifications();
+      return result;
+    } catch (err) {
+      console.error('Error clearing read notifications:', err);
+      throw err;
+    }
+  }, [user, loadNotifications]);
+
   return {
     notifications,
     unreadCount,
@@ -97,6 +137,7 @@ export function useNotifications() {
     error,
     markAsRead,
     markAllAsRead,
+    clearRead,
     refresh: loadNotifications,
   };
 }

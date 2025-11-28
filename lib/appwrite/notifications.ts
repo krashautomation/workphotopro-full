@@ -192,5 +192,37 @@ export const notificationService = {
       throw error;
     }
   },
+
+  /**
+   * Clear all read notifications for a user
+   */
+  async clearReadNotifications(userId: string) {
+    try {
+      // Get all read notifications
+      const readNotifications = await this.getNotifications(userId, {
+        limit: 1000, // Get a large batch
+      });
+
+      const readOnly = readNotifications.documents.filter(
+        (doc: any) => doc.isRead === true
+      );
+
+      if (readOnly.length === 0) {
+        return { success: true, count: 0 };
+      }
+
+      // Delete each read notification
+      const deletions = readOnly.map((doc: any) =>
+        databaseService.deleteDocument(COLLECTION_ID, doc.$id)
+      );
+
+      await Promise.all(deletions);
+      console.log(`🗑️ Cleared ${readOnly.length} read notifications`);
+      return { success: true, count: readOnly.length };
+    } catch (error) {
+      console.error('Error clearing read notifications:', error);
+      throw error;
+    }
+  },
 };
 

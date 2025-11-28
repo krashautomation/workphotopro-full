@@ -11,7 +11,7 @@ import { sendNotification } from '@/lib/appwrite/notificationHelper';
 export default function Notifications() {
   const router = useRouter();
   const { user } = useAuth();
-  const { notifications, unreadCount, loading, error, markAsRead, markAllAsRead, refresh } = useNotifications();
+  const { notifications, unreadCount, loading, error, markAsRead, markAllAsRead, clearRead, refresh } = useNotifications();
 
   const createTestNotification = async () => {
     if (!user) {
@@ -143,32 +143,74 @@ export default function Notifications() {
       {/* Header Actions */}
       <View style={styles.headerActions}>
         <View style={styles.headerActionsRow}>
-          {unreadCount > 0 && (
-            <TouchableOpacity onPress={markAllAsRead} style={styles.markAllButton}>
-              <Text style={styles.markAllText}>Mark all as read</Text>
+          <View style={styles.leftActions}>
+            <TouchableOpacity 
+              onPress={markAllAsRead} 
+              style={[styles.actionButton, unreadCount === 0 && styles.actionButtonDisabled]}
+              disabled={unreadCount === 0}
+            >
+              <Text style={[styles.actionButtonText, unreadCount === 0 && styles.actionButtonTextDisabled]}>
+                Mark all as read
+              </Text>
             </TouchableOpacity>
-          )}
-          <TouchableOpacity 
-            onPress={createTestNotification}
-            style={styles.testButton}
-          >
-            <IconSymbol
-              name="plus.circle.fill"
-              size={24}
-              color={colors.primary}
-            />
-            <Text style={styles.testButtonText}>Test</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            onPress={() => router.push('/(jobs)/notification-settings')}
-            style={styles.settingsButton}
-          >
-            <IconSymbol
-              name="gearshape"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={async () => {
+                const readCount = notifications.filter(n => n.isRead).length;
+                if (readCount === 0) {
+                  Alert.alert('No read notifications', 'There are no read notifications to clear.');
+                  return;
+                }
+                Alert.alert(
+                  'Clear read notifications',
+                  `Are you sure you want to delete ${readCount} read notification${readCount > 1 ? 's' : ''}?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Clear',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          await clearRead();
+                          refresh();
+                        } catch (error: any) {
+                          Alert.alert('Error', error.message || 'Failed to clear notifications');
+                        }
+                      },
+                    },
+                  ]
+                );
+              }}
+              style={[styles.actionButton, notifications.filter(n => n.isRead).length === 0 && styles.actionButtonDisabled]}
+              disabled={notifications.filter(n => n.isRead).length === 0}
+            >
+              <Text style={[styles.actionButtonText, notifications.filter(n => n.isRead).length === 0 && styles.actionButtonTextDisabled]}>
+                Clear
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.rightActions}>
+            <TouchableOpacity 
+              onPress={createTestNotification}
+              style={styles.testButton}
+            >
+              <IconSymbol
+                name="plus.circle.fill"
+                size={24}
+                color={colors.primary}
+              />
+              <Text style={styles.testButtonText}>Test</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => router.push('/(jobs)/notification-settings')}
+              style={styles.settingsButton}
+            >
+              <IconSymbol
+                name="gearshape"
+                size={20}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -268,12 +310,37 @@ const styles = StyleSheet.create({
   },
   headerActionsRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  leftActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  rightActions: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
   },
-  markAllButton: {
-    // No additional styles needed
+  actionButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  actionButtonDisabled: {
+    opacity: 0.5,
+  },
+  actionButtonText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  actionButtonTextDisabled: {
+    color: colors.textMuted,
   },
   testButton: {
     flexDirection: 'row',
@@ -293,11 +360,6 @@ const styles = StyleSheet.create({
   },
   settingsButton: {
     padding: 4,
-  },
-  markAllText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '500',
   },
   listContent: {
     paddingHorizontal: 20,
