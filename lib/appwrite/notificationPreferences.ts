@@ -59,7 +59,7 @@ export const notificationPreferencesService = {
       ]);
 
       if (result.documents.length > 0) {
-        return result.documents[0] as NotificationPreferences;
+        return result.documents[0] as any as NotificationPreferences;
       }
 
       // Return defaults if no preferences exist
@@ -113,7 +113,7 @@ export const notificationPreferencesService = {
           COLLECTION_ID,
           existing.documents[0].$id,
           updatedData
-        ) as NotificationPreferences;
+        ) as any as NotificationPreferences;
       } else {
         // Create new
         return await databaseService.createDocument(COLLECTION_ID, {
@@ -121,7 +121,7 @@ export const notificationPreferencesService = {
           ...DEFAULT_PREFERENCES,
           ...preferences,
           updatedAt: new Date().toISOString(),
-        }) as NotificationPreferences;
+        }) as any as NotificationPreferences;
       }
     } catch (error) {
       console.error('Error updating notification preferences:', error);

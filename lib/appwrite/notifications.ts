@@ -149,7 +149,15 @@ export const notificationService = {
     data?: NotificationData
   ) {
     try {
-      return await databaseService.createDocument(COLLECTION_ID, {
+      console.log('🔔 Creating notification:', {
+        userId,
+        type,
+        title,
+        message,
+        data,
+      });
+
+      const notification = await databaseService.createDocument(COLLECTION_ID, {
         userId,
         type,
         title,
@@ -157,8 +165,18 @@ export const notificationService = {
         data: data ? JSON.stringify(data) : undefined,
         isRead: false,
       });
+
+      console.log('✅ Notification created:', {
+        notificationId: notification.$id,
+        userId: notification.userId,
+        type: notification.type,
+        title: notification.title,
+        createdAt: notification.$createdAt,
+      });
+
+      return notification;
     } catch (error) {
-      console.error('Error creating notification:', error);
+      console.error('❌ Error creating notification:', error);
       throw error;
     }
   },

@@ -1,13 +1,67 @@
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import React from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { globalStyles, colors } from '@/styles/globalStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Notification } from '@/lib/appwrite/notifications';
+import { useAuth } from '@/context/AuthContext';
+import { sendNotification } from '@/lib/appwrite/notificationHelper';
 
 export default function Notifications() {
   const router = useRouter();
+  const { user } = useAuth();
   const { notifications, unreadCount, loading, error, markAsRead, markAllAsRead, refresh } = useNotifications();
+
+  const createTestNotification = async () => {
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to create test notifications');
+      return;
+    }
+
+    try {
+      const testTypes: Array<{ type: string; title: string; message: string }> = [
+        { type: 'job_assigned', title: 'New job assigned', message: 'You have been assigned to the "Kitchen Remodel" job' },
+        { type: 'photo_uploaded', title: 'Photo uploaded', message: 'John uploaded 5 new photos to "Bathroom Renovation"' },
+        { type: 'team_invite', title: 'Team invitation', message: 'You have been invited to join "ABC Construction" team' },
+        { type: 'message', title: 'New message', message: 'Sarah sent you a message in "Kitchen Remodel"' },
+        { type: 'task_completed', title: 'Task completed', message: 'Task "Install cabinets" has been marked as completed' },
+      ];
+
+      const randomTest = testTypes[Math.floor(Math.random() * testTypes.length)];
+
+      console.log('📬 Creating test notification with push:', {
+        userId: user.$id,
+        type: randomTest.type,
+        title: randomTest.title,
+        message: randomTest.message,
+      });
+
+      const result = await sendNotification(
+        user.$id,
+        randomTest.type as any,
+        randomTest.title,
+        randomTest.message,
+        { jobId: 'test-123', test: true }
+      );
+
+      if (result.success) {
+        console.log('✅ Test notification sent successfully:', result);
+        Alert.alert('Success', 'Test notification sent! Check your device and pull down to refresh.');
+      } else {
+        console.warn('⚠️ Test notification result:', result);
+        const errorMessage = 'reason' in result ? result.reason : ('error' in result ? result.error : 'Unknown error');
+        Alert.alert(
+          'Notification Created', 
+          `In-app notification created, but push failed: ${errorMessage}. Pull down to refresh.`
+        );
+      }
+      
+      refresh();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to create test notification');
+    }
+  };
 
   const formatTimestamp = (dateString: string) => {
     const date = new Date(dateString);
@@ -94,6 +148,17 @@ export default function Notifications() {
               <Text style={styles.markAllText}>Mark all as read</Text>
             </TouchableOpacity>
           )}
+          <TouchableOpacity 
+            onPress={createTestNotification}
+            style={styles.testButton}
+          >
+            <IconSymbol
+              name="plus.circle.fill"
+              size={24}
+              color={colors.primary}
+            />
+            <Text style={styles.testButtonText}>Test</Text>
+          </TouchableOpacity>
           <TouchableOpacity 
             onPress={() => router.push('/(jobs)/notification-settings')}
             style={styles.settingsButton}
@@ -209,6 +274,22 @@ const styles = StyleSheet.create({
   },
   markAllButton: {
     // No additional styles needed
+  },
+  testButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: colors.primary + '15',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  testButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   settingsButton: {
     padding: 4,

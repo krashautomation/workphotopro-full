@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, Switch, ActivityIndicator } from 'react-native';
 import { colors } from '@/styles/globalStyles';
 import { useAuth } from '@/context/AuthContext';
-import { notificationPreferencesService, NotificationPreferences } from '@/lib/appwrite/notificationPreferences';
+import { notificationPreferencesService, NotificationPreferences, NotificationType } from '@/lib/appwrite/notificationPreferences';
 
 type NotificationSetting = {
   id: string;
-  key: keyof NotificationPreferences;
+  key: NotificationType;
   title: string;
   description: string;
   enabled: boolean;
