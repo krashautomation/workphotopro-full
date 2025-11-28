@@ -32,14 +32,28 @@ export function useNotifications() {
       const count = await notificationService.getUnreadCount(user.$id);
       setUnreadCount(count);
     } catch (err: any) {
+      // Handle different error types gracefully
+      const errorMessage = err?.message || '';
+      
       // If collection doesn't exist, show empty list
-      if (err?.message?.includes('Collection with the requested ID could not be found')) {
+      if (errorMessage.includes('Collection with the requested ID could not be found')) {
         setNotifications([]);
         setUnreadCount(0);
         setError(null);
-      } else {
-        setError(err as Error);
-        console.error('Error loading notifications:', err);
+      } 
+      // If user is not authorized, treat as no notifications (user might not be fully authenticated yet)
+      else if (errorMessage.includes('not authorized') || errorMessage.includes('unauthorized')) {
+        console.warn('User not authorized to access notifications - treating as empty');
+        setNotifications([]);
+        setUnreadCount(0);
+        setError(null);
+      }
+      // For other errors, log but don't break the app
+      else {
+        console.warn('Error loading notifications (non-critical):', err);
+        setNotifications([]);
+        setUnreadCount(0);
+        setError(null); // Don't set error state for authorization issues
       }
     } finally {
       setLoading(false);

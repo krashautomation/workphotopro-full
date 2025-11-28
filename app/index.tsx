@@ -1,3 +1,4 @@
+import React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { globalStyles } from '@/styles/globalStyles';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +10,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 export default function Index() {
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
+  // Only load notifications if user is authenticated
   const { unreadCount } = useNotifications();
 
   if (loading) {

@@ -69,6 +69,11 @@ export const notificationService = {
         console.warn('Notifications collection not found - returning empty list');
         return { documents: [], total: 0 };
       }
+      // If user is not authorized, return empty result (user might not be fully authenticated)
+      if (error?.message?.includes('not authorized') || error?.message?.includes('unauthorized')) {
+        console.warn('User not authorized to access notifications - returning empty list');
+        return { documents: [], total: 0 };
+      }
       throw error;
     }
   },

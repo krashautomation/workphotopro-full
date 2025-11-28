@@ -4,11 +4,17 @@ import * as WebBrowser from 'expo-web-browser';
 
 export const authService = {
   /**
-   * Create a new user account
+   * Create a new user account and create a session
    */
   async signUp(email: string, password: string, name: string) {
     try {
+      // Create the account
       const user = await account.create(ID.unique(), email, password, name);
+      
+      // Create a session immediately after account creation
+      // This is required to perform account operations like sending verification emails
+      await account.createEmailPasswordSession(email, password);
+      
       return user;
     } catch (error) {
       console.error('Sign up error:', error);
@@ -54,12 +60,28 @@ export const authService = {
   },
 
   /**
-   * Send email verification (old method - kept for backward compatibility)
+   * Send email verification - sends Email OTP (6-digit code) to user's email
+   * Returns userId needed for verification
+   * Note: Using OTP instead of email links to avoid URL registration requirements
    */
-  async sendVerificationEmail() {
+  async sendVerificationEmail(email?: string) {
     try {
-      const url = 'workphotopro://verify-email';
-      return await account.createVerification(url);
+      // Get current user email if not provided
+      if (!email) {
+        const user = await this.getCurrentUser();
+        if (!user || !user.email) {
+          throw new Error('No email available. Please provide an email address.');
+        }
+        email = user.email;
+      }
+      
+      // Send Email OTP instead of verification link
+      // Note: createEmailToken doesn't require a URL parameter for OTP verification
+      const token = await account.createEmailToken(ID.unique(), email);
+      return {
+        userId: token.userId,
+        email: email,
+      };
     } catch (error) {
       console.error('Send verification error:', error);
       throw error;
@@ -84,6 +106,7 @@ export const authService = {
    */
   async sendEmailOTP(email: string) {
     try {
+      // Note: createEmailToken doesn't require a URL parameter for OTP verification
       const token = await account.createEmailToken(ID.unique(), email);
       return {
         userId: token.userId,
@@ -214,18 +237,17 @@ export const authService = {
       
       console.log('🔵 WebBrowser result:', {
         type: result.type,
-        url: result.url,
-        error: result.error
+        url: result.type === 'success' ? result.url : undefined
       });
       
-      if (result.type === 'success' && result.url) {
+      if (result.type === 'success') {
         return await this.processOAuthResult(result.url);
       } else if (result.type === 'cancel') {
         console.log('🔴 OAuth flow cancelled by user');
         throw new Error('OAuth authentication cancelled by user');
       } else {
-        console.log('🔴 OAuth flow failed:', result.error);
-        throw new Error(`OAuth authentication failed: ${result.error || 'Unknown error'}`);
+        console.log('🔴 OAuth flow failed:', result.type);
+        throw new Error(`OAuth authentication failed: ${result.type}`);
       }
     } catch (error) {
       console.error('🔴 Google OAuth sign in error:', error);
@@ -318,18 +340,6 @@ export const authService = {
     }
   },
 
-  /**
-   * Refresh OAuth session
-   */
-  async refreshOAuthSession(sessionId: string = 'current') {
-    try {
-      const session = await account.updateOAuth2Session(sessionId);
-      return session;
-    } catch (error) {
-      console.error('Refresh OAuth session error:', error);
-      throw error;
-    }
-  },
 
   /**
    * Store Google user data including profile picture and other info

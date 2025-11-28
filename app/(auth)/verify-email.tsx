@@ -1,91 +1,114 @@
 import { authService } from '@/lib/appwrite/auth';
 import { globalStyles } from '@/styles/globalStyles';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { useState, useEffect } from 'react';
+import { ActivityIndicator, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
+import * as Linking from 'expo-linking';
 
 export default function VerifyEmail() {
   const router = useRouter();
   const { refreshUser } = useAuth();
-  const { userId, email, name } = useLocalSearchParams<{ userId: string; email: string; name?: string }>();
-  const [otp, setOtp] = useState('');
+  const { userId, secret, email } = useLocalSearchParams<{ userId?: string; secret?: string; email?: string }>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [resending, setResending] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
-  const verifyOTP = async () => {
-    if (!otp || otp.length !== 6) {
-      setError('Please enter a 6-digit code');
+  useEffect(() => {
+    // Check if we have userId and secret from URL params (deep link)
+    if (userId && secret) {
+      handleVerification(userId, secret);
       return;
     }
 
+    // Try to get from deep link URL
+    const checkDeepLink = async () => {
+      try {
+        const initialUrl = await Linking.getInitialURL();
+        if (initialUrl && initialUrl.includes('verify-email')) {
+          const url = new URL(initialUrl);
+          const urlUserId = url.searchParams.get('userId');
+          const urlSecret = url.searchParams.get('secret');
+          if (urlUserId && urlSecret) {
+            handleVerification(urlUserId, urlSecret);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing deep link:', error);
+      }
+    };
+    checkDeepLink();
+
+    // Also listen for deep links while app is running
+    const subscription = Linking.addEventListener('url', (event) => {
+      try {
+        if (event.url && event.url.includes('verify-email')) {
+          const url = new URL(event.url);
+          const urlUserId = url.searchParams.get('userId');
+          const urlSecret = url.searchParams.get('secret');
+          if (urlUserId && urlSecret) {
+            handleVerification(urlUserId, urlSecret);
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing deep link:', error);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [userId, secret]);
+
+  const handleVerification = async (verificationUserId: string, verificationSecret: string) => {
+    setVerifying(true);
     setLoading(true);
     setError('');
 
     try {
-      // Verify the OTP and create session
-      await authService.verifyEmailOTP(userId, otp);
+      // Verify email with userId and secret
+      await authService.verifyEmail(verificationUserId, verificationSecret);
       
-      // If name was provided during signup, update the user's name
-      if (name && name.trim()) {
-        try {
-          await authService.updateName(name);
-        } catch (nameError) {
-          console.error('Failed to update name:', nameError);
-          // Don't fail the entire verification if name update fails
-        }
-      }
-      
-      // Refresh user data in context
-      await refreshUser();
-      // Navigate to app
-      router.replace('/(jobs)');
+      // After verification, user needs to sign in with email/password
+      // Redirect to sign-in with success message
+      router.replace({
+        pathname: '/(auth)/sign-in',
+        params: { verified: 'true' },
+      });
     } catch (err: any) {
-      console.error('Verify OTP error:', err);
-      setError(err.message || 'Invalid code. Please try again.');
+      console.error('Verify email error:', err);
+      setError(err.message || 'Verification failed. The link may have expired. Please try signing up again.');
     } finally {
       setLoading(false);
+      setVerifying(false);
     }
   };
 
-  const resendOTP = async () => {
-    setResending(true);
-    setError('');
-
-    try {
-      await authService.sendEmailOTP(email);
-      setError('');
-      // Show success message
-      alert('A new code has been sent to your email!');
-    } catch (err: any) {
-      console.error('Resend OTP error:', err);
-      setError(err.message || 'Failed to resend code. Please try again.');
-    } finally {
-      setResending(false);
-    }
-  };
+  if (verifying || loading) {
+    return (
+      <View style={globalStyles.container}>
+        <ActivityIndicator size="large" color="#22c55e" />
+        <Text style={[globalStyles.body, { marginTop: 20, textAlign: 'center' }]}>
+          Verifying your email...
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={globalStyles.container}>
       <Text style={globalStyles.title}>Verify Your Email</Text>
       <Text style={[globalStyles.body, { marginBottom: 30, textAlign: 'center' }]}>
-        We've sent a 6-digit code to{'\n'}
-        <Text style={{ color: '#22c55e' }}>{email}</Text>
+        {email ? (
+          <>
+            Click the verification link sent to{'\n'}
+            <Text style={{ color: '#22c55e' }}>{email}</Text>
+          </>
+        ) : (
+          'Please check your email for the verification link.'
+        )}
       </Text>
-
-      <View style={styles.otpContainer}>
-        <TextInput
-          style={styles.otpInput}
-          value={otp}
-          onChangeText={(text) => setOtp(text.replace(/[^0-9]/g, '').slice(0, 6))}
-          keyboardType="number-pad"
-          maxLength={6}
-          placeholder="000000"
-          placeholderTextColor="#666"
-          autoFocus
-        />
-      </View>
 
       {error ? (
         <Text style={[globalStyles.body, { color: '#ff6b6b', marginBottom: 20, textAlign: 'center' }]}>
@@ -94,66 +117,18 @@ export default function VerifyEmail() {
       ) : null}
 
       <TouchableOpacity
-        style={[globalStyles.button, loading && { opacity: 0.6 }]}
-        onPress={verifyOTP}
-        disabled={loading || otp.length !== 6}
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={globalStyles.buttonText}>Verify Code</Text>
-        )}
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.resendButton}
-        onPress={resendOTP}
-        disabled={resending}
-      >
-        <Text style={styles.resendText}>
-          {resending ? 'Sending...' : "Didn't receive the code? Resend"}
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
         style={styles.backButton}
-        onPress={() => router.back()}
+        onPress={() => router.replace('/(auth)/sign-in')}
       >
-        <Text style={[globalStyles.body, { color: '#999' }]}>Back to Sign Up</Text>
+        <Text style={[globalStyles.body, { color: '#999' }]}>Go to Sign In</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  otpContainer: {
-    marginBottom: 30,
-    alignItems: 'center',
-  },
-  otpInput: {
-    backgroundColor: '#1e1e1e',
-    borderWidth: 2,
-    borderColor: '#333',
-    borderRadius: 12,
-    padding: 20,
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
-    letterSpacing: 8,
-    width: '100%',
-  },
-  resendButton: {
-    marginTop: 20,
-    padding: 10,
-  },
-  resendText: {
-    color: '#22c55e',
-    textAlign: 'center',
-    fontSize: 14,
-  },
   backButton: {
-    marginTop: 10,
+    marginTop: 20,
     padding: 10,
   },
 });

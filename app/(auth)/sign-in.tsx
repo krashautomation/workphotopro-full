@@ -1,7 +1,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { authService } from '@/lib/appwrite/auth';
 import { getPlaceholderTextColor, globalStyles } from '@/styles/globalStyles';
-import { Link, useRouter } from 'expo-router';
+import { Link, useRouter, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,15 +17,18 @@ import {
 import GoogleAuthButton from '@/components/GoogleAuthButton';
 
 export default function SignIn() {
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, signIn } = useAuth();
   const router = useRouter();
+  const { verified } = useLocalSearchParams<{ verified?: string }>();
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleSignIn = async () => {
-    if (!email) {
-      setError('Please enter your email');
+    if (!email || !password) {
+      setError('Please enter your email and password');
       return;
     }
 
@@ -38,19 +41,13 @@ export default function SignIn() {
     setError('');
 
     try {
-      // Send OTP for login
-      const result = await authService.sendEmailOTP(email);
-      // Navigate to OTP verification screen
-      router.push({
-        pathname: '/(auth)/verify-email',
-        params: {
-          userId: result.userId,
-          email: result.email,
-        },
-      });
+      // Sign in with email and password
+      await signIn(email, password);
+      // Navigate to app
+      router.replace('/(jobs)');
     } catch (err: any) {
       console.error('Sign in error:', err);
-      setError(err.message || 'Sign in failed. Please try again.');
+      setError(err.message || 'Sign in failed. Please check your credentials and try again.');
     } finally {
       setLoading(false);
     }
@@ -79,7 +76,13 @@ export default function SignIn() {
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View style={globalStyles.container}>
           <Text style={globalStyles.title}>Welcome back</Text>
-          <Text style={globalStyles.body}>We'll send a code to your email</Text>
+          <Text style={globalStyles.body}>Sign in to your account</Text>
+
+          {verified === 'true' && (
+            <Text style={[globalStyles.body, { color: '#22c55e', marginVertical: 10 }]}>
+              Email verified! Please sign in to continue.
+            </Text>
+          )}
 
           {error ? (
             <Text style={[globalStyles.body, { color: '#ff6b6b', marginVertical: 10 }]}>
@@ -97,6 +100,16 @@ export default function SignIn() {
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
+            editable={!loading}
+          />
+
+          <TextInput
+            style={globalStyles.input}
+            placeholder="Password"
+            placeholderTextColor={getPlaceholderTextColor()}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
             editable={!loading}
           />
 
