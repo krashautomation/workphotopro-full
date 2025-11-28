@@ -12,6 +12,7 @@
     "migrate-membership-emails": "node scripts/migrate-membership-emails.js",
     "migrate-team-appwrite-ids": "node scripts/migrate-team-appwrite-ids.js",
     "setup-revenuecat": "node scripts/setup-revenuecat-collections.js",
+    "setup-push-tokens": "node scripts/setup-push-tokens-collection.js",
     "postinstall": "patch-package"
   },
   "dependencies": {
@@ -41,6 +42,7 @@
     "expo-linking": "~8.0.9",
     "expo-location": "^19.0.7",
     "expo-media-library": "~18.2.0",
+    "expo-notifications": "~0.32.13",
     "expo-router": "~6.0.15",
     "expo-secure-store": "~15.0.7",
     "expo-sharing": "^14.0.7",

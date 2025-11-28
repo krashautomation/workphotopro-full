@@ -1,14 +1,86 @@
-import { AuthProvider } from '@/context/AuthContext';
+import React, { useEffect, useRef } from 'react';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { OrganizationProvider } from '@/context/OrganizationContext';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { Slot, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
 import { Linking } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
+import { useFCMToken } from '@/hooks/useFCMToken';
+
+// Safely import expo-notifications (may not be available in Expo Go)
+let Notifications: typeof import('expo-notifications') | null = null;
+try {
+  Notifications = require('expo-notifications');
+} catch (error) {
+  console.warn('⚠️ expo-notifications not available (requires development build)');
+}
 
 function RootLayoutNav() {
   const router = useRouter();
+  const { user } = useAuth();
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
+  
+  // Register for push notifications when user is authenticated
+  const { fcmToken, loading: tokenLoading, error: tokenError } = useFCMToken();
+  
+  useEffect(() => {
+    if (user && fcmToken) {
+      console.log('✅ Push token registered:', fcmToken.substring(0, 20) + '...');
+    }
+    if (tokenError) {
+      console.warn('⚠️ Push token registration error:', tokenError);
+    }
+  }, [user, fcmToken, tokenError]);
+
+  // Set up notification listeners (only if module is available)
+  useEffect(() => {
+    if (!Notifications) {
+      return; // Notifications not available (Expo Go)
+    }
+
+    try {
+      // Listen for notifications received while app is foregrounded
+      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+        console.log('📬 Notification received (foreground):', notification);
+        // You can show an in-app notification banner here if needed
+      });
+
+      // Listen for user tapping on notification
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+        console.log('👆 Notification tapped:', response);
+        const data = response.notification.request.content.data;
+        
+        // Navigate based on notification data
+        if (data?.type === 'task_created' && data?.jobId) {
+          router.push(`/(jobs)/${data.jobId}`);
+        } else if (data?.type === 'job_assigned' && data?.jobId) {
+          router.push(`/(jobs)/${data.jobId}`);
+        } else if (data?.type === 'team_invite' && data?.teamId) {
+          router.push(`/(jobs)/teams/${data.teamId}`);
+        } else if (data?.type === 'message' && data?.jobId) {
+          router.push(`/(jobs)/${data.jobId}`);
+        }
+        // Add more navigation cases as needed
+      });
+    } catch (error) {
+      console.warn('⚠️ Failed to set up notification listeners:', error);
+    }
+
+    return () => {
+      try {
+        if (notificationListener.current) {
+          notificationListener.current.remove();
+        }
+        if (responseListener.current) {
+          responseListener.current.remove();
+        }
+      } catch (error) {
+        // Ignore cleanup errors
+      }
+    };
+  }, [router]);
 
   useEffect(() => {
     // Initialize cache monitoring and cleanup on app start

@@ -1,0 +1,165 @@
+import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
+import { useAuth } from '@/context/AuthContext';
+import { pushTokenService } from '@/lib/appwrite/pushTokens';
+import { account } from '@/lib/appwrite/client';
+import { ID } from 'react-native-appwrite';
+
+// Safely import expo-notifications (may not be available in Expo Go)
+let Notifications: typeof import('expo-notifications') | null = null;
+try {
+  Notifications = require('expo-notifications');
+  // Configure notification behavior (only if module is available)
+  if (Notifications) {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  }
+} catch (error) {
+  console.warn('⚠️ expo-notifications not available (requires development build, not Expo Go)');
+}
+
+export function useFCMToken() {
+  const { user } = useAuth();
+  const [fcmToken, setFcmToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    registerForPushNotificationsAsync()
+      .then(token => {
+        setFcmToken(token);
+        setLoading(false);
+        
+        // Save token to Appwrite Database
+        if (token) {
+          saveFCMTokenToAppwrite(user.$id, token).catch(err => {
+            console.error('Error saving FCM token:', err);
+            setError(err as Error);
+          });
+        }
+      })
+      .catch(err => {
+        console.error('Error getting push token:', err);
+        setError(err as Error);
+        setLoading(false);
+      });
+  }, [user]);
+
+  return { fcmToken, loading, error };
+}
+
+async function registerForPushNotificationsAsync(): Promise<string | null> {
+  // Check if notifications module is available
+  if (!Notifications) {
+    console.warn('⚠️ Push notifications not available - requires development build (not Expo Go)');
+    return null;
+  }
+
+  let token: string | null = null;
+
+  try {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#22c55e',
+      });
+    }
+
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') {
+      console.warn('Failed to get push token for push notification!');
+      return null;
+    }
+
+    // Get Expo push token
+    // Note: For Appwrite Messaging, we'll use Expo push tokens
+    // If Appwrite requires native FCM tokens, we'll need to use @react-native-firebase/messaging
+    const projectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID || 'c27e77a1-19c8-4d7a-b2a7-0b8012878bfd';
+    const expoToken = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    
+    // For now, use Expo push token
+    // Appwrite Messaging might accept Expo tokens, or we may need to convert to FCM tokens
+    token = expoToken;
+    
+  } catch (e: any) {
+    const errorMessage = e?.message || '';
+    
+    // Handle "Cannot find native module" error gracefully
+    if (errorMessage.includes('Cannot find native module') || errorMessage.includes('ExpoPushTokenManager')) {
+      console.warn('⚠️ Push notifications require a development build. Run: npx expo run:android or npx expo run:ios');
+      return null;
+    }
+    
+    // Handle Firebase initialization error
+    if (errorMessage.includes('FirebaseApp is not initialized') || errorMessage.includes('Firebase')) {
+      console.warn('⚠️ Firebase not initialized. Upload FCM credentials to EAS:');
+      console.warn('   1. Run: eas credentials');
+      console.warn('   2. Select: Android → Push Notifications (Legacy)');
+      console.warn('   3. Upload Google Service Account Key or enter Server Key');
+      console.warn('   See: docs/FCM_CREDENTIALS_SETUP.md');
+      return null;
+    }
+    
+    console.error('Error getting push token:', e);
+    throw e;
+  }
+
+  return token;
+}
+
+async function saveFCMTokenToAppwrite(userId: string, token: string) {
+  try {
+    // Method 1: Register with Appwrite Messaging (recommended by Appwrite docs)
+    // This creates a push target associated with the account
+    try {
+      // Check if react-native-appwrite supports createPushTarget
+      // If not available, fall back to custom collection
+      if (account && typeof (account as any).createPushTarget === 'function') {
+        const target = await (account as any).createPushTarget({
+          targetId: ID.unique(),
+          identifier: token,
+        });
+        console.log('✅ Push target created with Appwrite Messaging:', target.$id);
+        
+        // Also save to custom collection for backup/reference
+        await pushTokenService.saveToken(userId, token, Platform.OS).catch(() => {
+          // Non-critical - Appwrite Messaging is primary
+        });
+        return;
+      }
+    } catch (appwriteError: any) {
+      // If Appwrite Messaging API not available, fall back to custom collection
+      console.warn('⚠️ Appwrite Messaging API not available, using custom collection:', appwriteError.message);
+    }
+
+    // Method 2: Fallback - Save to custom collection
+    // This is useful if react-native-appwrite doesn't support createPushTarget yet
+    await pushTokenService.saveToken(userId, token, Platform.OS);
+    console.log('✅ Push token saved to custom collection:', token.substring(0, 20) + '...');
+  } catch (error) {
+    console.error('Error saving FCM token:', error);
+    throw error;
+  }
+}
+

@@ -42,6 +42,8 @@ module.exports = {
         backgroundColor: '#000000',
       },
       package: 'com.workphotopro.app',
+      googleServicesFile: './google-services.json',
+      privacyPolicy: 'https://workphotopro.com/privacy',
       permissions: [
         'android.permission.READ_MEDIA_IMAGES',
         'android.permission.READ_MEDIA_AUDIO',
@@ -96,6 +98,13 @@ module.exports = {
       'expo-audio',
       'expo-video',
       'expo-secure-store',
+      [
+        'expo-notifications',
+        {
+          icon: './assets/images/icon.png',
+          color: '#22c55e',
+        },
+      ],
       [
         'expo-image-picker',
         {
