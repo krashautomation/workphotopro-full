@@ -1,11 +1,15 @@
 import React from 'react'
-import { Dimensions, FlatList, Image, Pressable, StyleSheet, Text, View, Linking } from 'react-native'
+import { Dimensions, FlatList, Image, Pressable, StyleSheet, Text, View, Linking, Platform, Alert } from 'react-native'
 import { Message } from '@/utils/types'
 import { Colors } from '@/utils/colors'
 import { appwriteConfig } from '@/utils/appwrite'
 import { IconSymbol } from '@/components/IconSymbol'
 import { webColors } from '@/styles/webDesignTokens'
 import CachedImage from '@/components/CachedImage'
+import * as FileSystem from 'expo-file-system'
+import * as FileSystemLegacy from 'expo-file-system/legacy'
+import * as MediaLibrary from 'expo-media-library'
+import * as Sharing from 'expo-sharing'
 
 type JobUploadsProps = {
     messages: Message[]
@@ -45,11 +49,110 @@ type AudioItem = {
 
 const NUM_COLUMNS = 3
 const SPACING = 8
+const ALBUM_NAME = 'All WorkPhotoPro'
 
 type SubTab = 'photos' | 'videos' | 'files' | 'audios'
 
 export default function JobUploads({ messages, onImagePress }: JobUploadsProps) {
     const [activeSubTab, setActiveSubTab] = React.useState<SubTab>('photos')
+    const [selectedItems, setSelectedItems] = React.useState<Set<string>>(new Set())
+
+    // Clear selection when switching tabs
+    React.useEffect(() => {
+        setSelectedItems(new Set())
+    }, [activeSubTab])
+
+    const ensurePermissions = async (): Promise<boolean> => {
+        try {
+            const requestResult = await MediaLibrary.requestPermissionsAsync()
+            if (requestResult.status === 'granted') {
+                return true
+            }
+            
+            const { canAskAgain } = await MediaLibrary.getPermissionsAsync()
+            if (!canAskAgain) {
+                Alert.alert(
+                    'Permission Required',
+                    'Photo library access is required to save images. Please enable it in Settings.',
+                    [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                            text: 'Open Settings',
+                            onPress: async () => {
+                                try {
+                                    await Linking.openSettings()
+                                } catch (err) {
+                                    console.error('Error opening settings:', err)
+                                }
+                            }
+                        }
+                    ]
+                )
+                return false
+            }
+            
+            Alert.alert(
+                'Permission Required',
+                'Photo library access is required to save images. Please allow access when prompted.'
+            )
+            return false
+        } catch (e) {
+            console.error('Permission error:', e)
+            Alert.alert('Error', 'Failed to request photo library permission.')
+            return false
+        }
+    }
+
+    const downloadToCache = async (url: string, fileName: string): Promise<string> => {
+        const localUri = `${FileSystemLegacy.cacheDirectory}${fileName}`
+        const downloadResult = await FileSystemLegacy.downloadAsync(url, localUri)
+        return downloadResult.uri
+    }
+
+    const ensureAssetInAlbum = async (asset: MediaLibrary.Asset): Promise<void> => {
+        const albums = await MediaLibrary.getAlbumsAsync()
+        let album = albums.find(a => a.title === ALBUM_NAME)
+        
+        if (album) {
+            await MediaLibrary.addAssetsToAlbumAsync([asset], album, false)
+        } else {
+            if (Platform.OS === 'android') {
+                album = await MediaLibrary.createAlbumAsync(ALBUM_NAME, asset, false)
+            } else {
+                album = await MediaLibrary.createAlbumAsync(ALBUM_NAME)
+                await MediaLibrary.addAssetsToAlbumAsync([asset], album, false)
+            }
+        }
+    }
+
+    const saveToMediaLibrary = async (url: string, fileName: string): Promise<void> => {
+        // Download to cache
+        const localPath = await downloadToCache(url, fileName)
+        
+        // Check if file exists
+        const fileInfo = await FileSystemLegacy.getInfoAsync(localPath)
+        if (!fileInfo.exists) {
+            throw new Error(`File does not exist at path: ${localPath}`)
+        }
+        
+        // Create asset in media library
+        const asset = await MediaLibrary.createAssetAsync(localPath)
+        
+        // Add to album
+        try {
+            await ensureAssetInAlbum(asset)
+        } catch (albumError) {
+            console.warn('Could not add asset to album, but asset is still saved:', albumError)
+        }
+        
+        // Clean up cache file
+        try {
+            const { cacheManager } = await import('@/utils/cacheManager')
+            await cacheManager.deleteCacheFile(localPath)
+        } catch (cleanupError) {
+            console.warn('Could not clean up cache file:', cleanupError)
+        }
+    }
 
     const photos = React.useMemo<PhotoItem[]>(() => {
         return messages
@@ -138,6 +241,59 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
         return Math.floor((width - totalSpacing) / NUM_COLUMNS)
     }, [width])
 
+    const toggleItemSelection = (itemId: string) => {
+        setSelectedItems(prev => {
+            const newSet = new Set(prev)
+            if (newSet.has(itemId)) {
+                newSet.delete(itemId)
+            } else {
+                newSet.add(itemId)
+            }
+            return newSet
+        })
+    }
+
+    const handleSelectAll = () => {
+        let allIds: string[] = []
+        switch (activeSubTab) {
+            case 'photos':
+                allIds = photos.map(p => p.id)
+                break
+            case 'videos':
+                allIds = videos.map(v => v.id)
+                break
+            case 'files':
+                allIds = files.map(f => f.id)
+                break
+            case 'audios':
+                allIds = audios.map(a => a.id)
+                break
+        }
+        setSelectedItems(new Set(allIds))
+    }
+
+    const handleDeselectAll = () => {
+        setSelectedItems(new Set())
+    }
+
+    const getCurrentItems = () => {
+        switch (activeSubTab) {
+            case 'photos':
+                return photos
+            case 'videos':
+                return videos
+            case 'files':
+                return files
+            case 'audios':
+                return audios
+        }
+    }
+
+    const isAllSelected = () => {
+        const currentItems = getCurrentItems()
+        return currentItems.length > 0 && selectedItems.size === currentItems.length
+    }
+
     const renderEmptyState = (title: string, subtitle: string) => (
         <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>{title}</Text>
@@ -161,19 +317,40 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                 contentContainerStyle={styles.listContainer}
                 columnWrapperStyle={{ gap: SPACING }}
                 ItemSeparatorComponent={() => <View style={{ height: SPACING }} />}
-                renderItem={({ item }) => (
-                    <Pressable
-                        style={[styles.imageWrapper, { width: itemSize, height: itemSize }]}
-                        onPress={() => onImagePress(item.uri)}
-                    >
-                        <CachedImage
-                            source={{ uri: item.uri }}
-                            autoCache={true}
-                            style={styles.image}
-                            resizeMode="cover"
-                        />
-                    </Pressable>
-                )}
+                renderItem={({ item }) => {
+                    const isSelected = selectedItems.has(item.id)
+                    return (
+                        <Pressable
+                            style={[
+                                styles.imageWrapper,
+                                { width: itemSize, height: itemSize },
+                                isSelected && styles.itemSelected,
+                            ]}
+                            onPress={() => {
+                                if (selectedItems.size > 0) {
+                                    toggleItemSelection(item.id)
+                                } else {
+                                    onImagePress(item.uri)
+                                }
+                            }}
+                            onLongPress={() => toggleItemSelection(item.id)}
+                        >
+                            <CachedImage
+                                source={{ uri: item.uri }}
+                                autoCache={true}
+                                style={styles.image}
+                                resizeMode="cover"
+                            />
+                            {isSelected && (
+                                <View style={styles.checkmarkOverlay}>
+                                    <View style={styles.checkmarkContainer}>
+                                        <IconSymbol name="checkmark.circle.fill" color={Colors.White} size={20} />
+                                    </View>
+                                </View>
+                            )}
+                        </Pressable>
+                    )
+                }}
             />
         )
     }
@@ -194,25 +371,42 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                 contentContainerStyle={styles.listContainer}
                 columnWrapperStyle={{ gap: SPACING }}
                 ItemSeparatorComponent={() => <View style={{ height: SPACING }} />}
-                renderItem={({ item }) => (
-                    <Pressable
-                        style={[styles.videoWrapper, { width: itemSize, height: itemSize }]}
-                        onPress={() => {
-                            // For now, just show the video URL
-                            // Could implement a video viewer modal later
-                            onImagePress(item.videoUrl)
-                        }}
-                    >
-                        <View style={styles.videoThumbnail}>
-                            <IconSymbol name="video" color={Colors.Primary} size={32} />
-                        </View>
-                        <View style={styles.videoOverlay}>
-                            <View style={styles.playButton}>
-                                <IconSymbol name="play.fill" color={Colors.White} size={20} />
+                renderItem={({ item }) => {
+                    const isSelected = selectedItems.has(item.id)
+                    return (
+                        <Pressable
+                            style={[
+                                styles.videoWrapper,
+                                { width: itemSize, height: itemSize },
+                                isSelected && styles.itemSelected,
+                            ]}
+                            onPress={() => {
+                                if (selectedItems.size > 0) {
+                                    toggleItemSelection(item.id)
+                                } else {
+                                    onImagePress(item.videoUrl)
+                                }
+                            }}
+                            onLongPress={() => toggleItemSelection(item.id)}
+                        >
+                            <View style={styles.videoThumbnail}>
+                                <IconSymbol name="video" color={Colors.Primary} size={32} />
                             </View>
-                        </View>
-                    </Pressable>
-                )}
+                            <View style={styles.videoOverlay}>
+                                <View style={styles.playButton}>
+                                    <IconSymbol name="play.fill" color={Colors.White} size={20} />
+                                </View>
+                            </View>
+                            {isSelected && (
+                                <View style={styles.checkmarkOverlay}>
+                                    <View style={styles.checkmarkContainer}>
+                                        <IconSymbol name="checkmark.circle.fill" color={Colors.White} size={20} />
+                                    </View>
+                                </View>
+                            )}
+                        </Pressable>
+                    )
+                }}
             />
         )
     }
@@ -233,29 +427,47 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                 contentContainerStyle={styles.listContainer}
                 columnWrapperStyle={{ gap: SPACING }}
                 ItemSeparatorComponent={() => <View style={{ height: SPACING }} />}
-                renderItem={({ item }) => (
-                    <Pressable
-                        style={[styles.fileWrapper, { width: itemSize, height: itemSize }]}
-                        onPress={() => {
-                            // Open file URL
-                            if (item.fileUrl) {
-                                Linking.openURL(item.fileUrl)
-                            }
-                        }}
-                    >
-                        <View style={styles.fileIconContainer}>
-                            <IconSymbol name="doc.text" color={Colors.Primary} size={32} />
-                        </View>
-                        <Text style={styles.fileName} numberOfLines={2}>
-                            {item.name}
-                        </Text>
-                        {item.fileSize && (
-                            <Text style={styles.fileSize} numberOfLines={1}>
-                                {(item.fileSize / 1024).toFixed(1)} KB
+                renderItem={({ item }) => {
+                    const isSelected = selectedItems.has(item.id)
+                    return (
+                        <Pressable
+                            style={[
+                                styles.fileWrapper,
+                                { width: itemSize, height: itemSize },
+                                isSelected && styles.itemSelected,
+                            ]}
+                            onPress={() => {
+                                if (selectedItems.size > 0) {
+                                    toggleItemSelection(item.id)
+                                } else {
+                                    if (item.fileUrl) {
+                                        Linking.openURL(item.fileUrl)
+                                    }
+                                }
+                            }}
+                            onLongPress={() => toggleItemSelection(item.id)}
+                        >
+                            <View style={styles.fileIconContainer}>
+                                <IconSymbol name="doc.text" color={Colors.Primary} size={32} />
+                            </View>
+                            <Text style={styles.fileName} numberOfLines={2}>
+                                {item.name}
                             </Text>
-                        )}
-                    </Pressable>
-                )}
+                            {item.fileSize && (
+                                <Text style={styles.fileSize} numberOfLines={1}>
+                                    {(item.fileSize / 1024).toFixed(1)} KB
+                                </Text>
+                            )}
+                            {isSelected && (
+                                <View style={styles.checkmarkOverlay}>
+                                    <View style={styles.checkmarkContainer}>
+                                        <IconSymbol name="checkmark.circle.fill" color={Colors.White} size={20} />
+                                    </View>
+                                </View>
+                            )}
+                        </Pressable>
+                    )
+                }}
             />
         )
     }
@@ -283,32 +495,206 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                 contentContainerStyle={styles.listContainer}
                 columnWrapperStyle={{ gap: SPACING }}
                 ItemSeparatorComponent={() => <View style={{ height: SPACING }} />}
-                renderItem={({ item }) => (
-                    <Pressable
-                        style={[styles.audioWrapper, { width: itemSize, height: itemSize }]}
-                        onPress={() => {
-                            // Open audio URL
-                            if (item.audioUrl) {
-                                Linking.openURL(item.audioUrl)
-                            }
-                        }}
-                    >
-                        <View style={styles.audioIconContainer}>
-                            <IconSymbol name="mic" color={Colors.Primary} size={32} />
-                        </View>
-                        <View style={styles.playButtonSmall}>
-                            <IconSymbol name="play.fill" color={Colors.White} size={16} />
-                        </View>
-                        {item.audioDuration && (
-                            <Text style={styles.audioDuration} numberOfLines={1}>
-                                {formatDuration(item.audioDuration)}
-                            </Text>
-                        )}
-                    </Pressable>
-                )}
+                renderItem={({ item }) => {
+                    const isSelected = selectedItems.has(item.id)
+                    return (
+                        <Pressable
+                            style={[
+                                styles.audioWrapper,
+                                { width: itemSize, height: itemSize },
+                                isSelected && styles.itemSelected,
+                            ]}
+                            onPress={() => {
+                                if (selectedItems.size > 0) {
+                                    toggleItemSelection(item.id)
+                                } else {
+                                    if (item.audioUrl) {
+                                        Linking.openURL(item.audioUrl)
+                                    }
+                                }
+                            }}
+                            onLongPress={() => toggleItemSelection(item.id)}
+                        >
+                            <View style={styles.audioIconContainer}>
+                                <IconSymbol name="mic" color={Colors.Primary} size={32} />
+                            </View>
+                            <View style={styles.playButtonSmall}>
+                                <IconSymbol name="play.fill" color={Colors.White} size={16} />
+                            </View>
+                            {item.audioDuration && (
+                                <Text style={styles.audioDuration} numberOfLines={1}>
+                                    {formatDuration(item.audioDuration)}
+                                </Text>
+                            )}
+                            {isSelected && (
+                                <View style={styles.checkmarkOverlay}>
+                                    <View style={styles.checkmarkContainer}>
+                                        <IconSymbol name="checkmark.circle.fill" color={Colors.White} size={20} />
+                                    </View>
+                                </View>
+                            )}
+                        </Pressable>
+                    )
+                }}
             />
         )
     }
+
+    const handleDownloadAll = async () => {
+        if (selectedItems.size === 0) return
+
+        let itemsToDownload: Array<{ url: string; name: string }> = []
+
+        const baseTimestamp = Date.now()
+        switch (activeSubTab) {
+            case 'photos':
+                itemsToDownload = photos
+                    .filter(photo => selectedItems.has(photo.id))
+                    .map((photo, index) => ({
+                        url: photo.uri,
+                        name: `photo_${baseTimestamp + index}.jpg`,
+                    }))
+                break
+            case 'videos':
+                itemsToDownload = videos
+                    .filter(video => selectedItems.has(video.id))
+                    .map((video, index) => ({
+                        url: video.videoUrl,
+                        name: `video_${baseTimestamp + index}.mp4`,
+                    }))
+                break
+            case 'files':
+                itemsToDownload = files
+                    .filter(file => selectedItems.has(file.id))
+                    .map(file => ({
+                        url: file.fileUrl,
+                        name: file.name,
+                    }))
+                break
+            case 'audios':
+                itemsToDownload = audios
+                    .filter(audio => selectedItems.has(audio.id))
+                    .map((audio, index) => ({
+                        url: audio.audioUrl,
+                        name: `audio_${baseTimestamp + index}.m4a`,
+                    }))
+                break
+        }
+
+        if (itemsToDownload.length === 0) return
+
+        try {
+            if (Platform.OS === 'web') {
+                // For web, download files individually
+                if (typeof document !== 'undefined') {
+                    for (const item of itemsToDownload) {
+                        const link = document.createElement('a')
+                        link.href = item.url
+                        link.download = item.name
+                        link.target = '_blank'
+                        document.body.appendChild(link)
+                        link.click()
+                        document.body.removeChild(link)
+                        // Small delay between downloads
+                        await new Promise(resolve => setTimeout(resolve, 100))
+                    }
+                    Alert.alert('Download started', `Downloading ${itemsToDownload.length} file(s)...`)
+                } else {
+                    // Fallback: open URLs directly
+                    for (const item of itemsToDownload) {
+                        Linking.openURL(item.url)
+                        await new Promise(resolve => setTimeout(resolve, 200))
+                    }
+                }
+            } else {
+                // For mobile, use MediaLibrary for photos/videos/audios, FileSystem for files
+                const isMediaType = activeSubTab === 'photos' || activeSubTab === 'videos' || activeSubTab === 'audios'
+                
+                if (isMediaType) {
+                    // Check permissions first
+                    const hasPermission = await ensurePermissions()
+                    if (!hasPermission) {
+                        return
+                    }
+
+                    Alert.alert(
+                        'Downloading',
+                        `Downloading ${itemsToDownload.length} file(s) to ${ALBUM_NAME}...`,
+                        [{ text: 'OK' }]
+                    )
+
+                    let successCount = 0
+                    let failCount = 0
+
+                    // Download and save each item sequentially to avoid overwhelming the system
+                    for (const item of itemsToDownload) {
+                        try {
+                            await saveToMediaLibrary(item.url, item.name)
+                            successCount++
+                        } catch (error) {
+                            console.error(`Failed to download ${item.name}:`, error)
+                            failCount++
+                        }
+                    }
+
+                    if (successCount > 0) {
+                        Alert.alert(
+                            'Download complete',
+                            `Successfully saved ${successCount} file(s) to ${ALBUM_NAME} album.${failCount > 0 ? `\n\n${failCount} file(s) failed to download.` : ''}`
+                        )
+                    } else {
+                        Alert.alert(
+                            'Download failed',
+                            `Failed to download ${failCount} file(s). Please check console for details.`
+                        )
+                    }
+                } else {
+                    // For files (documents), use FileSystem and share
+                    Alert.alert(
+                        'Downloading',
+                        `Downloading ${itemsToDownload.length} file(s)...`,
+                        [{ text: 'OK' }]
+                    )
+
+                    const downloadPromises = itemsToDownload.map(async (item) => {
+                        try {
+                            const fileUri = `${FileSystem.documentDirectory}${item.name}`
+                            const downloadResult = await FileSystem.downloadAsync(item.url, fileUri)
+                            return downloadResult.uri
+                        } catch (error) {
+                            console.error(`Failed to download ${item.name}:`, error)
+                            return null
+                        }
+                    })
+
+                    const downloadedFiles = await Promise.all(downloadPromises)
+                    const successfulDownloads = downloadedFiles.filter(uri => uri !== null)
+
+                    if (successfulDownloads.length > 0 && (await Sharing.isAvailableAsync())) {
+                        // Share the first file (or could implement sharing multiple files)
+                        await Sharing.shareAsync(successfulDownloads[0])
+                    } else {
+                        Alert.alert(
+                            'Download complete',
+                            `Successfully downloaded ${successfulDownloads.length} file(s) to your device.`
+                        )
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Download error:', error)
+            Alert.alert('Download failed', 'An error occurred while downloading files.')
+        }
+    }
+
+    const getDownloadButtonText = () => {
+        if (selectedItems.size === 0) {
+            return 'Download selected'
+        }
+        return `Download selected (${selectedItems.size})`
+    }
+
+    const hasSelectedItems = selectedItems.size > 0
 
     return (
         <View style={styles.container}>
@@ -380,6 +766,42 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                 </Pressable>
             </View>
 
+            {/* Action buttons */}
+            <View style={styles.downloadButtonContainer}>
+                <View style={styles.buttonRow}>
+                    <Pressable
+                        style={styles.selectAllButton}
+                        onPress={isAllSelected() ? handleDeselectAll : handleSelectAll}
+                    >
+                        <Text style={styles.selectAllButtonText}>
+                            {isAllSelected() ? 'Deselect All' : 'Select All'}
+                        </Text>
+                    </Pressable>
+                    <Pressable
+                        style={[
+                            styles.downloadButton,
+                            !hasSelectedItems && styles.downloadButtonDisabled,
+                        ]}
+                        onPress={handleDownloadAll}
+                        disabled={!hasSelectedItems}
+                    >
+                        <IconSymbol
+                            name="arrow.down.circle"
+                            color={hasSelectedItems ? webColors.primary : Colors.Gray}
+                            size={18}
+                        />
+                        <Text
+                            style={[
+                                styles.downloadButtonText,
+                                !hasSelectedItems && styles.downloadButtonTextDisabled,
+                            ]}
+                        >
+                            {getDownloadButtonText()}
+                        </Text>
+                    </Pressable>
+                </View>
+            </View>
+
             {/* Content */}
             <View style={styles.content}>
                 {activeSubTab === 'photos' && renderPhotosGrid()}
@@ -420,6 +842,92 @@ const styles = StyleSheet.create({
     subTabTextActive: {
         color: webColors.primary,
         fontWeight: '600',
+    },
+    downloadButtonContainer: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: Colors.Background,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.Gray,
+    },
+    buttonRow: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    selectAllButton: {
+        flex: 1,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        backgroundColor: Colors.Secondary,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: Colors.Gray,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    selectAllButtonText: {
+        color: Colors.Text,
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    downloadButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        backgroundColor: Colors.Secondary,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: webColors.primary,
+        gap: 8,
+    },
+    downloadButtonDisabled: {
+        borderColor: Colors.Gray,
+        opacity: 0.5,
+    },
+    downloadButtonText: {
+        color: webColors.primary,
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    downloadButtonTextDisabled: {
+        color: Colors.Gray,
+    },
+    checkmarkOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.2)',
+        borderRadius: 8,
+        justifyContent: 'flex-start',
+        alignItems: 'flex-end',
+        padding: 8,
+    },
+    checkmarkContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: webColors.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: Colors.White,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+    },
+    itemSelected: {
+        borderColor: webColors.primary,
+        borderWidth: 3,
     },
     content: {
         flex: 1,
