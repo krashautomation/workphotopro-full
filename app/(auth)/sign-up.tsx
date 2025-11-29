@@ -13,7 +13,8 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import GoogleAuthButton from '@/components/GoogleAuthButton';
+// GOOGLE_AUTH: Commented out - uncomment to re-enable Google sign up
+// import GoogleAuthButton from '@/components/GoogleAuthButton';
 import { ChevronLeft } from 'lucide-react-native';
 
 type SignUpStep = 0 | 1 | 2 | 3;
@@ -26,7 +27,9 @@ const STEPS = [
 ] as const;
 
 export default function SignUp() {
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp } = useAuth();
+  // GOOGLE_AUTH: Commented out - uncomment to re-enable Google sign up
+  // const { signUp, signInWithGoogle } = useAuth();
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<SignUpStep>(0);
   const [name, setName] = useState('');
@@ -180,22 +183,23 @@ export default function SignUp() {
     return currentStep === 2 || currentStep === 3;
   };
 
-  const handleGoogleSuccess = async () => {
-    try {
-      console.log('🟡 SignUp: handleGoogleSuccess called');
-      // GoogleAuthButton already calls signInWithGoogle(), so we just navigate
-      console.log('🟡 SignUp: OAuth successful, navigating to jobs...');
-      router.replace('/(jobs)');
-    } catch (error: any) {
-      console.error('🔴 SignUp: Google OAuth error:', error);
-      setError(error.message || 'Google sign up failed. Please try again.');
-    }
-  };
+  // GOOGLE_AUTH: Commented out - uncomment to re-enable Google sign up
+  // const handleGoogleSuccess = async () => {
+  //   try {
+  //     console.log('🟡 SignUp: handleGoogleSuccess called');
+  //     // GoogleAuthButton already calls signInWithGoogle(), so we just navigate
+  //     console.log('🟡 SignUp: OAuth successful, navigating to jobs...');
+  //     router.replace('/(jobs)');
+  //   } catch (error: any) {
+  //     console.error('🔴 SignUp: Google OAuth error:', error);
+  //     setError(error.message || 'Google sign up failed. Please try again.');
+  //   }
+  // };
 
-  const handleGoogleError = (error: Error) => {
-    console.error('Google sign up error:', error);
-    setError(error.message || 'Google sign up failed. Please try again.');
-  };
+  // const handleGoogleError = (error: Error) => {
+  //   console.error('Google sign up error:', error);
+  //   setError(error.message || 'Google sign up failed. Please try again.');
+  // };
 
 
   return (
@@ -274,8 +278,9 @@ export default function SignUp() {
             )}
           </TouchableOpacity>
 
+          {/* GOOGLE_AUTH: Commented out - uncomment to re-enable Google sign up */}
           {/* Show Google auth only on first step */}
-          {currentStep === 0 && (
+          {/* {currentStep === 0 && (
             <>
               <View style={styles.divider}>
                 <View style={styles.dividerLine} />
@@ -289,7 +294,7 @@ export default function SignUp() {
                 mode="sign-up"
               />
             </>
-          )}
+          )} */}
 
           <View style={globalStyles.linkContainer}>
             <Text style={globalStyles.body}>Already have an account? </Text>

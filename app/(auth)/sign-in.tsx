@@ -1,5 +1,4 @@
 import { useAuth } from '@/context/AuthContext';
-import { authService } from '@/lib/appwrite/auth';
 import { getPlaceholderTextColor, globalStyles } from '@/styles/globalStyles';
 import { Link, useRouter, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -14,10 +13,13 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import GoogleAuthButton from '@/components/GoogleAuthButton';
+// GOOGLE_AUTH: Commented out - uncomment to re-enable Google sign in
+// import GoogleAuthButton from '@/components/GoogleAuthButton';
 
 export default function SignIn() {
-  const { signInWithGoogle, signIn } = useAuth();
+  const { signIn } = useAuth();
+  // GOOGLE_AUTH: Commented out - uncomment to re-enable Google sign in
+  // const { signInWithGoogle, signIn } = useAuth();
   const router = useRouter();
   const { verified } = useLocalSearchParams<{ verified?: string }>();
   const [email, setEmail] = useState('');
@@ -53,19 +55,20 @@ export default function SignIn() {
     }
   };
 
-  const handleGoogleSuccess = async () => {
-    try {
-      // GoogleAuthButton already calls signInWithGoogle(), so we just navigate
-      router.replace('/(jobs)');
-    } catch (error: any) {
-      setError(error.message || 'Google sign in failed. Please try again.');
-    }
-  };
+  // GOOGLE_AUTH: Commented out - uncomment to re-enable Google sign in
+  // const handleGoogleSuccess = async () => {
+  //   try {
+  //     // GoogleAuthButton already calls signInWithGoogle(), so we just navigate
+  //     router.replace('/(jobs)');
+  //   } catch (error: any) {
+  //     setError(error.message || 'Google sign in failed. Please try again.');
+  //   }
+  // };
 
-  const handleGoogleError = (error: Error) => {
-    console.error('Google sign in error:', error);
-    setError(error.message || 'Google sign in failed. Please try again.');
-  };
+  // const handleGoogleError = (error: Error) => {
+  //   console.error('Google sign in error:', error);
+  //   setError(error.message || 'Google sign in failed. Please try again.');
+  // };
 
 
   return (
@@ -125,7 +128,8 @@ export default function SignIn() {
             )}
           </TouchableOpacity>
 
-          <View style={styles.divider}>
+          {/* GOOGLE_AUTH: Commented out - uncomment to re-enable Google sign in */}
+          {/* <View style={styles.divider}>
             <View style={styles.dividerLine} />
             <Text style={styles.dividerText}>or continue with</Text>
             <View style={styles.dividerLine} />
@@ -135,7 +139,7 @@ export default function SignIn() {
             onSuccess={handleGoogleSuccess}
             onError={handleGoogleError}
             mode="sign-in"
-          />
+          /> */}
 
           <View style={globalStyles.linkContainer}>
             <Text style={globalStyles.body}>Don't have an account? </Text>
