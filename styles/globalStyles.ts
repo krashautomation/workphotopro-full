@@ -73,12 +73,13 @@ export const globalStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
     paddingVertical: 48,
-    paddingHorizontal: 24,
+    paddingHorizontal: 0,
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   logoContainer: {
     alignItems: 'center',
+    width: '100%',
     marginTop: 80,
     marginBottom: 32,
   },
@@ -98,8 +99,9 @@ export const globalStyles = StyleSheet.create({
   },
   buttonSection: {
     width: '100%',
-    maxWidth: 320,
-    gap: 24,
+    maxWidth: '100%',
+    gap: 12,
+    paddingHorizontal: 20,
   },
   primaryButton: {
     backgroundColor: colors.primary,
@@ -128,6 +130,7 @@ export const globalStyles = StyleSheet.create({
     alignItems: 'center',
     height: 56,
     justifyContent: 'center',
+    width: '100%',
   },
   footerSection: {
     marginTop: 32,
@@ -138,10 +141,11 @@ export const globalStyles = StyleSheet.create({
     color: colors.text,
     padding: 15,
     borderRadius: 8,
-    marginBottom: 15,
+    marginBottom: 0,
     fontSize: 16,
     borderWidth: 1,
     borderColor: colors.border,
+    width: '100%',
   },
   button: {
     backgroundColor: colors.primary,
@@ -150,6 +154,7 @@ export const globalStyles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
     marginBottom: 20,
+    width: '100%',
   },
   linkContainer: {
     flexDirection: 'row',

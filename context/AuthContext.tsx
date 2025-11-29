@@ -53,10 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (email: string, password: string, name: string) => {
     try {
       // Create account with email and password
+      // This also creates a session automatically (user is logged in)
       const user = await authService.signUp(email, password, name);
-      
-      // Send verification email (OTP) and get userId for OTP verification
-      const verificationResult = await authService.sendVerificationEmail(email);
       
       // Create default organization and team for new user
       // This is non-blocking - errors won't prevent signup
@@ -67,10 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.warn('⚠️ Default workspace creation skipped or failed - user can still sign up');
       }
       
-      // Return user email and userId for check-email screen (OTP verification)
+      // Refresh user state after signup
+      await checkAuth();
+      
+      // Return user info (no verification needed for email/password auth)
       return {
-        userId: verificationResult.userId,
-        email: verificationResult.email,
+        userId: user.$id,
+        email: user.email,
       };
     } catch (error) {
       console.error('Sign up error in context:', error);

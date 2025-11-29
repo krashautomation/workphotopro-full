@@ -5,6 +5,7 @@ import * as WebBrowser from 'expo-web-browser';
 export const authService = {
   /**
    * Create a new user account and create a session
+   * User is automatically logged in after account creation
    */
   async signUp(email: string, password: string, name: string) {
     try {
@@ -12,7 +13,7 @@ export const authService = {
       const user = await account.create(ID.unique(), email, password, name);
       
       // Create a session immediately after account creation
-      // This is required to perform account operations like sending verification emails
+      // User is now logged in and can access the app
       await account.createEmailPasswordSession(email, password);
       
       return user;
