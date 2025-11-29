@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Pressable, ActivityIndicator, Text } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { IconSymbol } from './IconSymbol';
@@ -28,6 +28,8 @@ export default function VideoPlayer({
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
     const [retryKey, setRetryKey] = useState(0);
+    const playerRef = useRef<any>(null);
+    const isUnmountingRef = useRef(false);
     
     // Get cached URI (cache-first strategy)
     const cachedUri = useCachedMedia(uri);
@@ -51,65 +53,88 @@ export default function VideoPlayer({
     }, [uri]);
 
     // Use retryKey and URI to force player recreation on retry or URI change
-    const playerUri = retryKey > 0 ? `${cachedUri}?retry=${retryKey}` : cachedUri;
+    // Use a stable key to prevent unnecessary player recreation
+    const playerUri = React.useMemo(() => {
+        return retryKey > 0 ? `${cachedUri}?retry=${retryKey}` : cachedUri;
+    }, [cachedUri, retryKey]);
+    
     const player = useVideoPlayer(playerUri, (player) => {
         player.loop = false;
     });
 
     useEffect(() => {
-        if (!player) return;
+        if (!player || isUnmountingRef.current) return;
 
         if (autoPlay) {
-            player.play();
+            try {
+                if (typeof player.play === 'function') {
+                    player.play();
+                }
+            } catch (error) {
+                console.warn('[VideoPlayer] Error auto-playing:', error);
+            }
         }
 
-        const subscription = player.addListener('statusChange', (status) => {
-            if (status.status === 'readyToPlay') {
-                setIsLoading(false);
-                setHasError(false);
-            } else if (status.status === 'error') {
-                setIsLoading(false);
-                setHasError(true);
-                if (onError) {
-                    onError(new Error(status.error?.message || 'Unknown video error'));
+        let subscription: any = null;
+        try {
+            subscription = player.addListener('statusChange', (status) => {
+                if (isUnmountingRef.current) return;
+                
+                if (status.status === 'readyToPlay') {
+                    setIsLoading(false);
+                    setHasError(false);
+                } else if (status.status === 'error') {
+                    setIsLoading(false);
+                    setHasError(true);
+                    if (onError) {
+                        onError(new Error(status.error?.message || 'Unknown video error'));
+                    }
+                } else if (status.status === 'loading') {
+                    setIsLoading(true);
                 }
-            } else if (status.status === 'loading') {
-                setIsLoading(true);
-            }
-        });
+            });
+        } catch (error) {
+            console.warn('[VideoPlayer] Error setting up listener:', error);
+        }
 
         return () => {
-            subscription.remove();
+            if (subscription) {
+                try {
+                    subscription.remove();
+                } catch (error) {
+                    // Subscription may already be removed
+                }
+            }
         };
     }, [player, autoPlay, onError]);
 
-    // Cleanup player when component unmounts or URI changes
+    // Store player reference
     useEffect(() => {
-        return () => {
-            if (player) {
-                try {
-                    // Pause and release the player
-                    if (player.playing) {
-                        player.pause();
-                    }
-                    // The player will be automatically released when the component unmounts
-                    // but we ensure it's paused first
-                } catch (error) {
-                    // Ignore errors during cleanup
-                    console.warn('[VideoPlayer] Cleanup error (non-critical):', error);
-                }
-            }
-        };
+        playerRef.current = player;
     }, [player]);
 
+    // Cleanup player when component unmounts
+    useEffect(() => {
+        isUnmountingRef.current = false;
+        return () => {
+            isUnmountingRef.current = true;
+            // Don't try to cleanup player - expo-video handles it automatically
+            // Attempting to cleanup can cause errors if player is already released
+            playerRef.current = null;
+        };
+    }, []);
+
     const togglePlayPause = () => {
-        if (hasError || !player) return;
+        if (hasError || !player || isUnmountingRef.current) return;
         
         try {
-            if (player.playing) {
-                player.pause();
-            } else {
-                player.play();
+            // Check if player methods are available before calling
+            if (typeof player.playing !== 'undefined' && typeof player.pause === 'function' && typeof player.play === 'function') {
+                if (player.playing) {
+                    player.pause();
+                } else {
+                    player.play();
+                }
             }
         } catch (error) {
             console.error('Error toggling playback:', error);
@@ -137,7 +162,7 @@ export default function VideoPlayer({
         );
     }
 
-    if (!player) {
+    if (!player || isUnmountingRef.current) {
         return (
             <View style={[styles.container, style, styles.errorContainer]}>
                 <ActivityIndicator size="large" color={Colors.Primary} />

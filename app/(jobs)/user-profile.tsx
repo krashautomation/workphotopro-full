@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Coins } from 'lucide-react-native';
+import { Coins, Building2 } from 'lucide-react-native';
+import { Image } from 'expo-image';
 import Avatar from '@/components/Avatar';
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
@@ -69,6 +70,13 @@ export default function UserProfileScreen() {
     }
     return googleData?.photoUrl || (user as any)?.profileImage || null;
   }, [googleData?.photoUrl, imageParam, user]);
+
+  const organizationLogo = React.useMemo(() => {
+    return (currentOrganization as any)?.logoUrl || 
+           (currentOrganization as any)?.logo || 
+           (currentOrganization as any)?.imageUrl || 
+           null;
+  }, [currentOrganization]);
 
   const contactsCount = React.useMemo(() => {
     const parsed = contactsCountParam ? Number(contactsCountParam) : null;
@@ -189,10 +197,25 @@ export default function UserProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{organizationName}</Text>
-          <Text style={styles.descriptionText}>
-            {currentOrganization?.description || 'No description available'}
-          </Text>
+          <View style={styles.organizationContent}>
+            {organizationLogo ? (
+              <Image
+                source={{ uri: organizationLogo }}
+                style={styles.organizationLogo}
+                contentFit="cover"
+              />
+            ) : (
+              <View style={styles.organizationLogoPlaceholder}>
+                <Building2 size={24} color={colors.textSecondary} strokeWidth={2} />
+              </View>
+            )}
+            <View style={styles.organizationText}>
+              <Text style={styles.sectionTitle}>{organizationName}</Text>
+              <Text style={styles.descriptionText}>
+                {currentOrganization?.description || 'No description available'}
+              </Text>
+            </View>
+          </View>
         </View>
 
       </ScrollView>
@@ -244,6 +267,28 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.05)',
     padding: 16,
     gap: 16,
+  },
+  organizationContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  organizationLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+  },
+  organizationLogoPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#1a1a1a',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  organizationText: {
+    flex: 1,
   },
   sectionTitle: {
     color: '#fff',
