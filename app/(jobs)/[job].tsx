@@ -1868,11 +1868,15 @@ const loadOlderMessages = async () => {
 
                                             {/* Video Message */}
                                             {item.videoFileId && item.content !== 'Message deleted by user' && (
-                                                <View style={{
-                                                    width: '100%',
-                                                    marginBottom: 8,
-                                                }}>
+                                                <View 
+                                                    key={`video-${item.videoFileId}`}
+                                                    style={{
+                                                        width: '100%',
+                                                        marginBottom: 8,
+                                                    }}
+                                                >
                                                     <VideoPlayer
+                                                        key={`video-player-${item.videoFileId}`}
                                                         uri={appwriteConfig.bucket ? `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.videoFileId}/view?project=${appwriteConfig.projectId}` : ''}
                                                         fileId={item.videoFileId}
                                                         showControls={true}

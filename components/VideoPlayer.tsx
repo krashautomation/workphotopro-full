@@ -43,7 +43,14 @@ export default function VideoPlayer({
         }
     }, [uri, cachedUri, autoCache, fileId]);
 
-    // Use retryKey to force player recreation on retry
+    // Reset state when URI changes
+    useEffect(() => {
+        setIsLoading(true);
+        setHasError(false);
+        setRetryKey(0);
+    }, [uri]);
+
+    // Use retryKey and URI to force player recreation on retry or URI change
     const playerUri = retryKey > 0 ? `${cachedUri}?retry=${retryKey}` : cachedUri;
     const player = useVideoPlayer(playerUri, (player) => {
         player.loop = false;
@@ -75,6 +82,25 @@ export default function VideoPlayer({
             subscription.remove();
         };
     }, [player, autoPlay, onError]);
+
+    // Cleanup player when component unmounts or URI changes
+    useEffect(() => {
+        return () => {
+            if (player) {
+                try {
+                    // Pause and release the player
+                    if (player.playing) {
+                        player.pause();
+                    }
+                    // The player will be automatically released when the component unmounts
+                    // but we ensure it's paused first
+                } catch (error) {
+                    // Ignore errors during cleanup
+                    console.warn('[VideoPlayer] Cleanup error (non-critical):', error);
+                }
+            }
+        };
+    }, [player]);
 
     const togglePlayPause = () => {
         if (hasError || !player) return;
@@ -121,7 +147,7 @@ export default function VideoPlayer({
     }
 
     return (
-        <View style={[styles.container, style]} key={retryKey}>
+        <View style={[styles.container, style]} key={`${fileId || uri}-${retryKey}`}>
             <VideoView
                 player={player}
                 style={styles.video}
@@ -136,7 +162,7 @@ export default function VideoPlayer({
                 </View>
             )}
 
-            {!showControls && !isLoading && !hasError && (
+            {!showControls && !isLoading && !hasError && player && (
                 <Pressable
                     style={styles.playButtonOverlay}
                     onPress={togglePlayPause}
