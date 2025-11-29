@@ -1967,6 +1967,9 @@ const loadOlderMessages = async () => {
                                                     fileId={item.audioFileId}
                                                     duration={item.audioDuration}
                                                     autoCache={true}
+                                                    senderName={item.senderName}
+                                                    senderPhoto={item.senderPhoto}
+                                                    showAvatar={true}
                                                 />
                                             )}
                                             
@@ -2270,44 +2273,117 @@ const loadOlderMessages = async () => {
                                     borderColor: Colors.Primary,
                                     padding: 12,
                                 }}>
+                                    {(() => {
+                                        const [previewProfilePicture, setPreviewProfilePicture] = React.useState<string | null>(null);
+                                        React.useEffect(() => {
+                                            getUserProfilePicture().then(setPreviewProfilePicture).catch(() => {});
+                                        }, []);
+                                        
+                                        return (
                                     <View style={{
                                         flexDirection: 'row',
-                                        alignItems: 'center',
+                                        alignItems: 'flex-start',
                                         gap: 12,
                                     }}>
-                                        <IconSymbol name="mic" color={Colors.Primary} size={24} />
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={{ 
-                                                color: Colors.Text, 
-                                                fontSize: 14,
-                                                fontWeight: '600'
-                                            }}>
-                                                Audio recording ready
-                                            </Text>
-                                            <Text style={{ 
-                                                color: Colors.Gray, 
-                                                fontSize: 12,
-                                                marginTop: 2
-                                            }}>
-                                                {Math.floor(selectedAudio.duration / 60)}:{(selectedAudio.duration % 60).toString().padStart(2, '0')}
-                                            </Text>
-                                        </View>
-                                        {!isUploading && (
-                                            <Pressable
-                                                onPress={() => setSelectedAudio(null)}
-                                                style={{
-                                                    backgroundColor: 'rgba(0,0,0,0.6)',
-                                                    borderRadius: 16,
-                                                    width: 32,
-                                                    height: 32,
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                }}
-                                            >
-                                                <IconSymbol name="xmark" color={Colors.White} size={20} />
-                                            </Pressable>
-                                        )}
-                                    </View>
+                                                {/* Profile Picture with Microphone Badge Overlay */}
+                                                <View style={{ position: 'relative', marginRight: 0 }}>
+                                                    <Avatar
+                                                        name={user?.name || 'User'}
+                                                        imageUrl={previewProfilePicture || undefined}
+                                                        size={42}
+                                                    />
+                                                    {/* Microphone Icon in Green Dot - Bottom Right Overlay */}
+                                                    <View style={{
+                                                        position: 'absolute',
+                                                        bottom: -2,
+                                                        right: -2,
+                                                        width: 20,
+                                                        height: 20,
+                                                        borderRadius: 10,
+                                                        backgroundColor: Colors.Primary,
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        borderWidth: 2,
+                                                        borderColor: Colors.Secondary,
+                                                    }}>
+                                                        <IconSymbol
+                                                            name="mic.fill"
+                                                            color={Colors.White}
+                                                            size={12}
+                                                        />
+                                                    </View>
+                                                </View>
+                                                
+                                                {/* Play Button */}
+                                                <View style={{ marginTop: 4 }}>
+                                                    <IconSymbol name="play.fill" color={Colors.Primary} size={32} />
+                                                </View>
+                                                
+                                                {/* Waveform Preview and Duration Container */}
+                                                <View style={{
+                                                    flex: 1,
+                                                    gap: 2,
+                                                }}>
+                                                    {/* Waveform Preview */}
+                                                    {(() => {
+                                                        // Generate consistent waveform heights
+                                                        const waveformHeights = React.useMemo(() => 
+                                                            Array.from({ length: 20 }, () => 4 + Math.random() * 24),
+                                                            []
+                                                        );
+                                                        
+                                                        return (
+                                                            <View style={{
+                                                                flexDirection: 'row',
+                                                                alignItems: 'center',
+                                                                height: 32,
+                                                                gap: 2,
+                                                                width: '100%',
+                                                            }}>
+                                                                {waveformHeights.map((height, index) => (
+                                                                    <View
+                                                                        key={index}
+                                                                        style={{
+                                                                            flex: 1,
+                                                                            backgroundColor: Colors.Gray,
+                                                                            borderRadius: 1.5,
+                                                                            height: height,
+                                                                        }}
+                                                                    />
+                                                                ))}
+                                                            </View>
+                                                        );
+                                                    })()}
+                                                    
+                                                    {/* Duration */}
+                                                    <Text style={{ 
+                                                        color: Colors.Text, 
+                                                        fontSize: 12,
+                                                        textAlign: 'left',
+                                                    }}>
+                                                        {Math.floor(selectedAudio.duration / 60)}:{(selectedAudio.duration % 60).toString().padStart(2, '0')}
+                                                    </Text>
+                                                </View>
+                                                
+                                                {/* Remove Button */}
+                                                {!isUploading && (
+                                                    <Pressable
+                                                        onPress={() => setSelectedAudio(null)}
+                                                        style={{
+                                                            backgroundColor: 'rgba(0,0,0,0.6)',
+                                                            borderRadius: 16,
+                                                            width: 32,
+                                                            height: 32,
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                        }}
+                                                    >
+                                                        <IconSymbol name="xmark" color={Colors.White} size={20} />
+                                                    </Pressable>
+                                                )}
+                                            </View>
+                                        );
+                                    })()}
                                     
                                     {/* Upload Progress Indicator */}
                                     {isUploading && uploadStatus && (
