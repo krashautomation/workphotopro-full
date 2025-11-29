@@ -10,7 +10,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
-import { Coins, Gem, TableProperties, MessageCircle, Plus, Camera, Video, Info, SquareCheck, SquareChevronRight } from 'lucide-react-native';
+import { Coins, TableProperties, MessageCircle, Plus, Camera, Video, SquareCheck, SquareChevronRight, ChevronRight } from 'lucide-react-native';
 import { useJobFilters } from '@/context/JobFilterContext';
 
 export default function Jobs() {
@@ -36,7 +36,6 @@ export default function Jobs() {
   const [userProfilePicture, setUserProfilePicture] = useState<string | null>(null);
   const [googleData, setGoogleData] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showProgressTooltip, setShowProgressTooltip] = useState(false);
   const userRole = (currentTeam as any)?.membershipRole || (currentTeam as any)?.teamData?.role || null;
   const roleDisplay = userRole
     ? `${userRole.charAt(0).toUpperCase()}${userRole.slice(1)}`
@@ -376,10 +375,18 @@ export default function Jobs() {
           <TouchableOpacity style={styles.achievementsCard}>
             <View style={styles.achievementsContent}>
               <View style={styles.achievementsLeft}>
-                {/* Progress Label and Percentage */}
+                {/* Experience Header */}
                 <View style={styles.progressHeader}>
-                  <Text style={styles.progressLabel}>Your Progress</Text>
-                  <Text style={styles.progressText}>79%</Text>
+                  <View style={styles.experiencePill}>
+                    <Coins size={14} color="#FFD700" />
+                    <Text style={styles.pillText}>Experience</Text>
+                    <Text style={styles.pillNumber}>1,250</Text>
+                  </View>
+                  <View style={styles.progressLabelContainer}>
+                    <Text style={styles.progressLabel}>Progress:</Text>
+                    <Text style={styles.progressText}>79%</Text>
+                    <ChevronRight size={16} color={colors.textSecondary} />
+                  </View>
                 </View>
                 
                 {/* Progress Bar */}
@@ -388,48 +395,10 @@ export default function Jobs() {
                     <View style={[styles.progressBarFill, { width: '79%' }]} />
                   </View>
                 </View>
-                
-                {/* Pills */}
-                <View style={styles.pillsContainer}>
-                  <View style={styles.pill}>
-                    <Coins size={14} color="#FFD700" />
-                    <Text style={styles.pillText}>Experience</Text>
-                    <Text style={styles.pillNumber}>1,250</Text>
-                  </View>
-                  <View style={styles.pill}>
-                    <Gem size={14} color={webColors.accent} />
-                    <Text style={styles.pillText}>Achievements</Text>
-                    <Text style={styles.pillNumber}>12</Text>
-                  </View>
-                </View>
               </View>
             </View>
           </TouchableOpacity>
         </Link>
-        
-        {/* Info Icon */}
-        <TouchableOpacity
-          style={styles.infoIconButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            setShowProgressTooltip(!showProgressTooltip);
-          }}
-          activeOpacity={0.7}
-        >
-          <Info size={20} color={colors.textSecondary} />
-        </TouchableOpacity>
-        
-        {/* Tooltip */}
-        {showProgressTooltip && (
-          <View style={styles.tooltipContainer}>
-            <View style={styles.tooltip}>
-              <Text style={styles.tooltipText}>
-                Track your awards and achievements to strengthen your profile and inspire trust.
-              </Text>
-              <View style={styles.tooltipArrow} />
-            </View>
-          </View>
-        )}
       </View>
 
       {/* Header Card */}
@@ -1059,13 +1028,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  experiencePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  progressLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   progressLabel: {
     fontSize: 16,
     color: colors.textSecondary,
     fontWeight: '500',
   },
   progressBarWrapper: {
-    marginBottom: 12,
+    marginBottom: 6,
   },
   progressBarContainer: {
     width: '100%',
