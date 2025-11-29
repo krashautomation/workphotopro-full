@@ -2126,7 +2126,7 @@ const loadOlderMessages = async () => {
                                                     opacity: item.content === 'Message deleted by user' ? 0.6 : ((item.isTask && item.taskStatus === 'completed') || (item.isDuty && item.dutyStatus === 'completed') ? 0.6 : 1),
                                                     fontSize: isEmojiMessage(item.content) ? 48 : 14,
                                                     textAlign: isEmojiMessage(item.content) ? 'center' : 'left',
-                                                    lineHeight: isEmojiMessage(item.content) ? 56 : undefined,
+                                                    lineHeight: isEmojiMessage(item.content) ? 56 : 22,
                                                     textDecorationLine: (item.isTask && item.taskStatus === 'completed') || (item.isDuty && item.dutyStatus === 'completed') ? 'line-through' : 'none',
                                                 }}>
                                                     {item.content}
@@ -2767,18 +2767,18 @@ const loadOlderMessages = async () => {
                                 onChangeText={setMessageContent}
                                 value={messageContent}
                                 editable={!isUploading}
+                                multiline={true}
                                 onFocus={() => {
                                     setShowAttachmentMenu(false);
                                     setShowClipboardMenu(false);
                                     setShowEmojiPicker(false);
                                 }}
-                                style={{minHeight: 40, color: Colors.Text, flexGrow: 1,
-                                    paddingVertical: 2, paddingHorizontal: 3, flexShrink: 1,
+                                style={{minHeight: 40, maxHeight: 120, color: Colors.Text, flexGrow: 1,
+                                    paddingVertical: 8, paddingHorizontal: 3, flexShrink: 1,
                                 }}
                                 placeholderTextColor={Colors.Gray}
-                                onSubmitEditing={sendMessage}
-                                blurOnSubmit={false}
-                                returnKeyType="send"
+                                textAlignVertical="top"
+                                returnKeyType="default"
                                 />    
                             
                                 {/* Send Button */}
@@ -3196,7 +3196,7 @@ const loadOlderMessages = async () => {
                                         <Text style={{
                                             color: Colors.White,
                                             fontSize: 14,
-                                            lineHeight: 20,
+                                            lineHeight: 22,
                                         }} numberOfLines={3}>
                                             {viewingMessage.content}
                                         </Text>
