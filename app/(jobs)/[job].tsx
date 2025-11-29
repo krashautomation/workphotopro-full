@@ -106,6 +106,9 @@ export default function Job() {
     const [currentPinnedTaskIndex, setCurrentPinnedTaskIndex] = React.useState(0); // Index of currently displayed pinned task/duty
     const [taskToScrollTo, setTaskToScrollTo] = React.useState<string | null>(null); // Task/Duty message ID to scroll to
     const [replyingToMessage, setReplyingToMessage] = React.useState<Message | null>(null); // Message being replied to
+    const [editingMessage, setEditingMessage] = React.useState<Message | null>(null); // Message being edited
+    const [showMessageActionsModal, setShowMessageActionsModal] = React.useState(false); // Modal for message actions (Edit/Reply/Delete)
+    const [messageForAction, setMessageForAction] = React.useState<Message | null>(null); // Message selected for action
     
     // Lighter, brighter blue for task highlighting
     const taskBlue = '#3b82f6'; // Bright blue-500
@@ -911,7 +914,13 @@ const loadOlderMessages = async () => {
        setShowAttachmentMenu(false);
        setShowClipboardMenu(false);
        
-       if(messageContent.trim() === '' && selectedImages.length === 0 && !selectedVideo && !selectedFile && !selectedAudio) return;
+       // For editing, only require text content (no attachments allowed)
+       if (editingMessage) {
+           if (messageContent.trim() === '') return;
+       } else {
+           // For new messages, require content or attachments
+           if(messageContent.trim() === '' && selectedImages.length === 0 && !selectedVideo && !selectedFile && !selectedAudio) return;
+       }
        
        // Check if we have required team and organization data
        if (!currentTeam?.$id || !currentOrganization?.$id) {
@@ -1180,6 +1189,36 @@ const loadOlderMessages = async () => {
            console.log('🔍 sendMessage: Message is NOT a duty, isDutyMessage:', isDutyMessage);
        }
 
+       // Handle editing existing message
+       if (editingMessage) {
+           console.log('🔍 sendMessage: Updating message:', editingMessage.$id);
+           
+           // Update the message content
+           await db.updateDocument(
+               appwriteConfig.db,
+               appwriteConfig.col.messages,
+               editingMessage.$id,
+               {
+                   content: messageContent || '',
+               }
+           );
+           
+           // Clear edit state
+           setEditingMessage(null);
+           setMessageContent('');
+           setSelectedImages([]);
+           setSelectedVideo(null);
+           setSelectedFile(null);
+           setSelectedAudio(null);
+           setIsUploading(false);
+           setUploadStatus('');
+           setUploadProgress(0);
+           
+           // Refresh messages
+           await getMessages();
+           return;
+       }
+
        // Add reply fields if replying to a message
        if (replyingToMessage) {
            message.replyToMessageId = replyingToMessage.$id;
@@ -1236,6 +1275,7 @@ const loadOlderMessages = async () => {
         setIsTaskMessage(false); // Clear task flag
         setIsDutyMessage(false); // Clear duty flag
         setReplyingToMessage(null); // Clear reply state
+        setEditingMessage(null); // Clear edit state
 
         // Refresh messages to show the new message
         console.log('🔍 sendMessage: Refreshing messages after sending...');
@@ -1324,45 +1364,48 @@ const loadOlderMessages = async () => {
         }
 
         setPressedMessageId(message.$id);
-        
-        // Show action sheet with Reply and Delete options
-        // Delete only available for own messages
-        const options: string[] = ['Reply'];
-        if (message.senderId === user?.$id) {
-            options.push('Delete');
-        }
-        options.push('Cancel');
+        setMessageForAction(message);
+        setShowMessageActionsModal(true);
+    };
 
-        Alert.alert(
-            'Message Options',
-            '',
-            [
-                {
-                    text: 'Reply',
-                    onPress: () => {
-                        setReplyingToMessage(message);
-                        setPressedMessageId(null);
-                    },
-                },
-                ...(message.senderId === user?.$id ? [{
-                    text: 'Delete',
-                    style: 'destructive' as const,
-                    onPress: () => {
-                        setMessageToDelete(message);
-                        setShowDeleteModal(true);
-                        setPressedMessageId(null);
-                    },
-                }] : []),
-                {
-                    text: 'Cancel',
-                    style: 'cancel' as const,
-                    onPress: () => {
-                        setPressedMessageId(null);
-                    },
-                },
-            ],
-            { cancelable: true }
-        );
+    const handleEditMessage = () => {
+        if (messageForAction) {
+            setEditingMessage(messageForAction);
+            setMessageContent(messageForAction.content || '');
+            setShowMessageActionsModal(false);
+            setMessageForAction(null);
+            setPressedMessageId(null);
+        }
+    };
+
+    const handleReplyFromModal = () => {
+        if (messageForAction) {
+            setReplyingToMessage(messageForAction);
+            setShowMessageActionsModal(false);
+            setMessageForAction(null);
+            setPressedMessageId(null);
+        }
+    };
+
+    const handleDeleteFromModal = () => {
+        if (messageForAction) {
+            setMessageToDelete(messageForAction);
+            setShowMessageActionsModal(false);
+            setShowDeleteModal(true);
+            setMessageForAction(null);
+            setPressedMessageId(null);
+        }
+    };
+
+    const handleCancelActions = () => {
+        setShowMessageActionsModal(false);
+        setMessageForAction(null);
+        setPressedMessageId(null);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingMessage(null);
+        setMessageContent('');
     };
 
     const handleDeleteConfirm = () => {
@@ -2684,8 +2727,50 @@ const loadOlderMessages = async () => {
                                 </View>
                             )}
 
+                            {/* Edit Preview - Above Input */}
+                            {editingMessage && (
+                                <View style={{
+                                    backgroundColor: Colors.Secondary,
+                                    borderRadius: 6,
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 6,
+                                    marginBottom: 6,
+                                    marginHorizontal: 10,
+                                    borderLeftWidth: 2,
+                                    borderLeftColor: Colors.Primary,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                }}>
+                                    <IconSymbol name="pencil" color={Colors.Primary} size={12} />
+                                    <Text style={{ color: Colors.Primary, fontSize: 11, fontWeight: '600', flexShrink: 0 }}>
+                                        Editing message
+                                    </Text>
+                                    <Text 
+                                        style={{ 
+                                            color: Colors.Text, 
+                                            fontSize: 11, 
+                                            opacity: 0.7,
+                                            flex: 1,
+                                        }} 
+                                        numberOfLines={1}
+                                    >
+                                        {editingMessage.content || (editingMessage.imageUrl ? '📷 Image' : editingMessage.videoFileId ? '🎥 Video' : editingMessage.audioFileId ? '🎵 Audio' : editingMessage.fileFileId ? '📄 File' : 'Message')}
+                                    </Text>
+                                    <Pressable
+                                        onPress={handleCancelEdit}
+                                        style={{
+                                            padding: 2,
+                                            marginLeft: -2,
+                                        }}
+                                    >
+                                        <IconSymbol name="xmark.circle.fill" color={Colors.Gray} size={16} />
+                                    </Pressable>
+                                </View>
+                            )}
+
                             {/* Reply Preview - Above Input */}
-                            {replyingToMessage && (
+                            {replyingToMessage && !editingMessage && (
                                 <View style={{
                                     backgroundColor: Colors.Secondary,
                                     borderRadius: 6,
@@ -2923,7 +3008,7 @@ const loadOlderMessages = async () => {
                                 </View>
 
                                 <TextInput 
-                                placeholder={replyingToMessage ? "Type your reply..." : (isTaskMessage ? "Type your task..." : isDutyMessage ? "Type your duty..." : "Type your message...")}
+                                placeholder={editingMessage ? "Edit your message..." : (replyingToMessage ? "Type your reply..." : (isTaskMessage ? "Type your task..." : isDutyMessage ? "Type your duty..." : "Type your message..."))}
                                 onChangeText={setMessageContent}
                                 value={messageContent}
                                 editable={!isUploading}
@@ -3130,6 +3215,120 @@ const loadOlderMessages = async () => {
                         {/* Cancel Button */}
                         <Pressable
                             onPress={handleDeleteCancel}
+                            style={{
+                                backgroundColor: Colors.Secondary,
+                                padding: 16,
+                                borderRadius: 12,
+                                alignItems: 'center',
+                            }}
+                        >
+                            <Text style={{ 
+                                color: Colors.Text, 
+                                fontSize: 16, 
+                                fontWeight: '600' 
+                            }}>
+                                Cancel
+                            </Text>
+                        </Pressable>
+                    </View>
+                }
+            />
+
+            {/* Message Actions Modal (Edit/Reply/Delete) */}
+            <BottomModal
+                visible={showMessageActionsModal}
+                onClose={handleCancelActions}
+                content={
+                    <View style={{ padding: 20, paddingBottom: 40 }}>
+                        <Text style={{ 
+                            fontSize: 18, 
+                            fontWeight: 'bold', 
+                            color: Colors.Text,
+                            marginBottom: 20,
+                            textAlign: 'center'
+                        }}>
+                            Message Options
+                        </Text>
+
+                        {/* Edit Button - Only for own messages */}
+                        {messageForAction && messageForAction.senderId === user?.$id && (
+                            <Pressable
+                                onPress={handleEditMessage}
+                                style={{
+                                    backgroundColor: Colors.Primary,
+                                    padding: 16,
+                                    borderRadius: 12,
+                                    marginBottom: 12,
+                                    alignItems: 'center',
+                                    flexDirection: 'row',
+                                    justifyContent: 'center',
+                                    gap: 8,
+                                }}
+                            >
+                                <IconSymbol name="pencil" color={Colors.White} size={18} />
+                                <Text style={{ 
+                                    color: Colors.White, 
+                                    fontSize: 16, 
+                                    fontWeight: '600' 
+                                }}>
+                                    Edit
+                                </Text>
+                            </Pressable>
+                        )}
+
+                        {/* Reply Button */}
+                        <Pressable
+                            onPress={handleReplyFromModal}
+                            style={{
+                                backgroundColor: Colors.Primary,
+                                padding: 16,
+                                borderRadius: 12,
+                                marginBottom: 12,
+                                alignItems: 'center',
+                                flexDirection: 'row',
+                                justifyContent: 'center',
+                                gap: 8,
+                            }}
+                        >
+                            <IconSymbol name="arrowshape.turn.up.left" color={Colors.White} size={18} />
+                            <Text style={{ 
+                                color: Colors.White, 
+                                fontSize: 16, 
+                                fontWeight: '600' 
+                            }}>
+                                Reply
+                            </Text>
+                        </Pressable>
+
+                        {/* Delete Button - Only for own messages */}
+                        {messageForAction && messageForAction.senderId === user?.$id && (
+                            <Pressable
+                                onPress={handleDeleteFromModal}
+                                style={{
+                                    backgroundColor: '#FF3B30',
+                                    padding: 16,
+                                    borderRadius: 12,
+                                    marginBottom: 12,
+                                    alignItems: 'center',
+                                    flexDirection: 'row',
+                                    justifyContent: 'center',
+                                    gap: 8,
+                                }}
+                            >
+                                <IconSymbol name="trash" color={Colors.White} size={18} />
+                                <Text style={{ 
+                                    color: Colors.White, 
+                                    fontSize: 16, 
+                                    fontWeight: '600' 
+                                }}>
+                                    Delete
+                                </Text>
+                            </Pressable>
+                        )}
+
+                        {/* Cancel Button */}
+                        <Pressable
+                            onPress={handleCancelActions}
                             style={{
                                 backgroundColor: Colors.Secondary,
                                 padding: 16,
