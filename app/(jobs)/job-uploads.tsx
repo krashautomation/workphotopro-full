@@ -312,6 +312,7 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
         return (
             <FlatList
                 data={photos}
+                extraData={selectedItems}
                 numColumns={NUM_COLUMNS}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.listContainer}
@@ -321,10 +322,13 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                     const isSelected = selectedItems.has(item.id)
                     return (
                         <Pressable
-                            style={[
+                            key={`${item.id}-${isSelected}`}
+                            style={({ pressed }) => [
                                 styles.imageWrapper,
                                 { width: itemSize, height: itemSize },
                                 isSelected && styles.itemSelected,
+                                pressed && !isSelected && { opacity: 0.8 },
+                                !isSelected && !pressed && { opacity: 1 },
                             ]}
                             onPress={() => {
                                 if (selectedItems.size > 0) {
@@ -336,6 +340,7 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                             onLongPress={() => toggleItemSelection(item.id)}
                         >
                             <CachedImage
+                                key={`${item.id}-${isSelected}`}
                                 source={{ uri: item.uri }}
                                 autoCache={true}
                                 style={styles.image}
@@ -366,6 +371,7 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
         return (
             <FlatList
                 data={videos}
+                extraData={selectedItems}
                 numColumns={NUM_COLUMNS}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.listContainer}
@@ -375,10 +381,13 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                     const isSelected = selectedItems.has(item.id)
                     return (
                         <Pressable
-                            style={[
+                            key={`${item.id}-${isSelected}`}
+                            style={({ pressed }) => [
                                 styles.videoWrapper,
                                 { width: itemSize, height: itemSize },
                                 isSelected && styles.itemSelected,
+                                pressed && !isSelected && { opacity: 0.8 },
+                                !isSelected && !pressed && { opacity: 1 },
                             ]}
                             onPress={() => {
                                 if (selectedItems.size > 0) {
@@ -422,6 +431,7 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
         return (
             <FlatList
                 data={files}
+                extraData={selectedItems}
                 numColumns={NUM_COLUMNS}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.listContainer}
@@ -431,10 +441,13 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                     const isSelected = selectedItems.has(item.id)
                     return (
                         <Pressable
-                            style={[
+                            key={`${item.id}-${isSelected}`}
+                            style={({ pressed }) => [
                                 styles.fileWrapper,
                                 { width: itemSize, height: itemSize },
                                 isSelected && styles.itemSelected,
+                                pressed && !isSelected && { opacity: 0.8 },
+                                !isSelected && !pressed && { opacity: 1 },
                             ]}
                             onPress={() => {
                                 if (selectedItems.size > 0) {
@@ -490,6 +503,7 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
         return (
             <FlatList
                 data={audios}
+                extraData={selectedItems}
                 numColumns={NUM_COLUMNS}
                 keyExtractor={item => item.id}
                 contentContainerStyle={styles.listContainer}
@@ -499,10 +513,13 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                     const isSelected = selectedItems.has(item.id)
                     return (
                         <Pressable
-                            style={[
+                            key={`${item.id}-${isSelected}`}
+                            style={({ pressed }) => [
                                 styles.audioWrapper,
                                 { width: itemSize, height: itemSize },
                                 isSelected && styles.itemSelected,
+                                pressed && !isSelected && { opacity: 0.8 },
+                                !isSelected && !pressed && { opacity: 1 },
                             ]}
                             onPress={() => {
                                 if (selectedItems.size > 0) {
@@ -939,10 +956,12 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         overflow: 'hidden',
         backgroundColor: Colors.Secondary,
+        opacity: 1,
     },
     image: {
         width: '100%',
         height: '100%',
+        opacity: 1,
     },
     videoWrapper: {
         borderRadius: 8,
