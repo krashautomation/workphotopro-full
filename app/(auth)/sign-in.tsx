@@ -147,6 +147,13 @@ export default function SignIn() {
               <Text style={globalStyles.link}>Sign up</Text>
             </Link>
           </View>
+
+          <TouchableOpacity
+            style={{ alignSelf: 'center', marginTop: 12 }}
+            onPress={() => router.push('/(auth)/forgot-password')}
+          >
+            <Text style={globalStyles.link}>Lost password?</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
