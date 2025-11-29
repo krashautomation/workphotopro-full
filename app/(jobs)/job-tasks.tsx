@@ -15,15 +15,18 @@ type JobTasksProps = {
     messages: Message[]
     currentUserId?: string
     onCompleteTask: (messageId: string) => Promise<void>
+    onCompleteDuty: (messageId: string) => Promise<void>
 }
 
 type SubTab = 'tasks' | 'duties'
 
-export default function JobTasks({ jobId, messages, currentUserId, onCompleteTask }: JobTasksProps) {
+export default function JobTasks({ jobId, messages, currentUserId, onCompleteTask, onCompleteDuty }: JobTasksProps) {
     const [activeSubTab, setActiveSubTab] = React.useState<SubTab>('tasks')
     
     // Lighter, brighter blue for task highlighting
     const taskBlue = '#3b82f6'; // Bright blue-500
+    // Red for duty highlighting
+    const dutyRed = '#ef4444'; // Red-500
     
     // Filter and sort tasks
     const tasks = React.useMemo(() => {
@@ -43,8 +46,28 @@ export default function JobTasks({ jobId, messages, currentUserId, onCompleteTas
         })
     }, [messages])
 
+    // Filter and sort duties
+    const duties = React.useMemo(() => {
+        const dutyMessages = messages.filter((msg) => msg.isDuty === true)
+        
+        // Sort: active first, then completed (both by creation date)
+        return [...dutyMessages].sort((a, b) => {
+            const aActive = a.dutyStatus === 'active'
+            const bActive = b.dutyStatus === 'active'
+            
+            if (aActive !== bActive) {
+                return aActive ? -1 : 1 // Active duties first
+            }
+            
+            // Same status, sort by creation date (oldest first)
+            return new Date(a.$createdAt).getTime() - new Date(b.$createdAt).getTime()
+        })
+    }, [messages])
+
     const activeTasks = tasks.filter((t) => t.taskStatus === 'active')
     const completedTasks = tasks.filter((t) => t.taskStatus === 'completed')
+    const activeDuties = duties.filter((d) => d.dutyStatus === 'active')
+    const completedDuties = duties.filter((d) => d.dutyStatus === 'completed')
 
     const renderTask = ({ item }: { item: Message }) => {
         const isSender = item.senderId === currentUserId
@@ -186,6 +209,146 @@ export default function JobTasks({ jobId, messages, currentUserId, onCompleteTas
         )
     }
 
+    const renderDuty = ({ item }: { item: Message }) => {
+        const isSender = item.senderId === currentUserId
+        const isCompleted = item.dutyStatus === 'completed'
+
+        return (
+            <View style={[
+                styles.taskItem,
+                isCompleted && styles.taskItemCompleted,
+                !isCompleted && { borderColor: dutyRed }
+            ]}>
+                {/* Duty Header */}
+                <View style={styles.taskHeader}>
+                    <View style={styles.taskHeaderLeft}>
+                        <IconSymbol 
+                            name={isCompleted ? 'checkmark.circle.fill' : 'circle'} 
+                            color={isCompleted ? Colors.Gray : dutyRed} 
+                            size={16} 
+                        />
+                        <Text style={[
+                            styles.taskStatusBadge,
+                            isCompleted && styles.taskStatusBadgeCompleted,
+                            !isCompleted && { color: dutyRed }
+                        ]}>
+                            {isCompleted ? 'Completed' : 'Active'}
+                        </Text>
+                        {!isSender && (
+                            <Avatar 
+                                name={item.senderName || 'Unknown User'}
+                                imageUrl={item.senderPhoto}
+                                size={20}
+                                style={{ marginLeft: 6 }}
+                            />
+                        )}
+                        <Text style={[
+                            styles.taskCreator,
+                            isCompleted && styles.taskCreatorCompleted
+                        ]} numberOfLines={1}>
+                            {item.senderName}
+                        </Text>
+                        <Text style={[
+                            styles.taskTimestamp,
+                            isCompleted && styles.taskTimestampCompleted
+                        ]}>
+                            • {new Date(item.$createdAt).toLocaleString([], {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                            })}
+                        </Text>
+                    </View>
+                    {!isCompleted && isSender && (
+                        <TouchableOpacity
+                            onPress={() => onCompleteDuty(item.$id)}
+                            style={[styles.completeButton, { backgroundColor: dutyRed + '20' }]}
+                        >
+                            <Text style={[styles.completeButtonText, { color: dutyRed }]}>Complete</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* Duty Content */}
+                {item.content && (
+                    <Text style={[
+                        styles.taskContent,
+                        isCompleted && styles.taskContentCompleted
+                    ]} numberOfLines={3}>
+                        {item.content}
+                    </Text>
+                )}
+
+                {/* Duty Attachments - Multiple Images */}
+                {item.imageUrls && item.imageUrls.length > 0 && item.content !== 'Message deleted by user' && (
+                    <View style={styles.taskImageGrid}>
+                        {item.imageUrls.map((url, index) => (
+                            <Image 
+                                key={index}
+                                source={{ uri: url }} 
+                                style={[
+                                    styles.taskImage,
+                                    item.imageUrls && item.imageUrls.length > 1 && styles.taskImageInGrid
+                                ]}
+                                resizeMode="cover"
+                            />
+                        ))}
+                    </View>
+                )}
+                {/* Backward compatibility: Single Image */}
+                {(!item.imageUrls || item.imageUrls.length === 0) && item.imageUrl && item.content !== 'Message deleted by user' && (
+                    <Image 
+                        source={{ uri: item.imageUrl }} 
+                        style={styles.taskImage}
+                        resizeMode="cover"
+                    />
+                )}
+
+                {item.videoFileId && item.content !== 'Message deleted by user' && (
+                    <View style={styles.taskVideo}>
+                    <VideoPlayer
+                        uri={appwriteConfig.bucket ? `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.videoFileId}/view?project=${appwriteConfig.projectId}` : ''}
+                        fileId={item.videoFileId}
+                        autoCache={true}
+                            showControls={true}
+                            autoPlay={false}
+                        />
+                    </View>
+                )}
+
+                {item.audioFileId && item.content !== 'Message deleted by user' && (
+                    <AudioPlayer
+                        uri={item.audioUrl || (appwriteConfig.bucket ? `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.audioFileId}/view?project=${appwriteConfig.projectId}` : '')}
+                        fileId={item.audioFileId}
+                        duration={item.audioDuration}
+                        autoCache={true}
+                    />
+                )}
+
+                {item.fileFileId && item.content !== 'Message deleted by user' && (
+                    <TouchableOpacity 
+                        onPress={() => {
+                            const fileUrl = item.fileUrl || `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.fileFileId}/view?project=${appwriteConfig.projectId}`
+                            Linking.openURL(fileUrl)
+                        }}
+                        style={[styles.taskFile, { borderColor: dutyRed }]}
+                    >
+                        <IconSymbol name="doc.text" color={dutyRed} size={18} />
+                        <View style={styles.taskFileInfo}>
+                            <Text style={[styles.taskFileName, { color: dutyRed }]} numberOfLines={1}>{item.fileName || 'Document'}</Text>
+                            {item.fileSize && (
+                                <Text style={styles.taskFileSize}>
+                                    {(item.fileSize / 1024).toFixed(2)} KB
+                                </Text>
+                            )}
+                        </View>
+                    </TouchableOpacity>
+                )}
+            </View>
+        )
+    }
+
     const renderDutiesContent = () => {
         return (
             <View style={styles.content}>
@@ -194,15 +357,32 @@ export default function JobTasks({ jobId, messages, currentUserId, onCompleteTas
                         <LayoutList color={Colors.Primary} size={24} />
                         <View style={styles.headerTextContainer}>
                             <Text style={styles.sectionTitle}>Duties</Text>
-                            <Text style={styles.sectionDescription}>Ongoing job duties</Text>
+                            <Text style={styles.sectionDescription}>
+                                {duties.length > 0 
+                                    ? `${activeDuties.length} active, ${completedDuties.length} completed`
+                                    : 'Ongoing job duties'
+                                }
+                            </Text>
                         </View>
                     </View>
-                    <View style={styles.emptyState}>
-                        <Text style={styles.emptyTitle}>No duties yet</Text>
-                        <Text style={styles.emptySubtitle}>
-                            Duties created in this job will show up here.
-                        </Text>
-                    </View>
+                    
+                    {duties.length === 0 ? (
+                        <View style={styles.emptyState}>
+                            <Text style={styles.emptyTitle}>No duties yet</Text>
+                            <Text style={styles.emptySubtitle}>
+                                Duties created in this job will show up here.
+                            </Text>
+                        </View>
+                    ) : (
+                        <FlatList
+                            data={duties}
+                            renderItem={renderDuty}
+                            keyExtractor={(item) => item.$id}
+                            contentContainerStyle={styles.tasksList}
+                            showsVerticalScrollIndicator={false}
+                            ItemSeparatorComponent={() => <View style={styles.taskSeparator} />}
+                        />
+                    )}
                 </View>
             </View>
         )

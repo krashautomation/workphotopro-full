@@ -229,6 +229,9 @@ export interface Message {
   // Task fields
   isTask?: boolean; // Flag to mark message as a task
   taskStatus?: 'active' | 'completed'; // Task status (only relevant if isTask is true)
+  // Duty fields
+  isDuty?: boolean; // Flag to mark message as a duty
+  dutyStatus?: 'active' | 'completed'; // Duty status (only relevant if isDuty is true)
 }
 
 // Location data for messages

@@ -1,5 +1,28 @@
 # Migration Scripts
 
+## add-duty-fields-to-messages.js
+
+**Adds duty fields to messages collection**
+
+This script adds two new optional fields to the `messages` collection:
+- `isDuty` (Boolean) - Flag to mark a message as a duty
+- `dutyStatus` (Enum: 'active' | 'completed') - Status of the duty
+
+### Quick Start
+
+```bash
+node scripts/add-duty-fields-to-messages.js
+```
+
+### Prerequisites
+
+- API Key with "Databases" scope
+- Messages collection must already exist
+
+See `scripts/ADD_DUTY_FIELDS.md` for detailed instructions.
+
+---
+
 ## migrate-membership-emails.ts (Server-Side - RECOMMENDED)
 
 **Use this for full migration of all memberships**

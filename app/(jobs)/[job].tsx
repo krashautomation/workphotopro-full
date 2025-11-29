@@ -102,21 +102,36 @@ export default function Job() {
     const [showAttachmentMenu, setShowAttachmentMenu] = React.useState(false);
     const [showClipboardMenu, setShowClipboardMenu] = React.useState(false);
     const [isTaskMessage, setIsTaskMessage] = React.useState(false); // Flag to mark message as task when sending
-    const [currentPinnedTaskIndex, setCurrentPinnedTaskIndex] = React.useState(0); // Index of currently displayed pinned task
-    const [taskToScrollTo, setTaskToScrollTo] = React.useState<string | null>(null); // Task message ID to scroll to
+    const [isDutyMessage, setIsDutyMessage] = React.useState(false); // Flag to mark message as duty when sending
+    const [currentPinnedTaskIndex, setCurrentPinnedTaskIndex] = React.useState(0); // Index of currently displayed pinned task/duty
+    const [taskToScrollTo, setTaskToScrollTo] = React.useState<string | null>(null); // Task/Duty message ID to scroll to
     
     // Lighter, brighter blue for task highlighting
     const taskBlue = '#3b82f6'; // Bright blue-500
+    // Red for duty highlighting
+    const dutyRed = '#ef4444'; // Red-500
 
-    // Reset pinned task index when active tasks change
-    React.useEffect(() => {
+    // Get combined pinned items (tasks and duties), sorted by most recent first
+    const pinnedItems = React.useMemo(() => {
         const activeTasks = messages.filter(m => m.isTask === true && m.taskStatus === 'active');
-        if (activeTasks.length > 0 && currentPinnedTaskIndex >= activeTasks.length) {
+        const activeDuties = messages.filter(m => m.isDuty === true && m.dutyStatus === 'active');
+        // Combine tasks and duties, then sort by creation date (most recent first)
+        const combined = [...activeTasks, ...activeDuties];
+        return combined.sort((a, b) => {
+            const aTime = new Date(a.$createdAt).getTime();
+            const bTime = new Date(b.$createdAt).getTime();
+            return bTime - aTime; // Descending order (most recent first)
+        });
+    }, [messages]);
+
+    // Reset pinned item index when pinned items change
+    React.useEffect(() => {
+        if (pinnedItems.length > 0 && currentPinnedTaskIndex >= pinnedItems.length) {
             setCurrentPinnedTaskIndex(0);
         }
-    }, [messages, currentPinnedTaskIndex]);
+    }, [pinnedItems.length, currentPinnedTaskIndex]);
 
-    // Handle scrolling to task when chat tab is active and task ID is set
+    // Handle scrolling to task/duty when chat tab is active and message ID is set
     React.useEffect(() => {
         if (activeTab === 'chat' && taskToScrollTo && messages.length > 0 && listRef.current) {
             const scrollToMessage = () => {
@@ -128,7 +143,7 @@ export default function Job() {
                             animated: true,
                             viewPosition: 0.5 
                         });
-                        // Clear the task to scroll to after successful scroll
+                        // Clear the message to scroll to after successful scroll
                         setTimeout(() => setTaskToScrollTo(null), 1000);
                     } catch (error) {
                         console.log('🔍 ScrollToIndex failed, retrying...', error);
@@ -407,6 +422,17 @@ const processMessages = (documents: any[]): Message[] => {
             }
         } else {
             doc.isTask = false;
+        }
+
+        // Normalize isDuty field (handle string "true" or boolean true)
+        if (doc.isDuty === true || doc.isDuty === 'true' || doc.isDuty === 1) {
+            doc.isDuty = true;
+            // Set default dutyStatus if isDuty is true but dutyStatus is missing
+            if (!doc.dutyStatus) {
+                doc.dutyStatus = 'active';
+            }
+        } else {
+            doc.isDuty = false;
         }
         
         // Check if this message has locationData (infers it's a location message)
@@ -1144,6 +1170,15 @@ const loadOlderMessages = async () => {
            console.log('🔍 sendMessage: Message is NOT a task, isTaskMessage:', isTaskMessage);
        }
 
+       // Add duty fields if message is marked as a duty
+       if (isDutyMessage) {
+           message.isDuty = true;
+           message.dutyStatus = 'active'; // Duties are active when created
+           console.log('🔍 sendMessage: Message is marked as a duty:', { isDuty: message.isDuty, dutyStatus: message.dutyStatus });
+       } else {
+           console.log('🔍 sendMessage: Message is NOT a duty, isDutyMessage:', isDutyMessage);
+       }
+
        console.log('🔍 sendMessage: Creating message document:', message);
 
        const createdMessage = await db.createDocument(
@@ -1158,6 +1193,8 @@ const loadOlderMessages = async () => {
             content: createdMessage.content,
             isTask: (createdMessage as any).isTask,
             taskStatus: (createdMessage as any).taskStatus,
+            isDuty: (createdMessage as any).isDuty,
+            dutyStatus: (createdMessage as any).dutyStatus,
             senderId: createdMessage.senderId
         });
 
@@ -1171,6 +1208,7 @@ const loadOlderMessages = async () => {
         setUploadStatus('');
         setUploadProgress(0);
         setIsTaskMessage(false); // Clear task flag
+        setIsDutyMessage(false); // Clear duty flag
 
         // Refresh messages to show the new message
         console.log('🔍 sendMessage: Refreshing messages after sending...');
@@ -1320,6 +1358,46 @@ const loadOlderMessages = async () => {
         } catch (error) {
             console.error('Error completing task:', error);
             Alert.alert('Error', 'Failed to complete task. Please try again.');
+        }
+    };
+
+    const handleCompleteDuty = async (messageId: string) => {
+        try {
+            const message = messages.find(m => m.$id === messageId);
+            if (!message) {
+                Alert.alert('Error', 'Duty not found.');
+                return;
+            }
+
+            // Only the creator can complete the duty
+            if (message.senderId !== user?.$id) {
+                Alert.alert('Permission Denied', 'Only the duty creator can mark it as completed.');
+                return;
+            }
+
+            // Only allow completing active duties
+            if (message.dutyStatus !== 'active') {
+                Alert.alert('Error', 'This duty is already completed.');
+                return;
+            }
+
+            // Update the duty status
+            await db.updateDocument(
+                appwriteConfig.db,
+                appwriteConfig.col.messages,
+                messageId,
+                {
+                    dutyStatus: 'completed',
+                }
+            );
+
+            console.log('✅ Duty marked as completed:', messageId);
+
+            // Refresh messages to show updated status
+            await getMessages();
+        } catch (error) {
+            console.error('Error completing duty:', error);
+            Alert.alert('Error', 'Failed to complete duty. Please try again.');
         }
     };
 
@@ -1574,36 +1652,40 @@ const loadOlderMessages = async () => {
                     </Pressable>
                 </View>
 
-                {/* Pinned Tasks Bar - Only show in Chat tab */}
+                {/* Pinned Tasks/Duties Bar - Only show in Chat tab */}
                 {activeTab === 'chat' && (() => {
-                    const activeTasks = messages.filter(m => m.isTask === true && m.taskStatus === 'active');
-                    if (activeTasks.length === 0) return null;
+                    if (pinnedItems.length === 0) return null;
                     
-                    const currentTask = activeTasks[currentPinnedTaskIndex % activeTasks.length];
-                    if (!currentTask) return null;
+                    const currentItem = pinnedItems[currentPinnedTaskIndex % pinnedItems.length];
+                    if (!currentItem) return null;
                     
-                    const taskExcerpt = currentTask.content ? 
-                        (currentTask.content.length > 50 ? currentTask.content.substring(0, 50) + '...' : currentTask.content) 
-                        : 'Task message';
+                    const isTask = currentItem.isTask === true;
+                    const isDuty = currentItem.isDuty === true;
+                    const itemColor = isTask ? taskBlue : (isDuty ? dutyRed : taskBlue);
+                    const itemType = isTask ? 'Task' : (isDuty ? 'Duty' : 'Task');
+                    
+                    const itemExcerpt = currentItem.content ? 
+                        (currentItem.content.length > 50 ? currentItem.content.substring(0, 50) + '...' : currentItem.content) 
+                        : `${itemType} message`;
                     
                     return (
                         <TouchableOpacity
                             onPress={() => {
-                                const taskMessageId = currentTask.$id;
+                                const itemMessageId = currentItem.$id;
                                 
-                                // Move to next task (cycle) before switching
-                                setCurrentPinnedTaskIndex((prev) => (prev + 1) % activeTasks.length);
+                                // Move to next item (cycle) before switching
+                                setCurrentPinnedTaskIndex((prev) => (prev + 1) % pinnedItems.length);
                                 
-                                // Set the task to scroll to
-                                setTaskToScrollTo(taskMessageId);
+                                // Set the message to scroll to
+                                setTaskToScrollTo(itemMessageId);
                                 
                                 // Switch to chat tab (scroll will happen via useEffect when tab is active)
                                 setActiveTab('chat');
                             }}
                             style={{
-                                backgroundColor: taskBlue + '15',
+                                backgroundColor: itemColor + '15',
                                 borderLeftWidth: 3,
-                                borderLeftColor: taskBlue,
+                                borderLeftColor: itemColor,
                                 paddingVertical: 8,
                                 paddingHorizontal: 12,
                                 flexDirection: 'row',
@@ -1612,24 +1694,26 @@ const loadOlderMessages = async () => {
                             }}
                         >
                             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <IconSymbol name="pin.fill" color={taskBlue} size={16} />
-                                <Text style={{ color: taskBlue, fontWeight: '600', fontSize: 12, marginRight: 4 }}>
-                                    Task:
+                                <IconSymbol name="pin.fill" color={itemColor} size={16} />
+                                <Text style={{ color: itemColor, fontWeight: '600', fontSize: 12, marginRight: 4 }}>
+                                    {itemType}:
                                 </Text>
                                 <Text style={{ color: Colors.Text, fontSize: 13, flex: 1 }} numberOfLines={1}>
-                                    {taskExcerpt}
+                                    {itemExcerpt}
                                 </Text>
                             </View>
-                            <TouchableOpacity
-                                onPress={(e) => {
-                                    e.stopPropagation();
-                                    // Cycle to next task
-                                    setCurrentPinnedTaskIndex((prev) => (prev + 1) % activeTasks.length);
-                                }}
-                                style={{ padding: 4 }}
-                            >
-                                <IconSymbol name="chevron.right" color={taskBlue} size={16} />
-                            </TouchableOpacity>
+                            {pinnedItems.length > 1 && (
+                                <TouchableOpacity
+                                    onPress={(e) => {
+                                        e.stopPropagation();
+                                        // Cycle to next item
+                                        setCurrentPinnedTaskIndex((prev) => (prev + 1) % pinnedItems.length);
+                                    }}
+                                    style={{ padding: 4 }}
+                                >
+                                    <IconSymbol name="chevron.right" color={itemColor} size={16} />
+                                </TouchableOpacity>
+                            )}
                         </TouchableOpacity>
                     );
                 })()}
@@ -1713,8 +1797,8 @@ const loadOlderMessages = async () => {
                                                 minWidth: '70%',
                                                 maxWidth: '70%',
                                                 opacity: isPressed ? 0.7 : 1,
-                                                borderWidth: isPressed ? 2 : (item.isTask ? 2 : 0),
-                                                borderColor: isPressed ? Colors.Primary : (item.isTask ? (item.taskStatus === 'completed' ? Colors.Gray : taskBlue) : 'transparent'),
+                                                borderWidth: isPressed ? 2 : (item.isTask || item.isDuty ? 2 : 0),
+                                                borderColor: isPressed ? Colors.Primary : (item.isTask ? (item.taskStatus === 'completed' ? Colors.Gray : taskBlue) : (item.isDuty ? (item.dutyStatus === 'completed' ? Colors.Gray : dutyRed) : 'transparent')),
                                             }}
                                         >
                                             {/* Task Badge and Status */}
@@ -1764,6 +1848,54 @@ const loadOlderMessages = async () => {
                                                     )}
                                                 </View>
                                             )}
+
+                                            {/* Duty Badge and Status */}
+                                            {item.isDuty && (
+                                                <View style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    marginBottom: 8,
+                                                    paddingBottom: 8,
+                                                    borderBottomWidth: 1,
+                                                    borderBottomColor: Colors.Gray + '40',
+                                                }}>
+                                                    <IconSymbol 
+                                                        name={item.dutyStatus === 'completed' ? 'checkmark.circle.fill' : 'circle'} 
+                                                        color={item.dutyStatus === 'completed' ? Colors.Gray : dutyRed} 
+                                                        size={18} 
+                                                    />
+                                                    <Text style={{
+                                                        color: item.dutyStatus === 'completed' ? Colors.Gray : dutyRed,
+                                                        fontWeight: '600',
+                                                        fontSize: 12,
+                                                        marginLeft: 6,
+                                                        textTransform: 'uppercase',
+                                                    }}>
+                                                        Duties {item.dutyStatus === 'completed' ? '• Completed' : '• Active'}
+                                                    </Text>
+                                                    {/* Complete Duty Button (only show for creator and if active) */}
+                                                    {item.dutyStatus === 'active' && item.senderId === user?.$id && (
+                                                        <TouchableOpacity
+                                                            onPress={() => handleCompleteDuty(item.$id)}
+                                                            style={{
+                                                                marginLeft: 'auto',
+                                                                paddingHorizontal: 8,
+                                                                paddingVertical: 4,
+                                                                borderRadius: 6,
+                                                                backgroundColor: dutyRed + '20',
+                                                            }}
+                                                        >
+                                                            <Text style={{
+                                                                color: dutyRed,
+                                                                fontSize: 11,
+                                                                fontWeight: '600',
+                                                            }}>
+                                                                Complete
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    )}
+                                                </View>
+                                            )}
                                             
                                             <Pressable
                                                 onPress={() => {
@@ -1780,8 +1912,8 @@ const loadOlderMessages = async () => {
                                                     color: Colors.Text, 
                                                     fontWeight: 'bold', 
                                                     marginBottom: 5,
-                                                    textDecorationLine: item.isTask && item.taskStatus === 'completed' ? 'line-through' : 'none',
-                                                    opacity: item.isTask && item.taskStatus === 'completed' ? 0.6 : 1,
+                                                    textDecorationLine: (item.isTask && item.taskStatus === 'completed') || (item.isDuty && item.dutyStatus === 'completed') ? 'line-through' : 'none',
+                                                    opacity: (item.isTask && item.taskStatus === 'completed') || (item.isDuty && item.dutyStatus === 'completed') ? 0.6 : 1,
                                                 }}>
                                                     {item.senderName}
                                                 </Text>
@@ -1991,11 +2123,11 @@ const loadOlderMessages = async () => {
                                                 <Text style={{ 
                                                     color: Colors.Text,
                                                     fontStyle: item.content === 'Message deleted by user' ? 'italic' : 'normal',
-                                                    opacity: item.content === 'Message deleted by user' ? 0.6 : (item.isTask && item.taskStatus === 'completed' ? 0.6 : 1),
+                                                    opacity: item.content === 'Message deleted by user' ? 0.6 : ((item.isTask && item.taskStatus === 'completed') || (item.isDuty && item.dutyStatus === 'completed') ? 0.6 : 1),
                                                     fontSize: isEmojiMessage(item.content) ? 48 : 14,
                                                     textAlign: isEmojiMessage(item.content) ? 'center' : 'left',
                                                     lineHeight: isEmojiMessage(item.content) ? 56 : undefined,
-                                                    textDecorationLine: item.isTask && item.taskStatus === 'completed' ? 'line-through' : 'none',
+                                                    textDecorationLine: (item.isTask && item.taskStatus === 'completed') || (item.isDuty && item.dutyStatus === 'completed') ? 'line-through' : 'none',
                                                 }}>
                                                     {item.content}
                                                 </Text>
@@ -2608,7 +2740,7 @@ const loadOlderMessages = async () => {
                                             <Pressable
                                                 onPress={() => {
                                                     setShowClipboardMenu(false);
-                                                    // TODO: Implement Create duties functionality
+                                                    setIsDutyMessage(true); // Enable duty mode
                                                 }}
                                                 style={{
                                                     flexDirection: 'row',
@@ -2631,7 +2763,7 @@ const loadOlderMessages = async () => {
                                 </View>
 
                                 <TextInput 
-                                placeholder={isTaskMessage ? "Type your task..." : "Type your message..."}
+                                placeholder={isTaskMessage ? "Type your task..." : isDutyMessage ? "Type your duty..." : "Type your message..."}
                                 onChangeText={setMessageContent}
                                 value={messageContent}
                                 editable={!isUploading}
@@ -2767,6 +2899,7 @@ const loadOlderMessages = async () => {
                         messages={messages}
                         currentUserId={user?.$id}
                         onCompleteTask={handleCompleteTask}
+                        onCompleteDuty={handleCompleteDuty}
                     />
                 ) : (
                     <JobUploads
