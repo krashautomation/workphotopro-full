@@ -30,6 +30,7 @@ import * as SecureStore from 'expo-secure-store'
 import SaveImageModal from '@/components/SaveImageModal'
 import ShareJob from './share-job'
 import VideoPlayer from '@/components/VideoPlayer'
+import FullScreenVideoPlayer from '@/components/FullScreenVideoPlayer'
 import AudioRecorder from '@/components/AudioRecorder'
 import AudioPlayer from '@/components/AudioPlayer'
 import EmojiPicker, { EmojiPickerView } from '@/components/EmojiPicker'
@@ -79,6 +80,7 @@ export default function Job() {
     const hasTriggeredLoadMore = React.useRef(false);
     const [selectedImages, setSelectedImages] = React.useState<string[]>([]);
     const [selectedVideo, setSelectedVideo] = React.useState<string | null>(null);
+    const [fullScreenVideo, setFullScreenVideo] = React.useState<{ uri: string; fileId?: string } | null>(null);
     const [selectedFile, setSelectedFile] = React.useState<DocumentPicker.DocumentPickerAsset | null>(null);
     const [selectedAudio, setSelectedAudio] = React.useState<{ uri: string; duration: number } | null>(null);
     const [showAudioRecorder, setShowAudioRecorder] = React.useState(false);
@@ -1868,11 +1870,17 @@ const loadOlderMessages = async () => {
 
                                             {/* Video Message */}
                                             {item.videoFileId && item.content !== 'Message deleted by user' && (
-                                                <View 
+                                                <Pressable
                                                     key={`video-${item.videoFileId}`}
                                                     style={{
                                                         width: '100%',
                                                         marginBottom: 8,
+                                                    }}
+                                                    onPress={() => {
+                                                        const videoUri = appwriteConfig.bucket 
+                                                            ? `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.videoFileId}/view?project=${appwriteConfig.projectId}`
+                                                            : '';
+                                                        setFullScreenVideo({ uri: videoUri, fileId: item.videoFileId });
                                                     }}
                                                 >
                                                     <VideoPlayer
@@ -1883,12 +1891,18 @@ const loadOlderMessages = async () => {
                                                         autoPlay={false}
                                                         autoCache={true}
                                                         showThumbnailInfo={true}
+                                                        onThumbnailPress={() => {
+                                                            const videoUri = appwriteConfig.bucket 
+                                                                ? `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.videoFileId}/view?project=${appwriteConfig.projectId}`
+                                                                : '';
+                                                            setFullScreenVideo({ uri: videoUri, fileId: item.videoFileId });
+                                                        }}
                                                         onError={(error) => {
                                                             console.error('Video playback error:', error);
                                                             Alert.alert('Video Error', 'Failed to play video. You can try opening it in your browser.');
                                                         }}
                                                     />
-                                                </View>
+                                                </Pressable>
                                             )}
 
                                             {/* Location Message */}
@@ -3099,6 +3113,21 @@ const loadOlderMessages = async () => {
                     onCancel={() => setShowAudioRecorder(false)}
                 />
             </BottomModal2>
+
+            {/* Full Screen Video Player */}
+            {fullScreenVideo && (
+                <FullScreenVideoPlayer
+                    uri={fullScreenVideo.uri}
+                    fileId={fullScreenVideo.fileId}
+                    visible={!!fullScreenVideo}
+                    onClose={() => setFullScreenVideo(null)}
+                    onError={(error) => {
+                        console.error('Full screen video error:', error);
+                        Alert.alert('Video Error', 'Failed to play video.');
+                        setFullScreenVideo(null);
+                    }}
+                />
+            )}
             </>
     )
 }

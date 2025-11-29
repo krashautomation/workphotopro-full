@@ -15,6 +15,7 @@ interface VideoPlayerProps {
     onError?: (error: Error) => void;
     autoCache?: boolean; // Automatically cache when viewed (default: true)
     showThumbnailInfo?: boolean; // Show camera icon and duration overlay (default: false)
+    onThumbnailPress?: () => void; // Callback when thumbnail is pressed (overrides default play/pause)
 }
 
 export default function VideoPlayer({ 
@@ -26,6 +27,7 @@ export default function VideoPlayer({
     onError,
     autoCache = true,
     showThumbnailInfo = false,
+    onThumbnailPress,
 }: VideoPlayerProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
@@ -240,7 +242,7 @@ export default function VideoPlayer({
             {!showControls && !isLoading && !hasError && player && (
                 <Pressable
                     style={styles.playButtonOverlay}
-                    onPress={togglePlayPause}
+                    onPress={onThumbnailPress || togglePlayPause}
                 >
                     <View style={styles.playButton}>
                         <IconSymbol 
