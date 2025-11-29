@@ -1879,9 +1879,10 @@ const loadOlderMessages = async () => {
                                                         key={`video-player-${item.videoFileId}`}
                                                         uri={appwriteConfig.bucket ? `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.videoFileId}/view?project=${appwriteConfig.projectId}` : ''}
                                                         fileId={item.videoFileId}
-                                                        showControls={true}
+                                                        showControls={false}
                                                         autoPlay={false}
                                                         autoCache={true}
+                                                        showThumbnailInfo={true}
                                                         onError={(error) => {
                                                             console.error('Video playback error:', error);
                                                             Alert.alert('Video Error', 'Failed to play video. You can try opening it in your browser.');

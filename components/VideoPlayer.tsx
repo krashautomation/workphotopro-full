@@ -14,6 +14,7 @@ interface VideoPlayerProps {
     autoPlay?: boolean;
     onError?: (error: Error) => void;
     autoCache?: boolean; // Automatically cache when viewed (default: true)
+    showThumbnailInfo?: boolean; // Show camera icon and duration overlay (default: false)
 }
 
 export default function VideoPlayer({ 
@@ -24,10 +25,12 @@ export default function VideoPlayer({
     autoPlay = false,
     onError,
     autoCache = true,
+    showThumbnailInfo = false,
 }: VideoPlayerProps) {
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
     const [retryKey, setRetryKey] = useState(0);
+    const [duration, setDuration] = useState<number | null>(null);
     const playerRef = useRef<any>(null);
     const isUnmountingRef = useRef(false);
     
@@ -76,6 +79,25 @@ export default function VideoPlayer({
         }
 
         let subscription: any = null;
+        let durationCheckInterval: ReturnType<typeof setInterval> | null = null;
+        
+        // Function to check and set duration
+        const checkDuration = () => {
+            if (isUnmountingRef.current || !player) return;
+            try {
+                if (player.duration !== undefined && player.duration !== null && !isNaN(player.duration) && player.duration > 0) {
+                    setDuration(player.duration);
+                    // Clear interval once we have duration
+                    if (durationCheckInterval) {
+                        clearInterval(durationCheckInterval);
+                        durationCheckInterval = null;
+                    }
+                }
+            } catch (error) {
+                // Silently ignore - duration might not be available yet
+            }
+        };
+
         try {
             subscription = player.addListener('statusChange', (status) => {
                 if (isUnmountingRef.current) return;
@@ -83,6 +105,19 @@ export default function VideoPlayer({
                 if (status.status === 'readyToPlay') {
                     setIsLoading(false);
                     setHasError(false);
+                    // Try to get duration immediately
+                    checkDuration();
+                    // Also set up polling to check duration periodically
+                    if (showThumbnailInfo && !durationCheckInterval) {
+                        durationCheckInterval = setInterval(checkDuration, 500);
+                        // Stop polling after 5 seconds
+                        setTimeout(() => {
+                            if (durationCheckInterval) {
+                                clearInterval(durationCheckInterval);
+                                durationCheckInterval = null;
+                            }
+                        }, 5000);
+                    }
                 } else if (status.status === 'error') {
                     setIsLoading(false);
                     setHasError(true);
@@ -105,8 +140,11 @@ export default function VideoPlayer({
                     // Subscription may already be removed
                 }
             }
+            if (durationCheckInterval) {
+                clearInterval(durationCheckInterval);
+            }
         };
-    }, [player, autoPlay, onError]);
+    }, [player, autoPlay, onError, showThumbnailInfo]);
 
     // Store player reference
     useEffect(() => {
@@ -135,11 +173,23 @@ export default function VideoPlayer({
                 } else {
                     player.play();
                 }
+                // Try to get duration when playing
+                if (player.duration !== undefined && player.duration !== null && !duration) {
+                    setDuration(player.duration);
+                }
             }
         } catch (error) {
             console.error('Error toggling playback:', error);
             setHasError(true);
         }
+    };
+
+    // Format duration as MM:SS
+    const formatDuration = (seconds: number): string => {
+        if (!seconds || isNaN(seconds)) return '0:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
     if (hasError) {
@@ -177,7 +227,7 @@ export default function VideoPlayer({
                 player={player}
                 style={styles.video}
                 nativeControls={showControls}
-                contentFit="contain"
+                contentFit={showThumbnailInfo ? "cover" : "contain"}
             />
             
             {isLoading && (
@@ -200,6 +250,24 @@ export default function VideoPlayer({
                         />
                     </View>
                 </Pressable>
+            )}
+
+            {/* Thumbnail info overlay (camera icon + duration) */}
+            {showThumbnailInfo && !isLoading && !hasError && (
+                <View style={styles.thumbnailInfoOverlay}>
+                    <View style={styles.thumbnailInfoContainer}>
+                        <IconSymbol 
+                            name="video.fill" 
+                            color={Colors.White} 
+                            size={16} 
+                        />
+                        {duration !== null && (
+                            <Text style={styles.durationText}>
+                                {formatDuration(duration)}
+                            </Text>
+                        )}
+                    </View>
+                </View>
             )}
         </View>
     );
@@ -271,6 +339,25 @@ const styles = StyleSheet.create({
         color: Colors.White,
         fontSize: 14,
         fontWeight: '600',
+    },
+    thumbnailInfoOverlay: {
+        position: 'absolute',
+        bottom: 8,
+        left: 8,
+    },
+    thumbnailInfoContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        borderRadius: 4,
+        paddingHorizontal: 6,
+        paddingVertical: 4,
+        gap: 4,
+    },
+    durationText: {
+        color: Colors.White,
+        fontSize: 12,
+        fontWeight: '500',
     },
 });
 
