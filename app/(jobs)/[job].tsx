@@ -105,6 +105,7 @@ export default function Job() {
     const [isDutyMessage, setIsDutyMessage] = React.useState(false); // Flag to mark message as duty when sending
     const [currentPinnedTaskIndex, setCurrentPinnedTaskIndex] = React.useState(0); // Index of currently displayed pinned task/duty
     const [taskToScrollTo, setTaskToScrollTo] = React.useState<string | null>(null); // Task/Duty message ID to scroll to
+    const [replyingToMessage, setReplyingToMessage] = React.useState<Message | null>(null); // Message being replied to
     
     // Lighter, brighter blue for task highlighting
     const taskBlue = '#3b82f6'; // Bright blue-500
@@ -1179,6 +1180,12 @@ const loadOlderMessages = async () => {
            console.log('🔍 sendMessage: Message is NOT a duty, isDutyMessage:', isDutyMessage);
        }
 
+       // Add reply fields if replying to a message
+       if (replyingToMessage) {
+           message.replyToMessageId = replyingToMessage.$id;
+           console.log('🔍 sendMessage: Replying to message:', replyingToMessage.$id);
+       }
+
        console.log('🔍 sendMessage: Creating message document:', message);
 
        const createdMessage = await db.createDocument(
@@ -1198,6 +1205,25 @@ const loadOlderMessages = async () => {
             senderId: createdMessage.senderId
         });
 
+        // If this was a reply, increment replyCount on the original message
+        if (replyingToMessage) {
+            try {
+                const currentReplyCount = replyingToMessage.replyCount || 0;
+                await db.updateDocument(
+                    appwriteConfig.db,
+                    appwriteConfig.col.messages,
+                    replyingToMessage.$id,
+                    {
+                        replyCount: currentReplyCount + 1
+                    }
+                );
+                console.log('🔍 sendMessage: Incremented replyCount for message:', replyingToMessage.$id);
+            } catch (error) {
+                console.error('🔍 sendMessage: Failed to increment replyCount:', error);
+                // Don't fail the whole operation if this fails
+            }
+        }
+
         // Clear input fields immediately
         setMessageContent('');
         setSelectedImages([]);
@@ -1209,6 +1235,7 @@ const loadOlderMessages = async () => {
         setUploadProgress(0);
         setIsTaskMessage(false); // Clear task flag
         setIsDutyMessage(false); // Clear duty flag
+        setReplyingToMessage(null); // Clear reply state
 
         // Refresh messages to show the new message
         console.log('🔍 sendMessage: Refreshing messages after sending...');
@@ -1291,19 +1318,51 @@ const loadOlderMessages = async () => {
     };
 
     const handleLongPress = (message: Message) => {
-        // Only allow user to delete their own messages
-        if (message.senderId !== user?.$id) {
-            return;
-        }
-
-        // Don't allow deleting already deleted messages
+        // Don't allow actions on already deleted messages
         if (message.content === 'Message deleted by user') {
             return;
         }
 
         setPressedMessageId(message.$id);
-        setMessageToDelete(message);
-        setShowDeleteModal(true);
+        
+        // Show action sheet with Reply and Delete options
+        // Delete only available for own messages
+        const options: string[] = ['Reply'];
+        if (message.senderId === user?.$id) {
+            options.push('Delete');
+        }
+        options.push('Cancel');
+
+        Alert.alert(
+            'Message Options',
+            '',
+            [
+                {
+                    text: 'Reply',
+                    onPress: () => {
+                        setReplyingToMessage(message);
+                        setPressedMessageId(null);
+                    },
+                },
+                ...(message.senderId === user?.$id ? [{
+                    text: 'Delete',
+                    style: 'destructive' as const,
+                    onPress: () => {
+                        setMessageToDelete(message);
+                        setShowDeleteModal(true);
+                        setPressedMessageId(null);
+                    },
+                }] : []),
+                {
+                    text: 'Cancel',
+                    style: 'cancel' as const,
+                    onPress: () => {
+                        setPressedMessageId(null);
+                    },
+                },
+            ],
+            { cancelable: true }
+        );
     };
 
     const handleDeleteConfirm = () => {
@@ -1749,6 +1808,7 @@ const loadOlderMessages = async () => {
                                 const isSender = item.senderId === user?.$id;
                                 const isPressed = pressedMessageId === item.$id;
                                 const isDeleted = item.content === 'Message deleted by user';
+                                const originalMessage = item.replyToMessageId ? messages.find(m => m.$id === item.replyToMessageId) : null;
                                 
                                 // Render deleted messages differently
                                 if (isDeleted) {
@@ -2118,6 +2178,45 @@ const loadOlderMessages = async () => {
                                                     showAvatar={true}
                                                 />
                                             )}
+
+                                            {/* Reply Context */}
+                                            {originalMessage && (
+                                                <Pressable
+                                                    onPress={() => {
+                                                        // Scroll to original message
+                                                        const index = messages.findIndex(m => m.$id === originalMessage.$id);
+                                                        if (index !== -1 && listRef.current) {
+                                                            listRef.current.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        backgroundColor: Colors.Secondary,
+                                                        borderRadius: 6,
+                                                        padding: 8,
+                                                        marginBottom: 8,
+                                                        borderLeftWidth: 2,
+                                                        borderLeftColor: Colors.Primary,
+                                                    }}
+                                                >
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                                        <IconSymbol name="arrowshape.turn.up.left.fill" color={Colors.Primary} size={12} />
+                                                        <Text style={{ color: Colors.Primary, fontSize: 11, fontWeight: '600' }}>
+                                                            {originalMessage.senderName || 'Unknown User'}
+                                                        </Text>
+                                                    </View>
+                                                    <Text 
+                                                        style={{ 
+                                                            color: Colors.Text, 
+                                                            fontSize: 12, 
+                                                            opacity: 0.7,
+                                                            lineHeight: 16,
+                                                        }} 
+                                                        numberOfLines={1}
+                                                    >
+                                                        {originalMessage.content || (originalMessage.imageUrl ? '📷 Image' : originalMessage.videoFileId ? '🎥 Video' : originalMessage.audioFileId ? '🎵 Audio' : originalMessage.fileFileId ? '📄 File' : 'Message')}
+                                                    </Text>
+                                                </Pressable>
+                                            )}
                                             
                                             {item.content && (
                                                 <Text style={{ 
@@ -2131,6 +2230,25 @@ const loadOlderMessages = async () => {
                                                 }}>
                                                     {item.content}
                                                 </Text>
+                                            )}
+
+                                            {/* Reply Count Badge */}
+                                            {(item.replyCount ?? 0) > 0 && (
+                                                <View style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    marginTop: 6,
+                                                    gap: 4,
+                                                }}>
+                                                    <IconSymbol name="arrowshape.turn.up.left.fill" color={Colors.Primary} size={12} />
+                                                    <Text style={{
+                                                        color: Colors.Primary,
+                                                        fontSize: 11,
+                                                        fontWeight: '600',
+                                                    }}>
+                                                        {item.replyCount} {item.replyCount === 1 ? 'reply' : 'replies'}
+                                                    </Text>
+                                                </View>
                                             )}
 
                                             <Text
@@ -2566,6 +2684,48 @@ const loadOlderMessages = async () => {
                                 </View>
                             )}
 
+                            {/* Reply Preview - Above Input */}
+                            {replyingToMessage && (
+                                <View style={{
+                                    backgroundColor: Colors.Secondary,
+                                    borderRadius: 6,
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 6,
+                                    marginBottom: 6,
+                                    marginHorizontal: 10,
+                                    borderLeftWidth: 2,
+                                    borderLeftColor: Colors.Primary,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                }}>
+                                    <IconSymbol name="arrowshape.turn.up.left.fill" color={Colors.Primary} size={12} />
+                                    <Text style={{ color: Colors.Primary, fontSize: 11, fontWeight: '600', flexShrink: 0 }}>
+                                        {replyingToMessage.senderName}:
+                                    </Text>
+                                    <Text 
+                                        style={{ 
+                                            color: Colors.Text, 
+                                            fontSize: 11, 
+                                            opacity: 0.7,
+                                            flex: 1,
+                                        }} 
+                                        numberOfLines={1}
+                                    >
+                                        {replyingToMessage.content || (replyingToMessage.imageUrl ? '📷 Image' : replyingToMessage.videoFileId ? '🎥 Video' : replyingToMessage.audioFileId ? '🎵 Audio' : replyingToMessage.fileFileId ? '📄 File' : 'Message')}
+                                    </Text>
+                                    <Pressable
+                                        onPress={() => setReplyingToMessage(null)}
+                                        style={{
+                                            padding: 2,
+                                            marginLeft: -2,
+                                        }}
+                                    >
+                                        <IconSymbol name="xmark.circle.fill" color={Colors.Gray} size={16} />
+                                    </Pressable>
+                                </View>
+                            )}
+
                             {/* Input Area */}
                             <View
                             style={{
@@ -2763,7 +2923,7 @@ const loadOlderMessages = async () => {
                                 </View>
 
                                 <TextInput 
-                                placeholder={isTaskMessage ? "Type your task..." : isDutyMessage ? "Type your duty..." : "Type your message..."}
+                                placeholder={replyingToMessage ? "Type your reply..." : (isTaskMessage ? "Type your task..." : isDutyMessage ? "Type your duty..." : "Type your message...")}
                                 onChangeText={setMessageContent}
                                 value={messageContent}
                                 editable={!isUploading}

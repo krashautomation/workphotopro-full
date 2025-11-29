@@ -232,6 +232,9 @@ export interface Message {
   // Duty fields
   isDuty?: boolean; // Flag to mark message as a duty
   dutyStatus?: 'active' | 'completed'; // Duty status (only relevant if isDuty is true)
+  // Reply fields
+  replyToMessageId?: string; // ID of the message being replied to
+  replyCount?: number; // Number of replies this message has received (for rewards/metrics)
 }
 
 // Location data for messages
