@@ -408,25 +408,17 @@ export default function Jobs() {
       >
         <View style={styles.headerCardContent}>
           <View style={styles.headerRowContainer}>
-            <View style={styles.headerColumn}>
-              <View style={styles.headerRow}>
-                <Text style={styles.subtitle}>
-                  <Text style={styles.boldText}>Company:</Text> {currentOrganization?.orgName || 'No Organization'}
-                </Text>
-              </View>
-              <View style={styles.headerRow}>
-                <Text style={styles.subtitle}>
-                  <Text style={styles.boldText}>Team:</Text> {currentTeam?.name || 'No Team'}
-                </Text>
-              </View>
+            <View style={styles.headerLeftContainer}>
+              <Text style={styles.subtitle}>{currentOrganization?.orgName || 'No Organization'}</Text>
+              <Text style={styles.subtitle}>{currentTeam?.name || 'No Team'}</Text>
             </View>
-            <View style={styles.roleSwitchContainer}>
+            <View style={styles.headerRightContainer}>
               {roleDisplay && (
                 <View style={[styles.rolePill, isOwnerRole && styles.rolePillOwner]}>
                   <Text style={[styles.rolePillText, isOwnerRole && styles.rolePillTextOwner]}>{roleDisplay}</Text>
                 </View>
               )}
-              <Text style={styles.switchSymbol}>⇄</Text>
+              <ChevronRight size={20} color={colors.textSecondary} />
             </View>
           </View>
         </View>
@@ -684,7 +676,18 @@ const styles = StyleSheet.create({
   headerRowContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerLeftContainer: {
+    flexDirection: 'column',
     alignItems: 'flex-start',
+    gap: 4,
+    flex: 1,
+  },
+  headerRightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
   headerColumn: {
@@ -720,7 +723,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: colors.textSecondary,
   },
   boldText: {
@@ -1039,8 +1042,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   progressLabel: {
-    fontSize: 16,
-    color: colors.textSecondary,
+    fontSize: 12,
+    color: colors.text,
     fontWeight: '500',
   },
   progressBarWrapper: {
@@ -1061,9 +1064,9 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   progressText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '700',
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   pillsContainer: {
     flexDirection: 'row',
