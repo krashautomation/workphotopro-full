@@ -2,7 +2,7 @@ import React from 'react'
 import { Dimensions, FlatList, Image, Pressable, StyleSheet, Text, View, Linking, Platform, Alert } from 'react-native'
 import { Message } from '@/utils/types'
 import { Colors } from '@/utils/colors'
-import { appwriteConfig } from '@/utils/appwrite'
+import { appwriteConfig, storage, db } from '@/utils/appwrite'
 import { IconSymbol } from '@/components/IconSymbol'
 import { webColors } from '@/styles/webDesignTokens'
 import CachedImage from '@/components/CachedImage'
@@ -239,6 +239,13 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
     const itemSize = React.useMemo(() => {
         const totalSpacing = SPACING * (NUM_COLUMNS + 1)
         return Math.floor((width - totalSpacing) / NUM_COLUMNS)
+    }, [width])
+
+    // Calculate button width: container width - padding (32) - gaps (24) divided by 3 buttons
+    const buttonWidth = React.useMemo(() => {
+        const containerPadding = 32 // paddingHorizontal: 16 * 2
+        const gaps = 24 // gap: 12 * 2 (between 3 buttons)
+        return Math.floor((width - containerPadding - gaps) / 3)
     }, [width])
 
     const toggleItemSelection = (itemId: string) => {
@@ -706,9 +713,137 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
 
     const getDownloadButtonText = () => {
         if (selectedItems.size === 0) {
-            return 'Download selected'
+            return 'Download'
         }
-        return `Download selected (${selectedItems.size})`
+        return `Download (${selectedItems.size})`
+    }
+
+    const getDeleteButtonText = () => {
+        if (selectedItems.size === 0) {
+            return 'Delete'
+        }
+        return `Delete (${selectedItems.size})`
+    }
+
+    const handleDeleteAll = async () => {
+        if (selectedItems.size === 0) return
+
+        const selectedMessages = messages.filter(msg => selectedItems.has(msg.$id))
+        const count = selectedMessages.length
+
+        // Show confirmation dialog
+        Alert.alert(
+            'Delete Selected Items?',
+            `Are you sure you want to delete ${count} item(s)? This action cannot be undone.`,
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            let successCount = 0
+                            let failCount = 0
+
+                            // Delete each selected message
+                            for (const message of selectedMessages) {
+                                try {
+                                    // Skip already deleted messages
+                                    if (message.content === 'Message deleted by user') {
+                                        continue
+                                    }
+
+                                    // Delete associated files from storage
+                                    try {
+                                        // Delete multiple images if present
+                                        if ((message as any).imageFileIds && Array.isArray((message as any).imageFileIds)) {
+                                            const deletePromises = (message as any).imageFileIds.map((fileId: string) =>
+                                                storage.deleteFile(appwriteConfig.bucket, fileId).catch(err => {
+                                                    console.error(`Error deleting image file ${fileId} from storage:`, err)
+                                                })
+                                            )
+                                            await Promise.all(deletePromises)
+                                        }
+                                        // Backward compatibility: delete single image if present
+                                        else if ((message as any).imageFileId) {
+                                            await storage.deleteFile(appwriteConfig.bucket, (message as any).imageFileId)
+                                        }
+                                    } catch (fileError) {
+                                        console.error('Error deleting image file(s) from storage:', fileError)
+                                    }
+
+                                    try {
+                                        if ((message as any).videoFileId) {
+                                            await storage.deleteFile(appwriteConfig.bucket, (message as any).videoFileId)
+                                        }
+                                    } catch (fileError) {
+                                        console.error('Error deleting video file from storage:', fileError)
+                                    }
+
+                                    try {
+                                        if ((message as any).fileFileId) {
+                                            await storage.deleteFile(appwriteConfig.bucket, (message as any).fileFileId)
+                                        }
+                                    } catch (fileError) {
+                                        console.error('Error deleting file from storage:', fileError)
+                                    }
+
+                                    try {
+                                        if ((message as any).audioFileId) {
+                                            await storage.deleteFile(appwriteConfig.bucket, (message as any).audioFileId)
+                                        }
+                                    } catch (fileError) {
+                                        console.error('Error deleting audio file from storage:', fileError)
+                                    }
+
+                                    // Update the message to mark it as deleted
+                                    await db.updateDocument(
+                                        appwriteConfig.db,
+                                        appwriteConfig.col.messages,
+                                        message.$id,
+                                        {
+                                            content: 'Message deleted by user',
+                                            imageUrl: '',
+                                            imageFileId: '',
+                                            videoFileId: '',
+                                            fileFileId: '',
+                                            audioFileId: '',
+                                        }
+                                    )
+
+                                    successCount++
+                                } catch (error) {
+                                    console.error(`Error deleting message ${message.$id}:`, error)
+                                    failCount++
+                                }
+                            }
+
+                            // Clear selection after deletion
+                            setSelectedItems(new Set())
+
+                            // Show result
+                            if (successCount > 0) {
+                                Alert.alert(
+                                    'Delete complete',
+                                    `Successfully deleted ${successCount} item(s).${failCount > 0 ? `\n\n${failCount} item(s) failed to delete.` : ''}`
+                                )
+                            } else {
+                                Alert.alert(
+                                    'Delete failed',
+                                    `Failed to delete ${failCount} item(s). Please check console for details.`
+                                )
+                            }
+                        } catch (error) {
+                            console.error('Delete error:', error)
+                            Alert.alert('Delete failed', 'An error occurred while deleting items.')
+                        }
+                    },
+                },
+            ]
+        )
     }
 
     const hasSelectedItems = selectedItems.size > 0
@@ -787,7 +922,7 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
             <View style={styles.downloadButtonContainer}>
                 <View style={styles.buttonRow}>
                     <Pressable
-                        style={styles.selectAllButton}
+                        style={[styles.selectAllButton, { width: buttonWidth }]}
                         onPress={isAllSelected() ? handleDeselectAll : handleSelectAll}
                     >
                         <Text style={styles.selectAllButtonText}>
@@ -797,6 +932,7 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                     <Pressable
                         style={[
                             styles.downloadButton,
+                            { width: buttonWidth },
                             !hasSelectedItems && styles.downloadButtonDisabled,
                         ]}
                         onPress={handleDownloadAll}
@@ -814,6 +950,24 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
                             ]}
                         >
                             {getDownloadButtonText()}
+                        </Text>
+                    </Pressable>
+                    <Pressable
+                        style={[
+                            styles.deleteButton,
+                            { width: buttonWidth },
+                            !hasSelectedItems && styles.deleteButtonDisabled,
+                        ]}
+                        onPress={handleDeleteAll}
+                        disabled={!hasSelectedItems}
+                    >
+                        <Text
+                            style={[
+                                styles.deleteButtonText,
+                                !hasSelectedItems && styles.deleteButtonTextDisabled,
+                            ]}
+                        >
+                            {getDeleteButtonText()}
                         </Text>
                     </Pressable>
                 </View>
@@ -870,11 +1024,11 @@ const styles = StyleSheet.create({
     buttonRow: {
         flexDirection: 'row',
         gap: 12,
+        width: '100%',
     },
     selectAllButton: {
-        flex: 1,
         paddingVertical: 10,
-        paddingHorizontal: 16,
+        paddingHorizontal: 8,
         backgroundColor: Colors.Secondary,
         borderRadius: 8,
         borderWidth: 1,
@@ -884,16 +1038,15 @@ const styles = StyleSheet.create({
     },
     selectAllButtonText: {
         color: Colors.Text,
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: '600',
     },
     downloadButton: {
-        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 10,
-        paddingHorizontal: 16,
+        paddingHorizontal: 8,
         backgroundColor: Colors.Secondary,
         borderRadius: 8,
         borderWidth: 1,
@@ -906,10 +1059,34 @@ const styles = StyleSheet.create({
     },
     downloadButtonText: {
         color: webColors.primary,
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: '600',
     },
     downloadButtonTextDisabled: {
+        color: Colors.Gray,
+    },
+    deleteButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 8,
+        backgroundColor: Colors.Secondary,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#ef4444',
+        gap: 8,
+    },
+    deleteButtonDisabled: {
+        borderColor: Colors.Gray,
+        opacity: 0.5,
+    },
+    deleteButtonText: {
+        color: '#ef4444',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    deleteButtonTextDisabled: {
         color: Colors.Gray,
     },
     checkmarkOverlay: {
