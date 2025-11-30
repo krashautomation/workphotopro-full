@@ -110,7 +110,7 @@ export default function Index() {
               end={{ x: 1, y: 1 }}
               style={styles.newButton}
             >
-              <Text style={globalStyles.buttonText}>Get Started</Text>
+              <Text style={globalStyles.buttonText}>Get Started FREE</Text>
             </LinearGradient>
           </TouchableOpacity>
           
