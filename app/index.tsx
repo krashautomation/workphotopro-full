@@ -1,16 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { globalStyles, getPlaceholderTextColor } from '@/styles/globalStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, Redirect, useRouter } from 'expo-router';
 import { Camera } from 'lucide-react-native';
-import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
 import RotatingText from '@/components/RotatingText';
+
+// Home images for rotation
+const homeImages = [
+  require('@/assets/images/home/annie-gavin-aqqx2yrVB2M-unsplash.jpg'),
+  require('@/assets/images/home/cova-software-r--jcbaXgek-unsplash.jpg'),
+  require('@/assets/images/home/ernie-journeys-r5WU0B6OUws-unsplash.jpg'),
+  require('@/assets/images/home/the-nix-company-4Hmj9gkyM6c-unsplash.jpg'),
+  require('@/assets/images/home/timur-shakerzianov-c314Gh8dXAo-unsplash.jpg'),
+];
 
 export default function Index() {
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const handleGetStarted = () => {
     if (email.trim()) {
@@ -22,6 +32,15 @@ export default function Index() {
       router.push('/(auth)/sign-up');
     }
   };
+
+  // Rotate through images every 3 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % homeImages.length);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   if (loading) {
     return (
@@ -57,6 +76,15 @@ export default function Index() {
             interval={2000}
             style={globalStyles.subtitle}
           /></Text>
+        
+        {/* Rotating Images */}
+        <View style={styles.imageContainer}>
+          <Image 
+            source={homeImages[currentImageIndex]} 
+            style={styles.rotatingImage}
+            resizeMode="cover"
+          />
+        </View>
         
         <Text style={globalStyles.body}>
           Capture, organize & share work photos in the cloud for projects, estimates, updates and more....
@@ -146,6 +174,19 @@ const styles = StyleSheet.create({
   newLinkContainer: {
     marginTop: 8,
     alignItems: 'center',
+  },
+  imageContainer: {
+    width: '60%',
+    marginTop: 0,
+    marginBottom: 16,
+    alignItems: 'center',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  rotatingImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 12,
   },
 });
 
