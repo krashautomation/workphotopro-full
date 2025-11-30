@@ -216,6 +216,7 @@ export default function UserProfileScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Organization</Text>
           <View style={styles.organizationContent}>
             {organizationLogo ? (
               <Image
@@ -229,7 +230,7 @@ export default function UserProfileScreen() {
               </View>
             )}
             <View style={styles.organizationText}>
-              <Text style={styles.sectionTitle}>{organizationName}</Text>
+              <Text style={styles.organizationName}>{organizationName}</Text>
               <Text style={styles.descriptionText}>
                 {profileOrganization?.description || currentOrganization?.description || 'No description available'}
               </Text>
@@ -310,6 +311,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  organizationName: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
