@@ -421,6 +421,28 @@ export default function Teams() {
             color={colors.textSecondary}
           />
         </TouchableOpacity>
+        {currentTeam && (
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => {
+              router.push('/(jobs)/team');
+            }}
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol
+                name="person.3"
+                size={20}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.menuItemText}>Team Members (invite)</Text>
+            </View>
+            <IconSymbol
+              name="chevron.right"
+              size={16}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity 
           style={styles.menuItem}
           onPress={() => {
