@@ -10,6 +10,7 @@ import RotatingText from '@/components/RotatingText';
 // Home images for rotation
 const homeImages = [
   require('@/assets/images/home/annie-gavin-aqqx2yrVB2M-unsplash.jpg'),
+  require('@/assets/images/home/claudio-schwarz-q8kR_ie6WnI-unsplash.jpg'),
   require('@/assets/images/home/cova-software-r--jcbaXgek-unsplash.jpg'),
   require('@/assets/images/home/ernie-journeys-r5WU0B6OUws-unsplash.jpg'),
   require('@/assets/images/home/the-nix-company-4Hmj9gkyM6c-unsplash.jpg'),
@@ -70,9 +71,9 @@ export default function Index() {
         <Text style={globalStyles.title}>Work Photo Pro</Text>
         
         <Text style={globalStyles.subtitle}>
-          The Work photo chat app for{' '} 
+          The Work Photo Chat App for{' '} 
           <RotatingText 
-            words={['Clients...  ', 'Companies...', 'Contractors...', 'Estimates...  ', 'Inventory...   ', 'Reports...   ', 'Invoices... ', 'Proof...     ']}
+            words={[' Clients...  ', ' Companies...', ' Contractors...', ' Estimates...  ', ' Inventory...   ', ' Reports...   ', ' Invoices... ', ' Proof...     ']}
             interval={2000}
             style={globalStyles.subtitle}
           /></Text>

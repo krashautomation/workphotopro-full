@@ -28,9 +28,20 @@ export default function RotatingText({
   if (words.length === 0) return null;
 
   return (
-    <Text style={style} {...textProps}>
+    <Text style={[style, styles.highlightedText]} {...textProps}>
       {words[currentIndex]}
     </Text>
   );
 }
+
+const styles = StyleSheet.create({
+  highlightedText: {
+    backgroundColor: '#ccff00',
+    color: '#000',
+    fontWeight: 'bold',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+});
 
