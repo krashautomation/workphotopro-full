@@ -20,6 +20,7 @@ export const organizationService = {
         hdCaptureEnabled: false,
         videoRecordingEnabled: false,
         hdVideoEnabled: false,
+        watermarkEnabled: true, // Default to enabled
         ...(ownerId && { ownerId })
       };
 

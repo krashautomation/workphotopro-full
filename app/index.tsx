@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Link, Redirect, useRouter } from 'expo-router';
 import { Camera } from 'lucide-react-native';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import RotatingText from '@/components/RotatingText';
 
 export default function Index() {
   const { isAuthenticated, loading } = useAuth();
@@ -50,11 +51,15 @@ export default function Index() {
         <Text style={globalStyles.title}>Work Photo Pro</Text>
         
         <Text style={globalStyles.subtitle}>
-          Job site photos made easy...
-        </Text>
+          The Work photo chat app for{' '} 
+          <RotatingText 
+            words={['Clients...  ', 'Companies...', 'Contractors...', 'Estimates...  ', 'Inventory...   ', 'Reports...   ', 'Invoices... ', 'Proof...     ']}
+            interval={2000}
+            style={globalStyles.subtitle}
+          /></Text>
         
         <Text style={globalStyles.body}>
-          Capture, organize and share work photos for projects, estimates and updates with ease.
+          Capture, organize & share work photos in the cloud for projects, estimates, updates and more....
         </Text>
 
         {/* New Container Below Description */}
@@ -94,7 +99,7 @@ export default function Index() {
       {/* Footer Section */}
       <View style={globalStyles.footerSection}>
         <Text style={globalStyles.footer}>
-          Trusted by contractors worldwide
+          Trusted by 10,000+ companies worldwide
         </Text>
       </View>
     </View>
