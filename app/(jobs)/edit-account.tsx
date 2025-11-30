@@ -19,6 +19,7 @@ export default function EditAccountScreen() {
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [description, setDescription] = useState('');
 
   useEffect(() => {
     loadUserData();
@@ -35,6 +36,7 @@ export default function EditAccountScreen() {
       setEmail(data?.googleEmail || user?.email || '');
       setFirstName(data?.firstName || '');
       setLastName(data?.lastName || '');
+      setDescription((user?.prefs as any)?.description || 'Work Photo Pro fan.');
     } catch (error) {
       console.error('Error loading user data:', error);
     } finally {
@@ -46,16 +48,45 @@ export default function EditAccountScreen() {
     try {
       setSaving(true);
       
-      // Update user preferences with the new name
-      await account.updatePrefs({
-        displayName: name, // User's preferred display name
-        firstName: firstName,
-        lastName: lastName,
-        nameUpdatedAt: new Date().toISOString(),
-        // Keep original Google data intact
-        googleName: googleData?.googleName,
-        googleEmail: googleData?.googleEmail,
-      });
+      // Get current user to preserve ALL existing preferences
+      const currentUser = await account.get();
+      const currentPrefs = currentUser.prefs || {};
+      
+      // Build updated preferences by merging existing with new values
+      // IMPORTANT: We must preserve ALL existing preferences, only updating specific fields
+      const updatedPrefs: Record<string, any> = {
+        ...currentPrefs, // Start with ALL existing preferences (this preserves everything)
+      };
+      
+      // Only update the fields we're changing
+      updatedPrefs.displayName = name;
+      if (firstName !== undefined && firstName !== null) {
+        updatedPrefs.firstName = firstName;
+      }
+      if (lastName !== undefined && lastName !== null) {
+        updatedPrefs.lastName = lastName;
+      }
+      updatedPrefs.description = description || 'Work Photo Pro fan.';
+      updatedPrefs.nameUpdatedAt = new Date().toISOString();
+      
+      // Preserve Google data if it exists
+      if (googleData?.googleName) {
+        updatedPrefs.googleName = googleData.googleName;
+      }
+      if (googleData?.googleEmail) {
+        updatedPrefs.googleEmail = googleData.googleEmail;
+      }
+      
+      // Explicitly ensure profilePicture is preserved (in case it got lost)
+      if (currentPrefs.profilePicture) {
+        updatedPrefs.profilePicture = currentPrefs.profilePicture;
+      }
+      if (currentPrefs.profilePictureUpdated) {
+        updatedPrefs.profilePictureUpdated = currentPrefs.profilePictureUpdated;
+      }
+      
+      // Update user preferences (this replaces all preferences, so we must include everything)
+      await account.updatePrefs(updatedPrefs);
       
       // Refresh user data in context
       await refreshUser();
@@ -159,6 +190,18 @@ export default function EditAccountScreen() {
                 onChangeText={setLastName}
                 placeholder="Enter your last name"
                 style={styles.input}
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Description</Text>
+              <Input
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Work Photo Pro fan."
+                style={styles.input}
+                multiline
+                numberOfLines={3}
               />
             </View>
           </View>

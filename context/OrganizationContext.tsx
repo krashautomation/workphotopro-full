@@ -104,9 +104,17 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           if (prevOrg) {
             // Update the current organization with fresh data
             const updatedOrg = orgs.find(org => org.$id === prevOrg.$id);
-            return updatedOrg || orgs[0];
+            console.log('🔄 OrganizationContext - Updating current organization');
+            console.log('🔄 Previous org logoUrl:', prevOrg.logoUrl);
+            console.log('🔄 Updated org logoUrl:', updatedOrg?.logoUrl);
+            console.log('🔄 All orgs:', orgs.map(o => ({ id: o.$id, name: o.orgName, logoUrl: o.logoUrl })));
+            const finalOrg = updatedOrg || orgs[0];
+            console.log('🔄 Final org logoUrl:', finalOrg?.logoUrl);
+            return finalOrg;
           } else {
             // Set default organization if none selected
+            console.log('🔄 OrganizationContext - Setting default organization');
+            console.log('🔄 Default org logoUrl:', orgs[0]?.logoUrl);
             return orgs[0];
           }
         });

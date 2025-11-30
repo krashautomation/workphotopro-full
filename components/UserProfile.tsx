@@ -26,7 +26,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   showName = true,
   onPress,
 }) => {
-  const { user, getUserProfilePicture, getGoogleUserData, updateUserProfilePicture } = useAuth();
+  const { user, getUserProfilePicture, getGoogleUserData, updateUserProfilePicture, refreshUser } = useAuth();
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [googleData, setGoogleData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -115,10 +115,15 @@ export const UserProfile: React.FC<UserProfileProps> = ({
       console.log('🔄 Updating user profile picture...');
       await updateUserProfilePicture(fileUrl);
       
-      // Refresh the profile picture
-      setProfilePicture(fileUrl);
+      // Refresh user data to get updated profile picture
+      await refreshUser();
+      
+      // Reload profile picture from preferences
+      const updatedPicture = await getUserProfilePicture();
+      setProfilePicture(updatedPicture);
       
       console.log('✅ Avatar upload completed successfully');
+      console.log('✅ Updated profile picture:', updatedPicture);
       Alert.alert('Success', 'Profile picture updated successfully!');
     } catch (error) {
       console.error('❌ Error uploading avatar:', error);

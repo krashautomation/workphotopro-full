@@ -9,11 +9,12 @@ export const organizationService = {
   /**
    * Create a new organization
    */
-  async createOrganization(name: string, description?: string, ownerId?: string) {
+  async createOrganization(name: string, description?: string, ownerId?: string, logoUrl?: string) {
     try {
       const orgData = {
         orgName: name,
         description: description || '',
+        logoUrl: logoUrl || undefined,
         isActive: true,
         settings: '{}', // Default empty settings
         premiumTier: 'free',
@@ -36,7 +37,15 @@ export const organizationService = {
    */
   async getOrganization(orgId: string) {
     try {
-      return await databaseService.getDocument('organizations', orgId) as unknown as Organization;
+      const org = await databaseService.getDocument('organizations', orgId) as unknown as Organization;
+      console.log('🔄 getOrganization - Retrieved org:', {
+        id: org.$id,
+        name: org.orgName,
+        logoUrl: org.logoUrl,
+        hasLogoUrl: !!org.logoUrl,
+        allKeys: Object.keys(org)
+      });
+      return org;
     } catch (error) {
       console.error('Get organization error:', error);
       throw error;
@@ -52,6 +61,16 @@ export const organizationService = {
         Query.equal('ownerId', userId),
         Query.equal('isActive', true)
       ]);
+      console.log('🔄 listUserOrganizations - Raw result:', result.documents.length, 'organizations');
+      result.documents.forEach((org: any, index: number) => {
+        console.log(`🔄 Org ${index + 1}:`, {
+          id: org.$id,
+          name: org.orgName,
+          logoUrl: org.logoUrl,
+          hasLogoUrl: !!org.logoUrl,
+          allKeys: Object.keys(org)
+        });
+      });
       return {
         ...result,
         documents: result.documents as unknown as Organization[]
@@ -67,7 +86,17 @@ export const organizationService = {
    */
   async updateOrganization(orgId: string, data: Partial<Organization>) {
     try {
-      return await databaseService.updateDocument('organizations', orgId, data);
+      console.log('🔄 updateOrganization - Updating org:', orgId);
+      console.log('🔄 updateOrganization - Update data:', data);
+      const updated = await databaseService.updateDocument('organizations', orgId, data);
+      console.log('🔄 updateOrganization - Updated org response:', {
+        id: updated.$id,
+        name: (updated as any).orgName,
+        logoUrl: (updated as any).logoUrl,
+        hasLogoUrl: !!(updated as any).logoUrl,
+        allKeys: Object.keys(updated)
+      });
+      return updated;
     } catch (error) {
       console.error('Update organization error:', error);
       throw error;

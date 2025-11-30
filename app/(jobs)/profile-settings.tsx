@@ -12,7 +12,8 @@ import TagTestComponent from '@/components/TagTestComponent';
 import { userPreferencesService } from '@/lib/appwrite/database';
 import { ResolutionPreference, TimestampPreference } from '@/utils/types';
 import { organizationService } from '@/lib/appwrite/teams';
-import { UserPlus } from 'lucide-react-native';
+import { UserPlus, Building2 } from 'lucide-react-native';
+import { Image } from 'expo-image';
 
 export default function ProfileScreen() {
   const { user, getGoogleUserData, signOut } = useAuth();
@@ -215,11 +216,24 @@ useEffect(() => {
   setHdVideoEnabled(profileOrganization.hdVideoEnabled ?? false);
 }, [profileOrganization?.$id, profileOrganization?.watermarkEnabled, profileOrganization?.videoRecordingEnabled, profileOrganization?.hdVideoEnabled]);
 
-  // Refresh data when screen comes into focus (e.g., returning from edit account)
+  // Refresh data when screen comes into focus (e.g., returning from edit account or edit organization)
+  // Use a ref to track if we've already loaded to prevent infinite loops
+  const hasLoadedRef = React.useRef(false);
+  
   useFocusEffect(
     React.useCallback(() => {
-      loadGoogleData();
-    }, [])
+      // Only load once per focus session
+      if (!hasLoadedRef.current) {
+        loadGoogleData();
+        loadUserData();
+        hasLoadedRef.current = true;
+      }
+      
+      // Reset flag when component unmounts
+      return () => {
+        hasLoadedRef.current = false;
+      };
+    }, []) // Empty deps - only run on focus
   );
 
   const loadGoogleData = async () => {
@@ -669,6 +683,13 @@ useEffect(() => {
               <Text style={styles.infoValue}>{googleData.locale}</Text>
             </View>
           )}
+          
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Description</Text>
+            <Text style={styles.infoValue}>
+              {(user?.prefs as any)?.description || 'Work Photo Pro fan.'}
+            </Text>
+          </View>
         </View>
 
         {/* Organization Section */}
@@ -689,6 +710,23 @@ useEffect(() => {
             <Text style={styles.infoValue}>
               {profileOrganization?.orgName || 'No Organization'}
             </Text>
+          </View>
+          
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Photo Icon</Text>
+            <View style={styles.logoContainer}>
+              {profileOrganization?.logoUrl ? (
+                <Image
+                  source={{ uri: profileOrganization.logoUrl }}
+                  style={styles.logoPreview}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={styles.logoPlaceholder}>
+                  <Building2 size={24} color={Colors.Gray} strokeWidth={2} />
+                </View>
+              )}
+            </View>
           </View>
           
           <View style={styles.infoItem}>
@@ -1050,6 +1088,25 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: 16,
     color: Colors.Text,
+  },
+  logoContainer: {
+    marginTop: 8,
+  },
+  logoPreview: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: Colors.Background,
+  },
+  logoPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: Colors.Background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.Gray + '30',
   },
   settingsSection: {
     marginBottom: 20,

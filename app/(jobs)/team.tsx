@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+import { Building2 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { Colors } from '@/utils/colors';
@@ -11,7 +13,16 @@ import Avatar from '@/components/Avatar';
 
 export default function TeamScreen() {
   const { user, getGoogleUserData, getUserProfilePicture } = useAuth();
-  const { currentTeam, currentOrganization } = useOrganization();
+  const { currentTeam, currentOrganization, userOrganizations } = useOrganization();
+  
+  // Get the user's owned organization (same logic as profile-settings.tsx)
+  const profileOrganization = React.useMemo(() => {
+    const ownedOrgs = userOrganizations.filter(org => org.ownerId === user?.$id);
+    return ownedOrgs[0] || (currentOrganization?.ownerId === user?.$id ? currentOrganization : null);
+  }, [userOrganizations, user?.$id, currentOrganization]);
+  
+  // Use profileOrganization logo, fallback to currentOrganization
+  const organizationLogo = profileOrganization?.logoUrl || currentOrganization?.logoUrl;
   const [googleData, setGoogleData] = useState<any>(null);
   const [userProfilePicture, setUserProfilePicture] = useState<string | null>(null);
   const [members, setMembers] = useState<any[]>([]);
@@ -182,7 +193,20 @@ export default function TeamScreen() {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
         {/* Team Header */}
         <View style={styles.teamHeader}>
-          <Text style={styles.teamTitle}>{currentTeam?.name || 'No Team'}</Text>
+          <View style={styles.teamTitleRow}>
+            {organizationLogo ? (
+              <Image
+                source={{ uri: organizationLogo }}
+                style={styles.organizationLogo}
+                contentFit="cover"
+              />
+            ) : (
+              <View style={styles.organizationLogoPlaceholder}>
+                <Building2 size={24} color={Colors.Gray} strokeWidth={2} />
+              </View>
+            )}
+            <Text style={styles.teamTitle}>{currentTeam?.name || 'No Team'}</Text>
+          </View>
           
           <View style={styles.teamInfo}>
             <View style={styles.infoRow}>
@@ -273,11 +297,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 30,
   },
+  teamTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    gap: 12,
+  },
+  organizationLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: Colors.Secondary,
+  },
+  organizationLogoPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: Colors.Secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.Gray + '30',
+  },
   teamTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     color: Colors.Text,
-    marginBottom: 8,
   },
   membersSection: {
     marginBottom: 30,

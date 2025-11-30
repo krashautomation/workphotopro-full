@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Coins, Building2 } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import Avatar from '@/components/Avatar';
@@ -14,9 +14,10 @@ import { jobChatService } from '@/lib/appwrite/database';
 export default function UserProfileScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { user, getGoogleUserData } = useAuth();
-  const { currentOrganization, userTeams } = useOrganization();
+  const { user, getGoogleUserData, getUserProfilePicture } = useAuth();
+  const { currentOrganization, userOrganizations, userTeams } = useOrganization();
   const [googleData, setGoogleData] = React.useState<any>(null);
+  const [profilePicture, setProfilePicture] = React.useState<string | null>(null);
   const [ownedJobsCount, setOwnedJobsCount] = React.useState<number | null>(null);
   const [loadingJobCounts, setLoadingJobCounts] = React.useState(false);
 
@@ -36,9 +37,13 @@ export default function UserProfileScreen() {
     let mounted = true;
     const load = async () => {
       try {
-        const data = await getGoogleUserData();
+        const [data, picture] = await Promise.all([
+          getGoogleUserData(),
+          getUserProfilePicture()
+        ]);
         if (mounted) {
           setGoogleData(data);
+          setProfilePicture(picture);
         }
       } catch (error) {
         console.warn('Failed to load Google data for profile screen', error);
@@ -48,7 +53,7 @@ export default function UserProfileScreen() {
     return () => {
       mounted = false;
     };
-  }, [getGoogleUserData]);
+  }, [getGoogleUserData, getUserProfilePicture]);
 
   const displayName = React.useMemo(() => {
     if (typeof nameParam === 'string' && nameParam.trim().length > 0) {
@@ -57,26 +62,40 @@ export default function UserProfileScreen() {
     return googleData?.displayName || user?.name || 'User';
   }, [googleData?.displayName, nameParam, user?.name]);
 
+  // Get the user's owned organization (same logic as profile-settings.tsx)
+  const profileOrganization = React.useMemo(() => {
+    const ownedOrgs = userOrganizations.filter(org => org.ownerId === user?.$id);
+    return ownedOrgs[0] || (currentOrganization?.ownerId === user?.$id ? currentOrganization : null);
+  }, [userOrganizations, user?.$id, currentOrganization]);
+
   const organizationName = React.useMemo(() => {
     if (typeof organizationParam === 'string' && organizationParam.trim().length > 0) {
       return organizationParam.trim();
     }
-    return currentOrganization?.orgName || 'No organization assigned';
-  }, [currentOrganization?.orgName, organizationParam]);
+    return profileOrganization?.orgName || currentOrganization?.orgName || 'No organization assigned';
+  }, [profileOrganization?.orgName, currentOrganization?.orgName, organizationParam]);
 
   const profileImage = React.useMemo(() => {
     if (typeof imageParam === 'string' && imageParam.trim().length > 0) {
       return imageParam.trim();
     }
-    return googleData?.photoUrl || (user as any)?.profileImage || null;
-  }, [googleData?.photoUrl, imageParam, user]);
+    // Priority: uploaded profilePicture > Google photoUrl > fallback
+    return profilePicture || googleData?.photoUrl || null;
+  }, [profilePicture, googleData?.photoUrl, imageParam]);
+
+  const userDescription = React.useMemo(() => {
+    return (user?.prefs as any)?.description || 'Work Photo Pro fan.';
+  }, [user?.prefs]);
 
   const organizationLogo = React.useMemo(() => {
-    return (currentOrganization as any)?.logoUrl || 
-           (currentOrganization as any)?.logo || 
-           (currentOrganization as any)?.imageUrl || 
-           null;
-  }, [currentOrganization]);
+    // Use profileOrganization (owned org) logo, not currentOrganization (active org)
+    const logo = profileOrganization?.logoUrl;
+    console.log('🖼️ User Profile - Profile organization:', profileOrganization?.orgName);
+    console.log('🖼️ User Profile - Profile organization logoUrl:', logo);
+    console.log('🖼️ User Profile - Current organization:', currentOrganization?.orgName);
+    console.log('🖼️ User Profile - Current organization logoUrl:', currentOrganization?.logoUrl);
+    return logo || null;
+  }, [profileOrganization?.logoUrl, currentOrganization?.logoUrl]);
 
   const contactsCount = React.useMemo(() => {
     const parsed = contactsCountParam ? Number(contactsCountParam) : null;
@@ -173,7 +192,7 @@ export default function UserProfileScreen() {
           <Avatar name={displayName} imageUrl={profileImage || undefined} size={80} />
           <Text style={styles.name}>{displayName}</Text>
           <Text style={styles.role}>Vancouver, B.C.</Text>
-          <Text style={styles.description}>💼 Business Owner & Founder</Text>
+          <Text style={styles.description}>{userDescription}</Text>
           <View style={styles.quickStatsContainer}>
             <Pressable onPress={() => router.push('/(jobs)/contacts')}>
               <Text style={styles.quickStats}>
@@ -212,7 +231,7 @@ export default function UserProfileScreen() {
             <View style={styles.organizationText}>
               <Text style={styles.sectionTitle}>{organizationName}</Text>
               <Text style={styles.descriptionText}>
-                {currentOrganization?.description || 'No description available'}
+                {profileOrganization?.description || currentOrganization?.description || 'No description available'}
               </Text>
             </View>
           </View>

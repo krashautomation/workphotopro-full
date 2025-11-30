@@ -6,6 +6,7 @@ import { Link, Redirect, useRouter } from 'expo-router';
 import { Camera } from 'lucide-react-native';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
 import RotatingText from '@/components/RotatingText';
+import Avatar from '@/components/Avatar';
 
 // Home images for rotation
 const homeImages = [
@@ -18,10 +19,11 @@ const homeImages = [
 ];
 
 export default function Index() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user, getUserProfilePicture } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
 
   const handleGetStarted = () => {
     if (email.trim()) {
@@ -33,6 +35,15 @@ export default function Index() {
       router.push('/(auth)/sign-up');
     }
   };
+
+  // Load profile picture if authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      getUserProfilePicture().then(setProfilePicture).catch(() => {
+        // Silently fail if profile picture can't be loaded
+      });
+    }
+  }, [isAuthenticated, user, getUserProfilePicture]);
 
   // Rotate through images every 3 seconds
   useEffect(() => {
@@ -57,6 +68,17 @@ export default function Index() {
 
   return (
     <View style={globalStyles.welcomeContainer}>
+      {/* Profile Picture in Top Right */}
+      {isAuthenticated && user && (
+        <View style={styles.profilePictureContainer}>
+          <Avatar
+            name={user.name || 'User'}
+            imageUrl={profilePicture || undefined}
+            size={40}
+          />
+        </View>
+      )}
+      
       {/* Logo Section */}
       <View style={globalStyles.logoContainer}>
         <LinearGradient
@@ -188,6 +210,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 150,
     borderRadius: 12,
+  },
+  profilePictureContainer: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
   },
 });
 

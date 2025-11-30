@@ -85,6 +85,7 @@ export interface Organization {
   orgName: string;
   ownerId: string; // References Appwrite Users
   description?: string;
+  logoUrl?: string; // Organization logo/icon URL
   isActive: boolean;
   settings?: string; // JSON string for organization settings
   premiumTier?: string;
