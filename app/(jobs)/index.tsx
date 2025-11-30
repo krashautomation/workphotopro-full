@@ -6,7 +6,8 @@ import { webColors } from '@/styles/webDesignTokens';
 import { jobChatService, tagService } from '@/lib/appwrite/database';
 import { JobChat, JobChatWithTags } from '@/utils/types';
 import { Link, useRouter, useFocusEffect, usePathname, useSegments } from 'expo-router';
-import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Image, TextInput } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -408,6 +409,26 @@ export default function Jobs() {
       >
         <View style={styles.headerCardContent}>
           <View style={styles.headerRowContainer}>
+            {/* Team Photo */}
+            {currentTeam?.teamData?.teamPhotoUrl ? (
+              <View style={styles.headerTeamPhotoContainer}>
+                <Image 
+                  source={{ uri: currentTeam.teamData.teamPhotoUrl }} 
+                  style={styles.headerTeamPhoto}
+                  contentFit="cover"
+                  transition={200}
+                />
+              </View>
+            ) : (
+              <View style={styles.headerTeamPhotoPlaceholder}>
+                <IconSymbol
+                  name="person.3"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              </View>
+            )}
+            
             <View style={styles.headerLeftContainer}>
               <Text style={styles.subtitle}>{currentOrganization?.orgName || 'No Organization'}</Text>
               <Text style={styles.subtitle}>{currentTeam?.name || 'No Team'}</Text>
@@ -678,6 +699,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 12,
+  },
+  headerTeamPhotoContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  headerTeamPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  headerTeamPhotoPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerLeftContainer: {
     flexDirection: 'column',

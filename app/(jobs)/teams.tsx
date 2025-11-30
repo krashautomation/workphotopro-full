@@ -4,6 +4,7 @@ import { globalStyles, colors } from '@/styles/globalStyles';
 import { webColors } from '@/styles/webDesignTokens';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { Image } from 'expo-image';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import Avatar from '@/components/Avatar';
@@ -331,6 +332,7 @@ export default function Teams() {
           renderItem={({ item }) => {
             const teamName = item.name || item.teamData?.teamName || 'Unnamed Team';
             const description = item.teamData?.description || item.description || '';
+            const teamPhotoUrl = item.teamData?.teamPhotoUrl;
             const isActive = item.teamData?.isActive !== false;
             const isCurrentTeam = currentTeam?.$id === item.$id;
             const membershipRole = (item as any).membershipRole || 'member';
@@ -345,6 +347,26 @@ export default function Teams() {
                 ]}
                 onPress={() => handleTeamSelect(item)}
               >
+                {/* Team Photo */}
+                <View style={styles.teamPhotoContainer}>
+                  {teamPhotoUrl ? (
+                    <Image 
+                      source={{ uri: teamPhotoUrl }} 
+                      style={styles.teamPhoto}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  ) : (
+                    <View style={styles.teamPhotoPlaceholder}>
+                      <IconSymbol
+                        name="person.3"
+                        size={24}
+                        color={colors.textSecondary}
+                      />
+                    </View>
+                  )}
+                </View>
+                
                 <View style={styles.teamContent}>
                   <View style={styles.teamHeader}>
                     <Text style={styles.teamName}>{teamName}</Text>
@@ -557,6 +579,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
+  },
+  teamPhotoContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  teamPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  teamPhotoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   activeCard: {
     // Active cards have default styling
