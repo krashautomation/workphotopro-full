@@ -7,6 +7,17 @@ interface RotatingTextProps extends Omit<TextProps, 'children'> {
   style?: TextProps['style'];
 }
 
+const styles = StyleSheet.create({
+  highlightedText: {
+    backgroundColor: '#ccff00',
+    color: '#000',
+    fontWeight: 'bold',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+});
+
 export default function RotatingText({ 
   words, 
   interval = 2000, 
@@ -33,15 +44,4 @@ export default function RotatingText({
     </Text>
   );
 }
-
-const styles = StyleSheet.create({
-  highlightedText: {
-    backgroundColor: '#ccff00',
-    color: '#000',
-    fontWeight: 'bold',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-});
 
