@@ -33,7 +33,37 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     
     try {
       const updatedTeam = await teamService.getTeam(currentTeam.$id);
-      setCurrentTeam(updatedTeam);
+      
+      // Preserve membershipRole from current team if it exists
+      const preservedMembershipRole = (currentTeam as any)?.membershipRole;
+      
+      // If membershipRole is missing, fetch it
+      let membershipRole = preservedMembershipRole;
+      if (!membershipRole && user?.$id) {
+        try {
+          const { databaseService } = await import('@/lib/appwrite/database');
+          const { Query } = await import('react-native-appwrite');
+          const memberships = await databaseService.listDocuments('memberships', [
+            Query.equal('userId', user.$id),
+            Query.equal('teamId', currentTeam.$id),
+            Query.equal('isActive', true)
+          ]);
+          
+          if (memberships.documents && memberships.documents.length > 0) {
+            membershipRole = memberships.documents[0].role || 'member';
+          }
+        } catch (error) {
+          console.warn('Could not fetch membership role when refreshing team:', error);
+        }
+      }
+      
+      // Merge updated team with preserved membershipRole
+      const teamWithRole = {
+        ...updatedTeam,
+        membershipRole: membershipRole || preservedMembershipRole || null
+      } as unknown as Team;
+      
+      setCurrentTeam(teamWithRole);
     } catch (error) {
       console.error('Error refreshing current team:', error);
     }
@@ -435,11 +465,39 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       team = teamOrId;
     }
     
+    // Always fetch membershipRole to ensure it's current
+    if (user?.$id) {
+      try {
+        const { databaseService } = await import('@/lib/appwrite/database');
+        const { Query } = await import('react-native-appwrite');
+        const memberships = await databaseService.listDocuments('memberships', [
+          Query.equal('userId', user.$id),
+          Query.equal('teamId', team.$id),
+          Query.equal('isActive', true)
+        ]);
+        
+        if (memberships.documents && memberships.documents.length > 0) {
+          (team as any).membershipRole = memberships.documents[0].role || 'member';
+        } else {
+          // If no membership found, preserve existing role or default to 'member'
+          (team as any).membershipRole = (team as any).membershipRole || 'member';
+        }
+      } catch (error) {
+        console.warn('Could not fetch membership role for team:', error);
+        // Preserve existing role or default to 'member' if we can't fetch
+        (team as any).membershipRole = (team as any).membershipRole || 'member';
+      }
+    } else {
+      // If no user, preserve existing role or default to 'member'
+      (team as any).membershipRole = (team as any).membershipRole || 'member';
+    }
+    
     console.log('🔍 switchTeamDirect: Switching to team:', {
       teamId: team.$id,
       teamName: team.name,
       hasTeamData: !!team.teamData,
-      orgId: team.teamData?.orgId
+      orgId: team.teamData?.orgId,
+      membershipRole: (team as any).membershipRole
     });
     
     // Set the current team

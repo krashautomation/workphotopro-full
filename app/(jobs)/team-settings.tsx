@@ -47,6 +47,40 @@ export default function EditTeam() {
     );
   }
 
+  // Check if user is owner - only owners can access team settings
+  const membershipRole = (currentTeam as any)?.membershipRole || 'member';
+  const isOwner = membershipRole?.toLowerCase() === 'owner';
+  
+  // Debug logging
+  console.log('🔍 team-settings.tsx - Checking permissions:', {
+    teamId: currentTeam?.$id,
+    teamName: currentTeam?.name,
+    membershipRole: membershipRole,
+    isOwner: isOwner,
+    currentTeamKeys: Object.keys(currentTeam || {}),
+    hasMembershipRole: 'membershipRole' in (currentTeam as any || {})
+  });
+  
+  if (!isOwner) {
+    return (
+      <View style={globalStyles.centeredContainer}>
+        <Text style={globalStyles.body}>You don't have permission to access team settings</Text>
+        <Text style={[globalStyles.body, { marginTop: 8, color: colors.textSecondary }]}>
+          Only team owners can manage team settings.
+        </Text>
+        <Text style={[globalStyles.body, { marginTop: 8, color: colors.textSecondary, fontSize: 12 }]}>
+          Your role: {membershipRole || 'unknown'}
+        </Text>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   const teamName = currentTeam.name || 'Unnamed Team';
   const teamDescription = currentTeam.teamData?.description || 'No description';
   const teamEmail = currentTeam.teamData?.email || 'No email';

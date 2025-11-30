@@ -110,7 +110,21 @@ export default function Teams() {
    */
   const handleTeamSelect = async (team: any) => {
     try {
+      console.log('🔍 teams.tsx - handleTeamSelect called:', {
+        teamId: team?.$id,
+        teamName: team?.name,
+        teamMembershipRole: (team as any)?.membershipRole,
+        teamKeys: Object.keys(team || {}),
+        teamFull: JSON.stringify(team, null, 2).substring(0, 500)
+      });
+      
       await switchTeam(team); // Pass the full team object
+      
+      console.log('🔍 teams.tsx - After switchTeam, checking currentTeam:', {
+        currentTeamId: currentTeam?.$id,
+        currentTeamMembershipRole: (currentTeam as any)?.membershipRole
+      });
+      
       router.push('/(jobs)');
     } catch (error) {
       console.error('Error switching team:', error);
@@ -185,6 +199,24 @@ export default function Teams() {
   });
 
   const currentData = activeTab === 'memberships' ? membershipsOnly : myOwnedTeams;
+  
+  // Debug logging for current team and role
+  useEffect(() => {
+    if (currentTeam) {
+      console.log('🔍 teams.tsx - Current team updated:', {
+        teamId: currentTeam.$id,
+        teamName: currentTeam.name,
+        membershipRole: (currentTeam as any)?.membershipRole,
+        membershipRoleType: typeof (currentTeam as any)?.membershipRole,
+        hasMembershipRole: 'membershipRole' in (currentTeam as any),
+        currentTeamKeys: Object.keys(currentTeam),
+        teamDataKeys: currentTeam.teamData ? Object.keys(currentTeam.teamData) : null,
+        fullCurrentTeam: JSON.stringify(currentTeam, null, 2).substring(0, 1000)
+      });
+    } else {
+      console.log('🔍 teams.tsx - No current team set');
+    }
+  }, [currentTeam]);
 
   /**
    * Initialize tab and scroll to active team - runs only once on initial load
@@ -485,26 +517,60 @@ export default function Teams() {
             color={colors.textSecondary}
           />
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.menuItem}
-          onPress={() => {
-            router.push('/(jobs)/team-settings');
-          }}
-        >
-          <View style={styles.menuItemLeft}>
-            <IconSymbol
-              name="gearshape"
-              size={20}
-              color={colors.textSecondary}
-            />
-            <Text style={styles.menuItemText}>Team Settings</Text>
-          </View>
-          <IconSymbol
-            name="chevron.right"
-            size={16}
-            color={colors.textSecondary}
-          />
-        </TouchableOpacity>
+        {currentTeam && (() => {
+          const membershipRole = (currentTeam as any)?.membershipRole || 'member';
+          const isOwner = membershipRole === 'owner';
+          
+          // Verbose logging for debugging
+          console.log('🔍 teams.tsx - Team Settings visibility check:', {
+            hasCurrentTeam: !!currentTeam,
+            currentTeamId: currentTeam?.$id,
+            currentTeamName: currentTeam?.name,
+            membershipRole: membershipRole,
+            membershipRoleType: typeof membershipRole,
+            membershipRoleLowercase: membershipRole?.toLowerCase(),
+            isOwner: isOwner,
+            isOwnerCheck: membershipRole === 'owner',
+            currentTeamKeys: Object.keys(currentTeam || {}),
+            hasMembershipRole: 'membershipRole' in (currentTeam as any || {}),
+            currentTeamFull: JSON.stringify(currentTeam, null, 2).substring(0, 500) // First 500 chars
+          });
+          
+          if (!isOwner) {
+            console.log('❌ teams.tsx - Team Settings HIDDEN: User is not owner', {
+              membershipRole,
+              expectedRole: 'owner',
+              comparison: membershipRole === 'owner'
+            });
+            return null;
+          }
+          
+          console.log('✅ teams.tsx - Team Settings VISIBLE: User is owner');
+          
+          return (
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => {
+                console.log('🔍 teams.tsx - Team Settings clicked, navigating...');
+                router.push('/(jobs)/team-settings');
+              }}
+            >
+              <View style={styles.menuItemLeft}>
+                <IconSymbol
+                  name="gearshape"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.menuItemText}>Team Settings</Text>
+              </View>
+              <IconSymbol
+                name="chevron.right"
+                size={16}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
+          );
+        })()}
         <View style={styles.bottomPadding} />
       </View>
     </View>
