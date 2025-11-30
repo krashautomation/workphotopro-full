@@ -422,28 +422,68 @@ export const teamService = {
     teamPhotoUrl?: string;
   }) {
     try {
+      console.log('🔄 updateTeamDetails - Called with:', {
+        teamId,
+        updates,
+        teamPhotoUrl: updates.teamPhotoUrl,
+        teamPhotoUrlType: typeof updates.teamPhotoUrl,
+        teamPhotoUrlLength: updates.teamPhotoUrl?.length,
+      });
+      
       // First, get the Appwrite team to ensure it exists
       const appwriteTeam = await teams.get(teamId);
+      console.log('🔄 updateTeamDetails - Appwrite team:', {
+        id: appwriteTeam.$id,
+        name: appwriteTeam.name,
+      });
       
       // Find the team in our database by matching the current Appwrite team name
       // We need to find it by name before updating, because we need the database document ID
       let teamDataQuery = await databaseService.listDocuments('teams', [
         Query.equal('appwriteTeamId', teamId)
       ]);
+      console.log('🔄 updateTeamDetails - Query by appwriteTeamId:', {
+        found: teamDataQuery.documents?.length || 0,
+        documents: teamDataQuery.documents?.map((d: any) => ({
+          id: d.$id,
+          teamName: d.teamName,
+          appwriteTeamId: d.appwriteTeamId,
+          teamPhotoUrl: d.teamPhotoUrl,
+        })),
+      });
+      
       if (!teamDataQuery.documents || teamDataQuery.documents.length === 0) {
+        console.log('🔄 updateTeamDetails - Not found by appwriteTeamId, trying teamName...');
         teamDataQuery = await databaseService.listDocuments('teams', [
           Query.equal('teamName', appwriteTeam.name)
         ]);
+        console.log('🔄 updateTeamDetails - Query by teamName:', {
+          found: teamDataQuery.documents?.length || 0,
+          documents: teamDataQuery.documents?.map((d: any) => ({
+            id: d.$id,
+            teamName: d.teamName,
+            appwriteTeamId: d.appwriteTeamId,
+            teamPhotoUrl: d.teamPhotoUrl,
+          })),
+        });
       }
       
       if (!teamDataQuery.documents || teamDataQuery.documents.length === 0) {
+        console.error('❌ updateTeamDetails - Team data not found in database');
         throw new Error('Team data not found in database');
       }
       
       const teamDataDoc = teamDataQuery.documents[0];
+      console.log('🔄 updateTeamDetails - Found team document:', {
+        id: teamDataDoc.$id,
+        teamName: teamDataDoc.teamName,
+        currentTeamPhotoUrl: teamDataDoc.teamPhotoUrl,
+        allKeys: Object.keys(teamDataDoc),
+      });
       
       // Update Appwrite team name if provided and different
       if (updates.name && updates.name !== appwriteTeam.name) {
+        console.log('🔄 updateTeamDetails - Updating Appwrite team name...');
         await teams.updateName(teamId, updates.name);
       }
       
@@ -455,14 +495,179 @@ export const teamService = {
       if (updates.website !== undefined) updateData.website = updates.website;
       if (updates.address !== undefined) updateData.address = updates.address;
       if (updates.description !== undefined) updateData.description = updates.description;
-      if (updates.teamPhotoUrl !== undefined) updateData.teamPhotoUrl = updates.teamPhotoUrl;
+      
+      console.log('🔄 updateTeamDetails - Checking teamPhotoUrl:', {
+        provided: updates.teamPhotoUrl,
+        isUndefined: updates.teamPhotoUrl === undefined,
+        isString: typeof updates.teamPhotoUrl === 'string',
+        length: updates.teamPhotoUrl?.length,
+        value: updates.teamPhotoUrl,
+      });
+      
+      // ALWAYS include teamPhotoUrl if provided (even if empty string or null)
+      if (updates.teamPhotoUrl !== undefined) {
+        // If it's a non-empty string, use it; if empty string, set to null to clear
+        updateData.teamPhotoUrl = updates.teamPhotoUrl && updates.teamPhotoUrl.trim().length > 0 
+          ? updates.teamPhotoUrl.trim() 
+          : null;
+        console.log('✅ updateTeamDetails - Adding teamPhotoUrl to updateData:', updateData.teamPhotoUrl);
+        console.log('✅ updateTeamDetails - teamPhotoUrl will be saved to database');
+      } else {
+        console.log('⚠️ updateTeamDetails - teamPhotoUrl is undefined, not updating');
+        console.log('⚠️ updateTeamDetails - This means teamPhotoUrl was not provided in updates');
+      }
+
+      console.log('🔄 updateTeamDetails - Final updateData:', {
+        ...updateData,
+        teamPhotoUrl: updateData.teamPhotoUrl,
+        updateDataKeys: Object.keys(updateData),
+        hasTeamPhotoUrl: 'teamPhotoUrl' in updateData,
+      });
+      console.log('🔄 updateTeamDetails - Updating document:', {
+        collection: 'teams',
+        documentId: teamDataDoc.$id,
+        documentTeamName: teamDataDoc.teamName,
+        updateData,
+        updateDataStringified: JSON.stringify(updateData, null, 2),
+      });
 
       // Update our custom team data in database using the document ID
-      await databaseService.updateDocument('teams', teamDataDoc.$id, updateData);
+      console.log('🔄 updateTeamDetails - Calling databaseService.updateDocument...');
+      const updateResult = await databaseService.updateDocument('teams', teamDataDoc.$id, updateData);
+      console.log('✅ updateTeamDetails - Document updated:', {
+        id: updateResult.$id,
+        updatedAt: updateResult.$updatedAt,
+        resultKeys: Object.keys(updateResult),
+        resultTeamPhotoUrl: (updateResult as any).teamPhotoUrl,
+      });
+      
+      // Verify the update by fetching the document again
+      console.log('🔄 updateTeamDetails - Verifying update by fetching document...');
+      const verifyDoc = await databaseService.getDocument('teams', teamDataDoc.$id);
+      console.log('✅ updateTeamDetails - Verification - Retrieved document:', {
+        id: verifyDoc.$id,
+        teamName: (verifyDoc as any).teamName,
+        teamPhotoUrl: (verifyDoc as any).teamPhotoUrl,
+        teamPhotoUrlType: typeof (verifyDoc as any).teamPhotoUrl,
+        teamPhotoUrlLength: (verifyDoc as any).teamPhotoUrl?.length,
+        allKeys: Object.keys(verifyDoc),
+        hasTeamPhotoUrl: 'teamPhotoUrl' in verifyDoc,
+      });
+      
+      // Double-check: if we tried to save teamPhotoUrl but it's not in the result, log a warning
+      if ('teamPhotoUrl' in updateData && (verifyDoc as any).teamPhotoUrl !== updateData.teamPhotoUrl) {
+        console.error('❌ updateTeamDetails - WARNING: teamPhotoUrl mismatch!');
+        console.error('❌ updateTeamDetails - Expected:', updateData.teamPhotoUrl);
+        console.error('❌ updateTeamDetails - Got:', (verifyDoc as any).teamPhotoUrl);
+        console.error('❌ updateTeamDetails - This might indicate a database permissions issue or field name mismatch');
+      } else if ('teamPhotoUrl' in updateData) {
+        console.log('✅ updateTeamDetails - teamPhotoUrl verified successfully in database');
+      }
 
       return { success: true };
     } catch (error) {
-      console.error('Update team details error:', error);
+      console.error('❌ updateTeamDetails - Error:', error);
+      console.error('❌ updateTeamDetails - Error type:', typeof error);
+      console.error('❌ updateTeamDetails - Error message:', (error as any)?.message);
+      console.error('❌ updateTeamDetails - Error stack:', (error as any)?.stack);
+      throw error;
+    }
+  },
+
+  /**
+   * Update team photo URL immediately after upload
+   * This is a dedicated function to save the photo URL right after upload
+   */
+  async updateTeamPhotoUrl(teamId: string, photoUrl: string) {
+    try {
+      console.log('📸 updateTeamPhotoUrl - Called with:', {
+        teamId,
+        photoUrl,
+        photoUrlType: typeof photoUrl,
+        photoUrlLength: photoUrl?.length,
+      });
+      
+      if (!photoUrl || typeof photoUrl !== 'string' || photoUrl.trim().length === 0) {
+        console.error('❌ updateTeamPhotoUrl - Invalid photoUrl provided:', photoUrl);
+        throw new Error('Invalid photo URL provided');
+      }
+
+      // First, get the Appwrite team to ensure it exists
+      const appwriteTeam = await teams.get(teamId);
+      console.log('📸 updateTeamPhotoUrl - Appwrite team:', {
+        id: appwriteTeam.$id,
+        name: appwriteTeam.name,
+      });
+      
+      // Find the team in our database
+      let teamDataQuery = await databaseService.listDocuments('teams', [
+        Query.equal('appwriteTeamId', teamId)
+      ]);
+      console.log('📸 updateTeamPhotoUrl - Query by appwriteTeamId:', {
+        found: teamDataQuery.documents?.length || 0,
+      });
+      
+      if (!teamDataQuery.documents || teamDataQuery.documents.length === 0) {
+        console.log('📸 updateTeamPhotoUrl - Not found by appwriteTeamId, trying teamName...');
+        teamDataQuery = await databaseService.listDocuments('teams', [
+          Query.equal('teamName', appwriteTeam.name)
+        ]);
+        console.log('📸 updateTeamPhotoUrl - Query by teamName:', {
+          found: teamDataQuery.documents?.length || 0,
+        });
+      }
+      
+      if (!teamDataQuery.documents || teamDataQuery.documents.length === 0) {
+        console.error('❌ updateTeamPhotoUrl - Team data not found in database');
+        throw new Error('Team data not found in database');
+      }
+      
+      const teamDataDoc = teamDataQuery.documents[0];
+      console.log('📸 updateTeamPhotoUrl - Found team document:', {
+        id: teamDataDoc.$id,
+        teamName: teamDataDoc.teamName,
+        currentTeamPhotoUrl: teamDataDoc.teamPhotoUrl,
+      });
+      
+      // Update only the teamPhotoUrl field
+      const trimmedUrl = photoUrl.trim();
+      const updateData = {
+        teamPhotoUrl: trimmedUrl,
+      };
+      
+      console.log('📸 updateTeamPhotoUrl - Updating with data:', updateData);
+      console.log('📸 updateTeamPhotoUrl - Document ID:', teamDataDoc.$id);
+      
+      // Update the document
+      const updateResult = await databaseService.updateDocument('teams', teamDataDoc.$id, updateData);
+      console.log('✅ updateTeamPhotoUrl - Document updated:', {
+        id: updateResult.$id,
+        updatedAt: updateResult.$updatedAt,
+        resultTeamPhotoUrl: (updateResult as any).teamPhotoUrl,
+      });
+      
+      // Verify the update
+      const verifyDoc = await databaseService.getDocument('teams', teamDataDoc.$id);
+      console.log('✅ updateTeamPhotoUrl - Verification:', {
+        id: verifyDoc.$id,
+        teamPhotoUrl: (verifyDoc as any).teamPhotoUrl,
+        matches: (verifyDoc as any).teamPhotoUrl === trimmedUrl,
+      });
+      
+      if ((verifyDoc as any).teamPhotoUrl !== trimmedUrl) {
+        console.error('❌ updateTeamPhotoUrl - WARNING: teamPhotoUrl mismatch after update!');
+        console.error('❌ updateTeamPhotoUrl - Expected:', trimmedUrl);
+        console.error('❌ updateTeamPhotoUrl - Got:', (verifyDoc as any).teamPhotoUrl);
+        throw new Error('Team photo URL was not saved correctly');
+      }
+      
+      console.log('✅ updateTeamPhotoUrl - Successfully saved team photo URL to database');
+      return { success: true, teamPhotoUrl: trimmedUrl };
+    } catch (error) {
+      console.error('❌ updateTeamPhotoUrl - Error:', error);
+      console.error('❌ updateTeamPhotoUrl - Error type:', typeof error);
+      console.error('❌ updateTeamPhotoUrl - Error message:', (error as any)?.message);
+      console.error('❌ updateTeamPhotoUrl - Error stack:', (error as any)?.stack);
       throw error;
     }
   },

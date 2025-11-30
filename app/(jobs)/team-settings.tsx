@@ -2,7 +2,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { globalStyles, colors } from '@/styles/globalStyles';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Text, View, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native';
+import { Text, View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { Image } from 'expo-image';
 import { useCallback } from 'react';
 
 import { IconSymbol } from '@/components/IconSymbol';
@@ -99,6 +100,8 @@ export default function EditTeam() {
             <Image 
               source={{ uri: teamPhotoUrl }} 
               style={styles.teamPhoto}
+              contentFit="cover"
+              transition={200}
             />
           ) : (
             <IconSymbol
