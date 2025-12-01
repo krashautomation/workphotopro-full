@@ -1,0 +1,10 @@
+# Katya credentials (never commit!)
+katya-credentials.json
+*.env.local
+
+# Node modules (if any)
+node_modules/
+
+# Logs
+*.log
+
