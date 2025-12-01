@@ -14,6 +14,7 @@ import * as Sharing from 'expo-sharing'
 type JobUploadsProps = {
     messages: Message[]
     onImagePress: (uri: string) => void
+    onRefresh?: () => Promise<void>
 }
 
 type PhotoItem = {
@@ -53,7 +54,7 @@ const ALBUM_NAME = 'All WorkPhotoPro'
 
 type SubTab = 'photos' | 'videos' | 'files' | 'audios'
 
-export default function JobUploads({ messages, onImagePress }: JobUploadsProps) {
+export default function JobUploads({ messages, onImagePress, onRefresh }: JobUploadsProps) {
     const [activeSubTab, setActiveSubTab] = React.useState<SubTab>('photos')
     const [selectedItems, setSelectedItems] = React.useState<Set<string>>(new Set())
 
@@ -823,6 +824,15 @@ export default function JobUploads({ messages, onImagePress }: JobUploadsProps) 
 
                             // Clear selection after deletion
                             setSelectedItems(new Set())
+
+                            // Refresh messages list if callback provided
+                            if (onRefresh && successCount > 0) {
+                                try {
+                                    await onRefresh()
+                                } catch (refreshError) {
+                                    console.error('Error refreshing messages after deletion:', refreshError)
+                                }
+                            }
 
                             // Show result
                             if (successCount > 0) {

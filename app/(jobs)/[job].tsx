@@ -53,12 +53,6 @@ export default function Job() {
         jobchatCollection: appwriteConfig.col.jobchat
     });
 
-    if(!jobId) {
-        console.log('🔍 Job Component: No jobId found, returning error');
-        return <Text>Job not found. </Text>
-    }
-    
-
     const [messageContent, setMessageContent] = React.useState('');
     const [jobChat, setJobChat] = React.useState<JobChat | null>(null);
     const [activeTab, setActiveTab] = React.useState<'chat' | 'details' | 'photos' | 'tasks'>('chat');
@@ -66,7 +60,8 @@ export default function Job() {
     const [messages, setMessages] = React.useState<Message[]>([]);
     const [isLoading, setIsLoading] = React.useState(false);
     const [keyboardHeight, setKeyboardHeight] = React.useState(0);
-    const headerHeight = Platform.OS === 'ios' ? useHeaderHeight() : 0;
+    const headerHeightValue = useHeaderHeight();
+    const headerHeight = Platform.OS === 'ios' ? headerHeightValue : 0;
     const listRef = React.useRef<any>(null);
     
     // Pagination state for loading older messages
@@ -109,6 +104,7 @@ export default function Job() {
     const [editingMessage, setEditingMessage] = React.useState<Message | null>(null); // Message being edited
     const [showMessageActionsModal, setShowMessageActionsModal] = React.useState(false); // Modal for message actions (Edit/Reply/Delete)
     const [messageForAction, setMessageForAction] = React.useState<Message | null>(null); // Message selected for action
+    const [previewProfilePicture, setPreviewProfilePicture] = React.useState<string | null>(null);
     
     // Lighter, brighter blue for task highlighting
     const taskBlue = '#3b82f6'; // Bright blue-500
@@ -184,6 +180,11 @@ export default function Job() {
 
     React.useEffect(() => {
         handleFirstLoad();
+    }, []);
+
+    // Load preview profile picture
+    React.useEffect(() => {
+        getUserProfilePicture().then(setPreviewProfilePicture).catch(() => {});
     }, []);
 
     // Handle captured image from camera page
@@ -357,6 +358,12 @@ export default function Job() {
             }
         }
     }, [messages, shouldScrollToBottom, isInitialLoad, isLoadingOlderMessages]);
+    
+    // Early return check must be AFTER all hooks to maintain hook order
+    if(!jobId) {
+        console.log('🔍 Job Component: No jobId found, returning error');
+        return <Text>Job not found. </Text>
+    }
     
         const handleFirstLoad = async () => {
         try {
@@ -2582,117 +2589,101 @@ const loadOlderMessages = async () => {
                                     borderColor: Colors.Primary,
                                     padding: 12,
                                 }}>
-                                    {(() => {
-                                        const [previewProfilePicture, setPreviewProfilePicture] = React.useState<string | null>(null);
-                                        React.useEffect(() => {
-                                            getUserProfilePicture().then(setPreviewProfilePicture).catch(() => {});
-                                        }, []);
-                                        
-                                        return (
                                     <View style={{
                                         flexDirection: 'row',
                                         alignItems: 'flex-start',
                                         gap: 12,
                                     }}>
-                                                {/* Profile Picture with Microphone Badge Overlay */}
-                                                <View style={{ position: 'relative', marginRight: 0 }}>
-                                                    <Avatar
-                                                        name={user?.name || 'User'}
-                                                        imageUrl={previewProfilePicture || undefined}
-                                                        size={42}
-                                                    />
-                                                    {/* Microphone Icon in Green Dot - Bottom Right Overlay */}
-                                                    <View style={{
-                                                        position: 'absolute',
-                                                        bottom: -2,
-                                                        right: -2,
-                                                        width: 20,
-                                                        height: 20,
-                                                        borderRadius: 10,
-                                                        backgroundColor: Colors.Primary,
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        borderWidth: 2,
-                                                        borderColor: Colors.Secondary,
-                                                    }}>
-                                                        <IconSymbol
-                                                            name="mic.fill"
-                                                            color={Colors.White}
-                                                            size={12}
-                                                        />
-                                                    </View>
-                                                </View>
-                                                
-                                                {/* Play Button */}
-                                                <View style={{ marginTop: 4 }}>
-                                                    <IconSymbol name="play.fill" color={Colors.Primary} size={32} />
-                                                </View>
-                                                
-                                                {/* Waveform Preview and Duration Container */}
-                                                <View style={{
-                                                    flex: 1,
-                                                    gap: 2,
-                                                }}>
-                                                    {/* Waveform Preview */}
-                                                    {(() => {
-                                                        // Generate consistent waveform heights
-                                                        const waveformHeights = React.useMemo(() => 
-                                                            Array.from({ length: 20 }, () => 4 + Math.random() * 24),
-                                                            []
-                                                        );
-                                                        
-                                                        return (
-                                                            <View style={{
-                                                                flexDirection: 'row',
-                                                                alignItems: 'center',
-                                                                height: 32,
-                                                                gap: 2,
-                                                                width: '100%',
-                                                            }}>
-                                                                {waveformHeights.map((height, index) => (
-                                                                    <View
-                                                                        key={index}
-                                                                        style={{
-                                                                            flex: 1,
-                                                                            backgroundColor: Colors.Gray,
-                                                                            borderRadius: 1.5,
-                                                                            height: height,
-                                                                        }}
-                                                                    />
-                                                                ))}
-                                                            </View>
-                                                        );
-                                                    })()}
-                                                    
-                                                    {/* Duration */}
-                                                    <Text style={{ 
-                                                        color: Colors.Text, 
-                                                        fontSize: 12,
-                                                        textAlign: 'left',
-                                                    }}>
-                                                        {Math.floor(selectedAudio.duration / 60)}:{(selectedAudio.duration % 60).toString().padStart(2, '0')}
-                                                    </Text>
-                                                </View>
-                                                
-                                                {/* Remove Button */}
-                                                {!isUploading && (
-                                                    <Pressable
-                                                        onPress={() => setSelectedAudio(null)}
-                                                        style={{
-                                                            backgroundColor: 'rgba(0,0,0,0.6)',
-                                                            borderRadius: 16,
-                                                            width: 32,
-                                                            height: 32,
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                        }}
-                                                    >
-                                                        <IconSymbol name="xmark" color={Colors.White} size={20} />
-                                                    </Pressable>
-                                                )}
+                                        {/* Profile Picture with Microphone Badge Overlay */}
+                                        <View style={{ position: 'relative', marginRight: 0 }}>
+                                            <Avatar
+                                                name={user?.name || 'User'}
+                                                imageUrl={previewProfilePicture || undefined}
+                                                size={42}
+                                            />
+                                            {/* Microphone Icon in Green Dot - Bottom Right Overlay */}
+                                            <View style={{
+                                                position: 'absolute',
+                                                bottom: -2,
+                                                right: -2,
+                                                width: 20,
+                                                height: 20,
+                                                borderRadius: 10,
+                                                backgroundColor: Colors.Primary,
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                borderWidth: 2,
+                                                borderColor: Colors.Secondary,
+                                            }}>
+                                                <IconSymbol
+                                                    name="mic.fill"
+                                                    color={Colors.White}
+                                                    size={12}
+                                                />
                                             </View>
-                                        );
-                                    })()}
+                                        </View>
+                                        
+                                        {/* Play Button */}
+                                        <View style={{ marginTop: 4 }}>
+                                            <IconSymbol name="play.fill" color={Colors.Primary} size={32} />
+                                        </View>
+                                        
+                                        {/* Waveform Preview and Duration Container */}
+                                        <View style={{
+                                            flex: 1,
+                                            gap: 2,
+                                        }}>
+                                            {/* Waveform Preview */}
+                                            <View style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                height: 32,
+                                                gap: 2,
+                                                width: '100%',
+                                            }}>
+                                                {Array.from({ length: 20 }, (_, index) => {
+                                                    const height = 4 + Math.random() * 24;
+                                                    return (
+                                                        <View
+                                                            key={index}
+                                                            style={{
+                                                                flex: 1,
+                                                                backgroundColor: Colors.Gray,
+                                                                borderRadius: 1.5,
+                                                                height: height,
+                                                            }}
+                                                        />
+                                                    );
+                                                })}
+                                            </View>
+                                            
+                                            {/* Duration */}
+                                            <Text style={{ 
+                                                color: Colors.Text, 
+                                                fontSize: 12,
+                                                textAlign: 'left',
+                                            }}>
+                                                {Math.floor(selectedAudio.duration / 60)}:{(selectedAudio.duration % 60).toString().padStart(2, '0')}
+                                            </Text>
+                                        </View>
+                                        
+                                        {/* Remove Button */}
+                                        {!isUploading && (
+                                            <Pressable
+                                                onPress={() => setSelectedAudio(null)}
+                                                style={{
+                                                    backgroundColor: 'rgba(0,0,0,0.6)',
+                                                    borderRadius: 16,
+                                                    width: 32,
+                                                    height: 32,
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                }}
+                                            >
+                                                <IconSymbol name="xmark" color={Colors.White} size={20} />
+                                            </Pressable>
+                                        )}
+                                    </View>
                                     
                                     {/* Upload Progress Indicator */}
                                     {isUploading && uploadStatus && (
@@ -3173,6 +3164,9 @@ const loadOlderMessages = async () => {
                                 setFullScreenImage(uri);
                                 setIsImageViewVisible(true);
                             }
+                        }}
+                        onRefresh={async () => {
+                            await getMessages(false);
                         }}
                     />
                 )}
