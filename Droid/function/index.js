@@ -13,7 +13,7 @@
 const { Client, Databases, Account, ID, Query } = require('node-appwrite');
 
 // Configuration
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY; // Optional - will use fallback messages if not available
 const KATYA_USER_ID = process.env.KATYA_USER_ID;
 const KATYA_EMAIL = process.env.KATYA_EMAIL;
 const KATYA_PASSWORD = process.env.KATYA_PASSWORD;
@@ -22,6 +22,20 @@ const APPWRITE_PROJECT_ID = process.env.APPWRITE_PROJECT_ID;
 const APPWRITE_DATABASE_ID = process.env.APPWRITE_DATABASE_ID;
 // Support both APPWRITE_DROID_API_KEY and APPWRITE_API_KEY
 const APPWRITE_API_KEY = process.env.APPWRITE_DROID_API_KEY || process.env.APPWRITE_API_KEY;
+
+// Standard fallback messages when OpenAI is unavailable
+const FALLBACK_MESSAGES = [
+  "Great work everyone! Keep it up! 💪",
+  "Looking good! Thanks for sharing the updates! 📸",
+  "Nice progress! Let me know if you need anything! ✨",
+  "Awesome work! I'm here if you have questions! 🤖",
+  "Thanks for keeping me in the loop! Keep going! 🚀",
+  "Great job team! Everything looks on track! ✅",
+  "Appreciate the updates! Keep up the excellent work! 👏",
+  "Looking forward to seeing more! Great progress! 📊",
+  "Thanks for sharing! Let's keep the momentum going! 💫",
+  "Excellent work! I'm here to help if needed! 🎯"
+];
 
 // Rate limiting: Don't respond more than once per 3 human messages
 const MIN_MESSAGES_BEFORE_RESPONSE = 3;
@@ -62,6 +76,7 @@ module.exports = async (req, res) => {
     console.log('🤖 Function started successfully');
     
     // Validate required environment variables first
+    // Note: OPENAI_API_KEY is optional - will use fallback messages if not available
     const missingVars = [];
     if (!APPWRITE_ENDPOINT) missingVars.push('APPWRITE_ENDPOINT');
     if (!APPWRITE_PROJECT_ID) missingVars.push('APPWRITE_PROJECT_ID');
@@ -76,6 +91,13 @@ module.exports = async (req, res) => {
         error: 'Missing required environment variables',
         missing: missingVars
       }, 500);
+    }
+    
+    // Log OpenAI API key status (but don't fail if missing)
+    if (!OPENAI_API_KEY) {
+      console.log('🤖 ⚠️  OPENAI_API_KEY not set - will use fallback messages');
+    } else {
+      console.log('🤖 ✅ OPENAI_API_KEY is set - will use AI responses');
     }
     
     console.log('🤖 Environment check passed');
@@ -224,7 +246,7 @@ module.exports = async (req, res) => {
     const recentMessages = await getRecentMessages(jobId, teamId, orgId, db);
     console.log(`🤖 Found ${recentMessages.length} recent messages`);
     
-    // Generate AI response
+    // Generate AI response (or get fallback)
     console.log('🤖 Generating AI response...');
     console.log('🤖 OpenAI API Key present:', !!OPENAI_API_KEY);
     console.log('🤖 OpenAI API Key length:', OPENAI_API_KEY ? OPENAI_API_KEY.length : 0);
@@ -232,13 +254,11 @@ module.exports = async (req, res) => {
     
     const aiResponse = await generateAIResponse(recentMessages, message);
     
-    // If no AI response or OpenAI unavailable, post fallback message
-    if (!aiResponse || aiResponse === 'OPENAI_UNAVAILABLE') {
-      console.log('🤖 OpenAI unavailable - posting fallback message...');
-      
-      // Post helpful fallback message
-      const fallbackMessage = "You need to buy me some gas guys (OpenAI credits). ⛽";
-      console.log('🤖 Posting fallback message about OpenAI credits...');
+    // Handle OpenAI unavailable or fallback cases
+    if (!aiResponse || aiResponse === 'OPENAI_UNAVAILABLE' || aiResponse === 'FALLBACK') {
+      console.log('🤖 Using fallback message (OpenAI unavailable or not configured)...');
+      const fallbackMessage = getFallbackMessage();
+      console.log('🤖 Selected fallback message:', fallbackMessage);
       
       try {
         await postKatyaMessage(jobId, teamId, orgId, fallbackMessage, db, acc);
@@ -246,7 +266,8 @@ module.exports = async (req, res) => {
         return res.json({ 
           success: true, 
           message: 'Katya posted fallback message',
-          response: fallbackMessage
+          response: fallbackMessage,
+          usedFallback: true
         }, 200);
       } catch (fallbackError) {
         console.error('🤖 Failed to post fallback message:', fallbackError);
@@ -271,7 +292,8 @@ module.exports = async (req, res) => {
     return res.json({ 
       success: true, 
       message: 'Katya responded',
-      response: aiResponse.substring(0, 50) + '...'
+      response: aiResponse.substring(0, 50) + '...',
+      usedFallback: false
     }, 200);
     
   } catch (error) {
@@ -399,9 +421,23 @@ async function getRecentMessages(jobId, teamId, orgId, databasesInstance) {
 }
 
 /**
- * Generate AI response using OpenAI
+ * Get a random fallback message
+ */
+function getFallbackMessage() {
+  const randomIndex = Math.floor(Math.random() * FALLBACK_MESSAGES.length);
+  return FALLBACK_MESSAGES[randomIndex];
+}
+
+/**
+ * Generate AI response using OpenAI (or fallback if unavailable)
  */
 async function generateAIResponse(recentMessages, currentMessage) {
+  // If OpenAI API key is not available, return fallback immediately
+  if (!OPENAI_API_KEY || !OPENAI_API_KEY.trim()) {
+    console.log('   🤖 OpenAI API key not available - using fallback message');
+    return 'FALLBACK';
+  }
+  
   try {
     console.log('   🤖 Building conversation context...');
     // Build conversation context
@@ -445,6 +481,11 @@ Keep responses natural and conversational. Don't repeat yourself.`;
       messageCount: conversationContext.length,
       maxTokens: 150
     });
+    
+    if (!OPENAI_API_KEY || !OPENAI_API_KEY.trim()) {
+      console.log('   🤖 OpenAI API key is empty - using fallback');
+      return 'FALLBACK';
+    }
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',

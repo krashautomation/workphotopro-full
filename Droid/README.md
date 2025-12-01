@@ -18,9 +18,17 @@ Katya integrates seamlessly with your existing messaging system, appearing as a 
 ## Quick Start
 
 1. **Set up Katya user account** (see `SETUP.md`)
-2. **Deploy Cloud Function** (see `SETUP.md`)
-3. **Configure webhook** in Appwrite Console
-4. **Enable Katya** per team/job (optional)
+2. **Add profile photo** (optional but recommended):
+   ```bash
+   # Upload from file:
+   node Droid/scripts/set-katya-profile-photo.js --file path/to/katya.jpg
+   
+   # Or use a URL:
+   node Droid/scripts/set-katya-profile-photo.js --url https://example.com/katya.jpg
+   ```
+3. **Deploy Cloud Function** (see `SETUP.md`)
+4. **Configure webhook** in Appwrite Console
+5. **Enable Katya** per team/job (optional)
 
 ## Files Structure
 
@@ -36,7 +44,9 @@ Droid/
 │   ├── prompts.ts               # AI prompt templates
 │   └── personality.ts           # Katya's personality config
 └── scripts/                     # Setup scripts
-    └── create-katya-user.js    # Script to create Katya user account
+    ├── create-katya-user.js           # Script to create Katya user account
+    ├── add-katya-to-all-teams.js      # Script to add Katya to all teams
+    └── set-katya-profile-photo.js     # Script to set Katya's profile picture
 ```
 
 ## Cost Estimate

@@ -9,6 +9,7 @@ import { useOrganization } from '@/context/OrganizationContext';
 import { Colors } from '@/utils/colors';
 import { IconSymbol } from '@/components/IconSymbol';
 import { teamService } from '@/lib/appwrite/teams';
+import { katyaService } from '@/lib/appwrite/katya';
 import Avatar from '@/components/Avatar';
 
 export default function TeamScreen() {
@@ -139,10 +140,15 @@ export default function TeamScreen() {
       return userProfilePicture ?? undefined;
     }
     
+    // Check if this is Katya
+    const katyaUserId = process.env.EXPO_PUBLIC_KATYA_USER_ID || '692d284d000f7e24c7e4';
+    const isKatya = member.userId === katyaUserId;
+    
     // Priority order for profile picture:
     // 1. membershipData.profilePicture (cached in our database from server script)
     // 2. member.profilePicture (from combined membership object)
     // 3. userInfo.profilePicture (legacy from users collection)
+    // 4. For Katya: check if profile picture is in membership data
     if (member.membershipData?.profilePicture && member.membershipData.profilePicture.trim()) {
       return member.membershipData.profilePicture.trim();
     }
@@ -153,6 +159,14 @@ export default function TeamScreen() {
     
     if (member.userInfo?.profilePicture) {
       return member.userInfo.profilePicture;
+    }
+    
+    // For Katya specifically, try to get from her info
+    if (isKatya) {
+      const katyaInfo = katyaService.getKatyaInfo();
+      if (katyaInfo.avatar) {
+        return katyaInfo.avatar;
+      }
     }
     
     return undefined;
