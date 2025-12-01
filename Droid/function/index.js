@@ -115,9 +115,31 @@ module.exports = async (req, res) => {
     
     const aiResponse = await generateAIResponse(recentMessages, message);
     
-    if (!aiResponse) {
-      console.log('🤖 No AI response generated');
-      return res.json({ success: true, message: 'No response needed' }, 200);
+    // If no AI response or OpenAI unavailable, post fallback message
+    if (!aiResponse || aiResponse === 'OPENAI_UNAVAILABLE') {
+      console.log('🤖 OpenAI unavailable - posting fallback message...');
+      
+      // Post helpful fallback message
+      const fallbackMessage = "You need to buy me some gas guys (OpenAI credits). ⛽";
+      console.log('🤖 Posting fallback message about OpenAI credits...');
+      
+      try {
+        await postKatyaMessage(jobId, teamId, orgId, fallbackMessage);
+        console.log('🤖 Fallback message posted successfully');
+        return res.json({ 
+          success: true, 
+          message: 'Katya posted fallback message',
+          response: fallbackMessage
+        }, 200);
+      } catch (fallbackError) {
+        console.error('🤖 Failed to post fallback message:', fallbackError);
+        // If we can't even post the fallback, return success but log the issue
+        return res.json({ 
+          success: true, 
+          message: 'No response - OpenAI unavailable and fallback failed',
+          error: 'OpenAI unavailable'
+        }, 200);
+      }
     }
     
     console.log('🤖 AI response generated:', aiResponse.substring(0, 100) + '...');
@@ -326,15 +348,19 @@ Keep responses natural and conversational. Don't repeat yourself.`;
         // Check for billing/credit issues
         if (errorJson.error?.code === 'insufficient_quota' || 
             errorJson.error?.message?.includes('billing') ||
-            errorJson.error?.message?.includes('credit')) {
-          console.error('   🤖 BILLING ISSUE: No API credits or billing not set up!');
+            errorJson.error?.message?.includes('credit') ||
+            errorJson.error?.code === 'invalid_api_key') {
+          console.error('   🤖 BILLING/API ISSUE: No API credits, invalid key, or billing not set up!');
           console.error('   🤖 Go to https://platform.openai.com/account/billing to add credits');
+          // Return a special flag to indicate we should post fallback message
+          return 'OPENAI_UNAVAILABLE';
         }
       } catch (e) {
         // Error response wasn't JSON
       }
       
-      return null;
+      // For other errors, return null (will trigger fallback)
+      return 'OPENAI_UNAVAILABLE';
     }
     
     const data = await response.json();
