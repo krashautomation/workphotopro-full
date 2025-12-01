@@ -27,22 +27,39 @@ const APPWRITE_API_KEY = process.env.APPWRITE_DROID_API_KEY || process.env.APPWR
 const MIN_MESSAGES_BEFORE_RESPONSE = 3;
 const MIN_TIME_BETWEEN_RESPONSES_MS = 60000; // 1 minute
 
-// Initialize Appwrite client
-const client = new Client()
-  .setEndpoint(APPWRITE_ENDPOINT)
-  .setProject(APPWRITE_PROJECT_ID)
-  .setKey(APPWRITE_API_KEY);
+// Initialize Appwrite client (lazy initialization to catch errors)
+let client, databases, account;
 
-const databases = new Databases(client);
-const account = new Account(client);
+function initAppwriteClient() {
+  try {
+    if (!client) {
+      console.log('🤖 Initializing Appwrite client...');
+      client = new Client()
+        .setEndpoint(APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1')
+        .setProject(APPWRITE_PROJECT_ID)
+        .setKey(APPWRITE_API_KEY);
+      
+      databases = new Databases(client);
+      account = new Account(client);
+      console.log('🤖 Appwrite client initialized');
+    }
+    return { client, databases, account };
+  } catch (initError) {
+    console.error('🤖 Failed to initialize Appwrite client:', initError.message);
+    throw initError;
+  }
+}
 
 /**
  * Main function handler
  */
 module.exports = async (req, res) => {
+  // Wrap everything in try-catch, including initialization
   try {
     console.log('🤖 ========== KATYA FUNCTION TRIGGERED ==========');
     console.log('🤖 Timestamp:', new Date().toISOString());
+    console.log('🤖 Node version:', process.version);
+    console.log('🤖 Function started successfully');
     
     // Validate required environment variables first
     const missingVars = [];
@@ -189,9 +206,12 @@ module.exports = async (req, res) => {
     
     console.log(`🤖 Processing message for job: ${jobId}`);
     
+    // Initialize Appwrite client if not already done
+    const { databases: db, account: acc } = initAppwriteClient();
+    
     // Check rate limiting
     console.log('🤖 Checking rate limits...');
-    const shouldRespond = await checkRateLimit(jobId, teamId, orgId);
+    const shouldRespond = await checkRateLimit(jobId, teamId, orgId, db);
     console.log('🤖 Rate limit result:', shouldRespond);
     if (!shouldRespond) {
       console.log('🤖 Rate limit check failed, skipping');
@@ -201,7 +221,7 @@ module.exports = async (req, res) => {
     
     // Get recent messages for context
     console.log('🤖 Fetching recent messages for context...');
-    const recentMessages = await getRecentMessages(jobId, teamId, orgId);
+    const recentMessages = await getRecentMessages(jobId, teamId, orgId, db);
     console.log(`🤖 Found ${recentMessages.length} recent messages`);
     
     // Generate AI response
@@ -221,7 +241,7 @@ module.exports = async (req, res) => {
       console.log('🤖 Posting fallback message about OpenAI credits...');
       
       try {
-        await postKatyaMessage(jobId, teamId, orgId, fallbackMessage);
+        await postKatyaMessage(jobId, teamId, orgId, fallbackMessage, db, acc);
         console.log('🤖 Fallback message posted successfully');
         return res.json({ 
           success: true, 
@@ -243,7 +263,7 @@ module.exports = async (req, res) => {
     
     // Post Katya's response
     console.log('🤖 Posting Katya\'s message...');
-    await postKatyaMessage(jobId, teamId, orgId, aiResponse);
+    await postKatyaMessage(jobId, teamId, orgId, aiResponse, db, acc);
     
     console.log('🤖 Katya responded successfully!');
     console.log('🤖 Response:', aiResponse);
@@ -293,11 +313,11 @@ module.exports = async (req, res) => {
 /**
  * Check rate limiting - don't respond too frequently
  */
-async function checkRateLimit(jobId, teamId, orgId) {
+async function checkRateLimit(jobId, teamId, orgId, databasesInstance) {
   try {
     console.log('   🤖 Rate limit check - fetching recent messages...');
     // Get recent messages in this job
-    const recentMessages = await databases.listDocuments(
+    const recentMessages = await databasesInstance.listDocuments(
       APPWRITE_DATABASE_ID,
       'messages',
       [
@@ -356,9 +376,9 @@ async function checkRateLimit(jobId, teamId, orgId) {
 /**
  * Get recent messages for context
  */
-async function getRecentMessages(jobId, teamId, orgId) {
+async function getRecentMessages(jobId, teamId, orgId, databasesInstance) {
   try {
-    const messages = await databases.listDocuments(
+    const messages = await databasesInstance.listDocuments(
       APPWRITE_DATABASE_ID,
       'messages',
       [
