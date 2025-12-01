@@ -356,10 +356,11 @@ Keep responses natural and conversational. Don't repeat yourself.`;
           return 'OPENAI_UNAVAILABLE';
         }
       } catch (e) {
-        // Error response wasn't JSON
+        // Error response wasn't JSON - still return unavailable flag
+        console.error('   🤖 Could not parse error response');
       }
       
-      // For other errors, return null (will trigger fallback)
+      // For any API error, return flag to trigger fallback message
       return 'OPENAI_UNAVAILABLE';
     }
     
@@ -396,7 +397,8 @@ Keep responses natural and conversational. Don't repeat yourself.`;
     if (error.stack) {
       console.error('   🤖 Stack:', error.stack);
     }
-    return null;
+    // Return flag to trigger fallback message
+    return 'OPENAI_UNAVAILABLE';
   }
 }
 
