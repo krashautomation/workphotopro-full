@@ -43,8 +43,40 @@ module.exports = async (req, res) => {
   try {
     console.log('🤖 ========== KATYA FUNCTION TRIGGERED ==========');
     console.log('🤖 Timestamp:', new Date().toISOString());
-    console.log('🤖 Raw request payload:', typeof req.payload, req.payload ? req.payload.substring(0, 500) : 'empty');
-    console.log('🤖 Request headers:', JSON.stringify(req.headers || {}, null, 2));
+    
+    // Validate required environment variables first
+    const missingVars = [];
+    if (!APPWRITE_ENDPOINT) missingVars.push('APPWRITE_ENDPOINT');
+    if (!APPWRITE_PROJECT_ID) missingVars.push('APPWRITE_PROJECT_ID');
+    if (!APPWRITE_DATABASE_ID) missingVars.push('APPWRITE_DATABASE_ID');
+    if (!APPWRITE_API_KEY) missingVars.push('APPWRITE_API_KEY');
+    if (!KATYA_USER_ID) missingVars.push('KATYA_USER_ID');
+    
+    if (missingVars.length > 0) {
+      console.error('🤖 Missing required environment variables:', missingVars);
+      return res.json({ 
+        success: false, 
+        error: 'Missing required environment variables',
+        missing: missingVars
+      }, 500);
+    }
+    
+    console.log('🤖 Environment check passed');
+    console.log('🤖 Raw request payload type:', typeof req.payload);
+    console.log('🤖 Raw request payload preview:', req.payload ? (typeof req.payload === 'string' ? req.payload.substring(0, 500) : 'object') : 'empty');
+    
+    // Safely log headers (avoid circular references)
+    try {
+      const safeHeaders = {};
+      if (req.headers) {
+        Object.keys(req.headers).forEach(key => {
+          safeHeaders[key] = String(req.headers[key]).substring(0, 100);
+        });
+      }
+      console.log('🤖 Request headers:', JSON.stringify(safeHeaders, null, 2));
+    } catch (headerError) {
+      console.log('🤖 Could not log headers:', headerError.message);
+    }
     
     // Parse webhook payload - Appwrite webhooks send data in different formats
     let payload = {};
@@ -59,7 +91,13 @@ module.exports = async (req, res) => {
         payload = req.payload;
       }
       
-      console.log('🤖 Parsed payload:', JSON.stringify(payload, null, 2));
+      // Safely stringify payload (handle circular references)
+      try {
+        console.log('🤖 Parsed payload:', JSON.stringify(payload, null, 2));
+      } catch (stringifyError) {
+        console.log('🤖 Could not stringify payload (circular ref?):', stringifyError.message);
+        console.log('🤖 Payload keys:', Object.keys(payload || {}));
+      }
       
       // Appwrite webhook format: { events: [...], payload: {...} }
       if (payload.events) {
@@ -77,8 +115,21 @@ module.exports = async (req, res) => {
         event = { events: ['databases.documents.create'], payload: payload };
       }
       
-      console.log('🤖 Extracted event:', JSON.stringify(event, null, 2));
-      console.log('🤖 Extracted message:', JSON.stringify(message, null, 2));
+      // Safely log extracted data
+      try {
+        console.log('🤖 Extracted event events:', event.events);
+        console.log('🤖 Extracted message keys:', Object.keys(message || {}));
+        console.log('🤖 Extracted message preview:', {
+          $id: message.$id,
+          senderId: message.senderId,
+          jobId: message.jobId,
+          teamId: message.teamId,
+          orgId: message.orgId,
+          collectionId: message.$collectionId
+        });
+      } catch (logError) {
+        console.log('🤖 Could not log extracted data:', logError.message);
+      }
       
     } catch (parseError) {
       console.error('🤖 Error parsing payload:', parseError.message);
