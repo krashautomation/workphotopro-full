@@ -32,8 +32,21 @@ export default function UserProfileScreen() {
   const organizationParam = getParamString(params.organization);
   const imageParam = getParamString(params.imageUrl);
   const contactsCountParam = getParamString(params.contactsCount);
+  const senderIdParam = getParamString(params.senderId);
+  const orgIdParam = getParamString(params.orgId);
+
+  // Determine if we're viewing another user's profile (not the logged-in user)
+  const isViewingOtherUser = React.useMemo(() => {
+    if (!senderIdParam || !user?.$id) return false;
+    return senderIdParam !== user.$id;
+  }, [senderIdParam, user?.$id]);
 
   React.useEffect(() => {
+    // Only fetch logged-in user's data if viewing own profile
+    if (isViewingOtherUser) {
+      return;
+    }
+
     let mounted = true;
     const load = async () => {
       try {
@@ -53,7 +66,7 @@ export default function UserProfileScreen() {
     return () => {
       mounted = false;
     };
-  }, [getGoogleUserData, getUserProfilePicture]);
+  }, [getGoogleUserData, getUserProfilePicture, isViewingOtherUser]);
 
   const displayName = React.useMemo(() => {
     if (typeof nameParam === 'string' && nameParam.trim().length > 0) {
@@ -63,31 +76,53 @@ export default function UserProfileScreen() {
   }, [googleData?.displayName, nameParam, user?.name]);
 
   // Get the user's owned organization (same logic as profile-settings.tsx)
+  // Only use this for logged-in user's profile
   const profileOrganization = React.useMemo(() => {
+    if (isViewingOtherUser) return null;
     const ownedOrgs = userOrganizations.filter(org => org.ownerId === user?.$id);
     return ownedOrgs[0] || (currentOrganization?.ownerId === user?.$id ? currentOrganization : null);
-  }, [userOrganizations, user?.$id, currentOrganization]);
+  }, [userOrganizations, user?.$id, currentOrganization, isViewingOtherUser]);
+
+  // Find organization by orgId if viewing another user
+  const otherUserOrganization = React.useMemo(() => {
+    if (!isViewingOtherUser || !orgIdParam) return null;
+    return userOrganizations.find(org => org.$id === orgIdParam) || null;
+  }, [isViewingOtherUser, orgIdParam, userOrganizations]);
 
   const organizationName = React.useMemo(() => {
     if (typeof organizationParam === 'string' && organizationParam.trim().length > 0) {
       return organizationParam.trim();
     }
+    if (isViewingOtherUser) {
+      return otherUserOrganization?.orgName || 'No organization assigned';
+    }
     return profileOrganization?.orgName || currentOrganization?.orgName || 'No organization assigned';
-  }, [profileOrganization?.orgName, currentOrganization?.orgName, organizationParam]);
+  }, [profileOrganization?.orgName, currentOrganization?.orgName, organizationParam, isViewingOtherUser, otherUserOrganization?.orgName]);
 
   const profileImage = React.useMemo(() => {
     if (typeof imageParam === 'string' && imageParam.trim().length > 0) {
       return imageParam.trim();
     }
+    // For other users, only use the param (already checked above)
+    if (isViewingOtherUser) {
+      return null;
+    }
     // Priority: uploaded profilePicture > Google photoUrl > fallback
     return profilePicture || googleData?.photoUrl || null;
-  }, [profilePicture, googleData?.photoUrl, imageParam]);
+  }, [profilePicture, googleData?.photoUrl, imageParam, isViewingOtherUser]);
 
   const userDescription = React.useMemo(() => {
+    // For other users, we don't have access to their description
+    if (isViewingOtherUser) {
+      return 'Work Photo Pro fan.';
+    }
     return (user?.prefs as any)?.description || 'Work Photo Pro fan.';
-  }, [user?.prefs]);
+  }, [user?.prefs, isViewingOtherUser]);
 
   const organizationLogo = React.useMemo(() => {
+    if (isViewingOtherUser) {
+      return otherUserOrganization?.logoUrl || null;
+    }
     // Use profileOrganization (owned org) logo, not currentOrganization (active org)
     const logo = profileOrganization?.logoUrl;
     console.log('🖼️ User Profile - Profile organization:', profileOrganization?.orgName);
@@ -95,7 +130,7 @@ export default function UserProfileScreen() {
     console.log('🖼️ User Profile - Current organization:', currentOrganization?.orgName);
     console.log('🖼️ User Profile - Current organization logoUrl:', currentOrganization?.logoUrl);
     return logo || null;
-  }, [profileOrganization?.logoUrl, currentOrganization?.logoUrl]);
+  }, [profileOrganization?.logoUrl, currentOrganization?.logoUrl, isViewingOtherUser, otherUserOrganization?.logoUrl]);
 
   const contactsCount = React.useMemo(() => {
     const parsed = contactsCountParam ? Number(contactsCountParam) : null;
@@ -106,18 +141,26 @@ export default function UserProfileScreen() {
   }, [contactsCountParam]);
 
   const ownedTeams = React.useMemo(
-    () =>
-      userTeams.filter(team => {
+    () => {
+      if (isViewingOtherUser) return [];
+      return userTeams.filter(team => {
         const role = ((team as any)?.membershipRole || '') as string;
         return role.toLowerCase() === 'owner';
-      }),
-    [userTeams]
+      });
+    },
+    [userTeams, isViewingOtherUser]
   );
 
-  const membershipsCount = userTeams.length;
+  const membershipsCount = isViewingOtherUser ? 0 : userTeams.length;
   const ownedTeamsCount = ownedTeams.length;
 
   React.useEffect(() => {
+    // Don't load job counts for other users
+    if (isViewingOtherUser) {
+      setOwnedJobsCount(null);
+      return;
+    }
+
     let cancelled = false;
     const loadJobCounts = async () => {
       if (ownedTeams.length === 0) {
@@ -164,7 +207,7 @@ export default function UserProfileScreen() {
     return () => {
       cancelled = true;
     };
-  }, [ownedTeams]);
+  }, [ownedTeams, isViewingOtherUser]);
 
 
   return (
@@ -176,14 +219,16 @@ export default function UserProfileScreen() {
           headerStyle: { backgroundColor: '#1a1a1a' },
           headerTintColor: '#fff',
           headerRight: () => (
-            <Pressable
-              onPress={() => router.push('/(jobs)/profile-settings')}
-              style={styles.headerIconButton}
-              accessibilityRole="button"
-              accessibilityLabel="Open profile settings"
-            >
-              <IconSymbol name="gearshape" size={18} color="#fff" />
-            </Pressable>
+            !isViewingOtherUser ? (
+              <Pressable
+                onPress={() => router.push('/(jobs)/profile-settings')}
+                style={styles.headerIconButton}
+                accessibilityRole="button"
+                accessibilityLabel="Open profile settings"
+              >
+                <IconSymbol name="gearshape" size={18} color="#fff" />
+              </Pressable>
+            ) : null
           ),
         }}
       />
@@ -232,7 +277,10 @@ export default function UserProfileScreen() {
             <View style={styles.organizationText}>
               <Text style={styles.organizationName}>{organizationName}</Text>
               <Text style={styles.descriptionText}>
-                {profileOrganization?.description || currentOrganization?.description || 'No description available'}
+                {isViewingOtherUser 
+                  ? (otherUserOrganization?.description || 'No description available')
+                  : (profileOrganization?.description || currentOrganization?.description || 'No description available')
+                }
               </Text>
             </View>
           </View>

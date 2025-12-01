@@ -161,8 +161,25 @@ async function saveFCMTokenToAppwrite(userId: string, token: string) {
         return;
       }
     } catch (appwriteError: any) {
-      // If Appwrite Messaging API not available, fall back to custom collection
-      console.warn('⚠️ Appwrite Messaging API not available, using custom collection:', appwriteError.message);
+      const errorMessage = appwriteError?.message || '';
+      
+      // Handle duplicate target error gracefully
+      // If a target with the same identifier already exists, that's fine
+      if (errorMessage.includes('target with the same ID already exists') || 
+          errorMessage.includes('target with the same identifier already exists') ||
+          errorMessage.includes('duplicate') ||
+          errorMessage.includes('already exists')) {
+        console.log('✅ Push target already exists for this token, skipping creation');
+        
+        // Still save to custom collection for backup/reference
+        await pushTokenService.saveToken(userId, token, Platform.OS).catch(() => {
+          // Non-critical
+        });
+        return;
+      }
+      
+      // If Appwrite Messaging API not available or other error, fall back to custom collection
+      console.warn('⚠️ Appwrite Messaging API not available, using custom collection:', errorMessage);
     }
 
     // Method 2: Fallback - Save to custom collection

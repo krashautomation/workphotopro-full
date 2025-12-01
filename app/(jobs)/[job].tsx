@@ -2007,6 +2007,8 @@ const loadOlderMessages = async () => {
                                                         params: {
                                                             name: item.senderName || 'Unknown User',
                                                             imageUrl: item.senderPhoto || '',
+                                                            senderId: item.senderId || '',
+                                                            orgId: item.orgId || '',
                                                         }
                                                     });
                                                 }}
