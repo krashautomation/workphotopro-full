@@ -43,21 +43,65 @@ module.exports = async (req, res) => {
   try {
     console.log('🤖 ========== KATYA FUNCTION TRIGGERED ==========');
     console.log('🤖 Timestamp:', new Date().toISOString());
+    console.log('🤖 Raw request payload:', typeof req.payload, req.payload ? req.payload.substring(0, 500) : 'empty');
+    console.log('🤖 Request headers:', JSON.stringify(req.headers || {}, null, 2));
     
-    // Parse webhook payload
-    const payload = JSON.parse(req.payload || '{}');
-    const event = payload.event || payload;
+    // Parse webhook payload - Appwrite webhooks send data in different formats
+    let payload = {};
+    let event = {};
+    let message = {};
     
-    console.log('🤖 Event received:', JSON.stringify(event, null, 2));
+    try {
+      // Try parsing as JSON string first
+      if (typeof req.payload === 'string') {
+        payload = JSON.parse(req.payload);
+      } else if (req.payload) {
+        payload = req.payload;
+      }
+      
+      console.log('🤖 Parsed payload:', JSON.stringify(payload, null, 2));
+      
+      // Appwrite webhook format: { events: [...], payload: {...} }
+      if (payload.events) {
+        event = payload;
+        message = payload.payload || {};
+      } 
+      // Alternative format: direct payload
+      else if (payload.$id || payload.senderId) {
+        message = payload;
+        event = { events: ['databases.documents.create'], payload: payload };
+      }
+      // Fallback: treat entire payload as message
+      else {
+        message = payload;
+        event = { events: ['databases.documents.create'], payload: payload };
+      }
+      
+      console.log('🤖 Extracted event:', JSON.stringify(event, null, 2));
+      console.log('🤖 Extracted message:', JSON.stringify(message, null, 2));
+      
+    } catch (parseError) {
+      console.error('🤖 Error parsing payload:', parseError.message);
+      console.error('🤖 Payload was:', req.payload);
+      return res.json({ 
+        success: false, 
+        error: 'Failed to parse webhook payload',
+        details: parseError.message 
+      }, 400);
+    }
     
     // Verify this is a message creation event
-    if (event.events && !event.events.includes('databases.documents.create')) {
-      console.log('⏭️ Not a create event, skipping');
+    const events = event.events || [];
+    if (events.length > 0 && !events.includes('databases.documents.create')) {
+      console.log('⏭️ Not a create event, skipping. Events:', events);
       return res.json({ success: true, message: 'Not a create event' }, 200);
     }
     
-    // Get message data
-    const message = event.payload || payload;
+    // Verify this is from the messages collection
+    if (message.$collectionId && message.$collectionId !== 'messages') {
+      console.log('⏭️ Not from messages collection, skipping. Collection:', message.$collectionId);
+      return res.json({ success: true, message: 'Not from messages collection' }, 200);
+    }
     
     // Skip if message is from Katya herself
     console.log('🤖 Checking sender ID:', message.senderId);
@@ -77,7 +121,8 @@ module.exports = async (req, res) => {
       teamId,
       orgId,
       content: message.content?.substring(0, 50) + '...',
-      messageType: message.messageType
+      messageType: message.messageType,
+      collectionId: message.$collectionId
     });
     
     if (!jobId || !teamId || !orgId) {
@@ -87,6 +132,7 @@ module.exports = async (req, res) => {
         teamId: !teamId,
         orgId: !orgId
       });
+      console.log('🤖 Full message object keys:', Object.keys(message));
       return res.json({ success: true, message: 'Missing context' }, 200);
     }
     
