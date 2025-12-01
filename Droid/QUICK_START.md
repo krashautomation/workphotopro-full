@@ -74,7 +74,17 @@ APPWRITE_DROID_API_KEY = ... (from Settings → API Keys - copy the key value, n
    - Database: Your database ID
 6. Create
 
-### 7. Test! (1 minute)
+### 7. Add Katya to All Teams (2 minutes)
+
+Katya needs to be a team member to post messages:
+
+```bash
+node Droid/scripts/add-katya-to-all-teams.js
+```
+
+This adds Katya to all existing teams. For new teams created later, you can run this script again or add Katya manually.
+
+### 8. Test! (1 minute)
 
 1. Open your app
 2. Go to any job chat

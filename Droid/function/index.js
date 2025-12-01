@@ -23,8 +23,8 @@ const APPWRITE_DATABASE_ID = process.env.APPWRITE_DATABASE_ID;
 // Support both APPWRITE_DROID_API_KEY and APPWRITE_API_KEY
 const APPWRITE_API_KEY = process.env.APPWRITE_DROID_API_KEY || process.env.APPWRITE_API_KEY;
 
-// Rate limiting: Don't respond more than once per 5 human messages
-const MIN_MESSAGES_BEFORE_RESPONSE = 5;
+// Rate limiting: Don't respond more than once per 3 human messages
+const MIN_MESSAGES_BEFORE_RESPONSE = 3;
 const MIN_TIME_BETWEEN_RESPONSES_MS = 60000; // 1 minute
 
 // Initialize Appwrite client
