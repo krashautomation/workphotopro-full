@@ -1,0 +1,10 @@
+{
+  "name": "katya-ai-agent",
+  "version": "1.0.0",
+  "description": "Katya AI Agent - Appwrite Cloud Function",
+  "main": "index.js",
+  "dependencies": {
+    "node-appwrite": "^13.0.0"
+  }
+}
+
