@@ -538,7 +538,7 @@ Keep responses natural and conversational. Don't repeat yourself.`;
 /**
  * Post Katya's message to the chat
  */
-async function postKatyaMessage(jobId, teamId, orgId, content) {
+async function postKatyaMessage(jobId, teamId, orgId, content, databasesInstance, accountInstance) {
   try {
     console.log('   🤖 Posting message as Katya...');
     console.log('   🤖 Message details:', {
@@ -583,7 +583,7 @@ async function postKatyaMessage(jobId, teamId, orgId, content) {
     });
     
     console.log('   🤖 Creating document in database...');
-    const message = await databases.createDocument(
+    const message = await databasesInstance.createDocument(
       APPWRITE_DATABASE_ID,
       'messages',
       ID.unique(),
