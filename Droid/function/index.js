@@ -257,18 +257,34 @@ module.exports = async (req, res) => {
   } catch (error) {
     console.error('🤖 ========== ERROR IN KATYA FUNCTION ==========');
     console.error('🤖 Error message:', error.message);
+    console.error('🤖 Error name:', error.name);
     console.error('🤖 Error code:', error.code);
     console.error('🤖 Error type:', error.type);
-    console.error('🤖 Full error:', JSON.stringify(error, null, 2));
+    
+    // Safely stringify error (avoid circular references)
+    try {
+      const errorDetails = {
+        message: error.message,
+        name: error.name,
+        code: error.code,
+        type: error.type
+      };
+      console.error('🤖 Error details:', JSON.stringify(errorDetails, null, 2));
+    } catch (stringifyError) {
+      console.error('🤖 Could not stringify error:', stringifyError.message);
+    }
+    
     if (error.stack) {
       console.error('🤖 Stack trace:', error.stack);
     }
+    
     console.error('🤖 ========== ERROR END ==========');
+    
     return res.json({ 
       success: false, 
-      error: error.message,
+      error: error.message || 'Unknown error',
       code: error.code,
-      type: error.type,
+      type: error.type || error.name,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     }, 500);
   }
