@@ -1,0 +1,23 @@
+{
+  "events": ["databases.documents.create"],
+  "payload": {
+    "$id": "test-message-692d4c85000f7e24c7e4",
+    "$collectionId": "messages",
+    "senderId": "REPLACE_WITH_YOUR_USER_ID",
+    "senderName": "Test User",
+    "senderPhoto": "",
+    "content": "Hey team! Just finished uploading the photos from today's shoot. What do you think?",
+    "jobId": "REPLACE_WITH_YOUR_JOB_ID",
+    "teamId": "REPLACE_WITH_YOUR_TEAM_ID",
+    "orgId": "REPLACE_WITH_YOUR_ORG_ID",
+    "messageType": "text",
+    "imageUrl": "",
+    "imageUrls": [],
+    "videoUrl": "",
+    "audioFileId": "",
+    "fileFileId": "",
+    "$createdAt": "2024-01-15T12:00:00.000Z",
+    "$updatedAt": "2024-01-15T12:00:00.000Z"
+  }
+}
+

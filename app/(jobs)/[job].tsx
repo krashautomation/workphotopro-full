@@ -1900,6 +1900,8 @@ const loadOlderMessages = async () => {
                                         />
                                         )}
                                         <Pressable
+                                            onLongPress={() => handleLongPress(item)}
+                                            delayLongPress={500}
                                             style={{ 
                                                 backgroundColor: isSender ? '#1d1d24' : Colors.Secondary, // Slightly bluish gray for sender messages
                                                 padding: 10,
