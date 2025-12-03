@@ -1,10 +1,11 @@
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { globalStyles, colors } from '@/styles/globalStyles';
 import { webColors } from '@/styles/webDesignTokens';
 import { useRouter } from 'expo-router';
 import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Image } from 'react-native';
-import { useState, useEffect } from 'react';
+import { Check, Crown, ChevronRight } from 'lucide-react-native';
 import { paymentService } from '@/lib/appwrite/payments';
 import { subscriptionService } from '@/lib/appwrite/subscriptions';
 import { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
@@ -286,10 +287,15 @@ export default function GetPremium() {
       <View style={styles.header}>
         <View style={styles.titleContainer}>
           <Text style={styles.title}>
-            <Text style={styles.titleWhite}>Get </Text>
-            <Text style={styles.titleOrange}>Premium Access</Text>
+            <Text style={styles.titleWhite}>Get</Text>
+           
+          </Text>
+          <Crown size={20} color="#f59104" style={styles.crownIcon} />
+          <Text style={styles.title}>
+            <Text style={styles.titleOrange}> Premium</Text>
             <Text style={styles.titleWhite}> Now</Text>
           </Text>
+          <ChevronRight size={20} color="#ffffff" style={styles.chevronIcon} />
         </View>
         <View style={styles.featuresCard}>
           <Text style={styles.subtitle}>
@@ -298,13 +304,16 @@ export default function GetPremium() {
           <View style={styles.orangeDivider} />
           <View style={styles.featureList}>
             <View style={styles.featureRow}>
-              <Text style={styles.featureItem}>- High res images</Text>
+              <Check size={16} color="#f59104" style={styles.checkIcon} />
+              <Text style={styles.featureItem}>High res images</Text>
             </View>
             <View style={styles.featureRow}>
-              <Text style={styles.featureItem}>- Disable watermarks</Text>
+              <Check size={16} color="#f59104" style={styles.checkIcon} />
+              <Text style={styles.featureItem}>Disable watermarks</Text>
             </View>
             <View style={styles.featureRow}>
-              <Text style={styles.featureItem}>- Integrations:</Text>
+              <Check size={16} color="#f59104" style={styles.checkIcon} />
+              <Text style={styles.featureItem}>Integrations:</Text>
             </View>
           </View>
         </View>
@@ -404,12 +413,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   titleWhite: {
     color: '#ffffff',
   },
   titleOrange: {
     color: '#f59104',
+  },
+  crownIcon: {
+    marginLeft: 6,
+  },
+  chevronIcon: {
+    marginLeft: 4,
   },
   featuresCard: {
     backgroundColor: '#ffffff',
@@ -433,12 +450,18 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
+  },
+  checkIcon: {
+    marginRight: 8,
   },
   featureItem: {
     fontSize: 14,
     color: '#36454F',
     lineHeight: 20,
+    flex: 1,
   },
   paymentMethodsRow: {
     marginTop: 20,
