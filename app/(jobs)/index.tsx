@@ -11,7 +11,7 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
-import { Coins, TableProperties, MessageCircle, Plus, Camera, Video, SquareCheck, SquareChevronRight, ChevronRight } from 'lucide-react-native';
+import { Mountain, TableProperties, MessageCircle, Plus, Camera, Video, SquareCheck, SquareChevronRight, ChevronRight } from 'lucide-react-native';
 import { useJobFilters } from '@/context/JobFilterContext';
 
 export default function Jobs() {
@@ -379,7 +379,7 @@ export default function Jobs() {
                 {/* Experience Header */}
                 <View style={styles.progressHeader}>
                   <View style={styles.experiencePill}>
-                    <Coins size={14} color="#FFD700" />
+                    <Mountain size={14} color="#22c55e" />
                     <Text style={styles.pillText}>Experience</Text>
                     <Text style={styles.pillNumber}>1,250</Text>
                   </View>

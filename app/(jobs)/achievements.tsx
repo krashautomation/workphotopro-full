@@ -3,7 +3,7 @@ import { webColors } from '@/styles/webDesignTokens';
 import { useRouter } from 'expo-router';
 import { Text, View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { IconSymbol } from '@/components/IconSymbol';
-import { Coins, Gem, Trophy } from 'lucide-react-native';
+import { Mountain, Gem, Trophy } from 'lucide-react-native';
 
 export default function Achievements() {
   const router = useRouter();
@@ -31,7 +31,7 @@ export default function Achievements() {
     <View style={styles.questCard}>
       <View style={styles.questContent}>
         <View style={styles.questIconContainer}>
-          <Coins size={18} color={item.completed ? "#FFD700" : colors.textMuted} />
+          <Mountain size={18} color={item.completed ? "#22c55e" : colors.textMuted} />
           <Text style={[styles.questXP, item.completed && styles.questXPCompleted]}>
             +{item.xp}
           </Text>
@@ -103,7 +103,7 @@ export default function Achievements() {
           </Text>
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              <Coins size={20} color="#FFD700" />
+              <Mountain size={20} color="#22c55e" />
               <Text style={styles.statValue}>1,250</Text>
               <Text style={styles.statLabel}>Experience</Text>
             </View>
@@ -118,7 +118,7 @@ export default function Achievements() {
         {/* Quests Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Coins size={18} color="#FFD700" />
+            <Mountain size={18} color="#22c55e" />
             <Text style={styles.sectionTitle}>Quests</Text>
           </View>
           {quests.map((quest, index) => (
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   questXP: {
     fontSize: 12,
     fontWeight: '700',
-    color: "#FFD700",
+    color: "#22c55e",
   },
   questXPCompleted: {
     color: colors.textMuted,
