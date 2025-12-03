@@ -6,10 +6,8 @@ import { Redirect, Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
-import { Rocket } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Crown, ChevronRight } from 'lucide-react-native';
 import { colors } from '@/styles/globalStyles';
-import { webGradients } from '@/styles/webDesignTokens';
 import { useNotifications } from '@/hooks/useNotifications';
 
 function HeaderRight() {
@@ -37,15 +35,11 @@ function HeaderRight() {
       <TouchableOpacity 
         onPress={() => router.push('/(jobs)/get-premium')}
       >
-        <LinearGradient
-          colors={webGradients.primary.colors}
-          start={webGradients.primary.start}
-          end={webGradients.primary.end}
-          style={styles.upgradeButton}
-        >
-          <Rocket size={16} color="#000000" style={{ marginRight: 6 }} />
+        <View style={styles.upgradeButton}>
+          <Crown size={14} color="#ffffff" style={{ marginRight: 6 }} />
           <Text style={styles.upgradeButtonText}>Get Premium</Text>
-        </LinearGradient>
+          <ChevronRight size={14} color="#ffffff" style={{ marginLeft: 0 }} />
+        </View>
       </TouchableOpacity>
       
       <TouchableOpacity 
@@ -254,21 +248,16 @@ const styles = StyleSheet.create({
   upgradeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20, // pill-shaped
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    justifyContent: 'center',
+    paddingVertical: 5,
+    paddingLeft: 10,
+    paddingRight: 6,
+    borderRadius: 4,
+    backgroundColor: '#e66a00',
   },
   upgradeButtonText: {
-    color: '#000000',
-    fontSize: 14,
+    color: '#ffffff',
+    fontSize: 13,
     fontWeight: '600',
   },
   bellButton: {
