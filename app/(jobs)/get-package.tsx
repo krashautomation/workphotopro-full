@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking, ActivityIndicator } from 'react-native';
 import { colors } from '@/styles/globalStyles';
-import { webColors } from '@/styles/webDesignTokens';
 
 interface PremiumPackage {
   id: string;
@@ -67,7 +66,7 @@ export default function PackageModal({ package: pkg, isMonthly, onUpgrade, isLoa
         disabled={isLoading}
       >
         {isLoading ? (
-          <ActivityIndicator color={webColors.primaryForeground} />
+          <ActivityIndicator color="#ffffff" />
         ) : (
           <Text style={styles.upgradeButtonText}>Upgrade</Text>
         )}
@@ -118,7 +117,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   upgradeButton: {
-    backgroundColor: webColors.primary,
+    backgroundColor: colors.orange,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -128,7 +127,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   upgradeButtonText: {
-    color: webColors.primaryForeground,
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -136,7 +135,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   linkText: {
-    color: webColors.primary,
+    color: colors.orange,
     fontSize: 16,
     textAlign: 'center',
   },

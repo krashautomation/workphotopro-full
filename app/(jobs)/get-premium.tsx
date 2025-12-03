@@ -1,13 +1,10 @@
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { globalStyles, colors } from '@/styles/globalStyles';
-import { webGradients, webColors } from '@/styles/webDesignTokens';
+import { webColors } from '@/styles/webDesignTokens';
 import { useRouter } from 'expo-router';
-import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Image } from 'react-native';
 import { useState, useEffect } from 'react';
-import { Rocket } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import MaskedView from '@react-native-masked-view/masked-view';
 import { paymentService } from '@/lib/appwrite/payments';
 import { subscriptionService } from '@/lib/appwrite/subscriptions';
 import { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
@@ -288,29 +285,35 @@ export default function GetPremium() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.titleContainer}>
-          <Rocket size={24} color={webColors.primary} style={styles.rocketIcon} />
-          <MaskedView
-            style={styles.gradientTextContainer}
-            maskElement={
-              <Text style={styles.title}>Get Premium</Text>
-            }
-          >
-            <LinearGradient
-              colors={webGradients.primary.colors}
-              start={webGradients.primary.start}
-              end={webGradients.primary.end}
-            >
-              <Text style={[styles.title, { opacity: 0 }]}>Get Premium</Text>
-            </LinearGradient>
-          </MaskedView>
+          <Text style={styles.title}>
+            <Text style={styles.titleWhite}>Get </Text>
+            <Text style={styles.titleOrange}>Premium Access</Text>
+            <Text style={styles.titleWhite}> Now</Text>
+          </Text>
         </View>
-        <Text style={styles.subtitle}>
-          Get access to all advanced features to supercharge your productivity and manage your work photos with ease.
-        </Text>
-        <View style={styles.featureList}>
-          <Text style={styles.featureItem}>- High res images</Text>
-          <Text style={styles.featureItem}>- Disable watermarks</Text>
-          <Text style={styles.featureItem}>- Integrations:</Text>
+        <View style={styles.featuresCard}>
+          <Text style={styles.subtitle}>
+            Get access to all advanced features to supercharge your productivity and manage your work photos with ease.
+          </Text>
+          <View style={styles.orangeDivider} />
+          <View style={styles.featureList}>
+            <View style={styles.featureRow}>
+              <Text style={styles.featureItem}>- High res images</Text>
+            </View>
+            <View style={styles.featureRow}>
+              <Text style={styles.featureItem}>- Disable watermarks</Text>
+            </View>
+            <View style={styles.featureRow}>
+              <Text style={styles.featureItem}>- Integrations:</Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.paymentMethodsRow}>
+          <Image 
+            source={require('../../assets/images/credit-only.webp')}
+            style={styles.paymentLogo}
+            resizeMode="contain"
+          />
         </View>
       </View>
 
@@ -349,7 +352,7 @@ export default function GetPremium() {
       {/* Packages List */}
       {loadingOfferings ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={webColors.primary} />
+          <ActivityIndicator size="large" color={colors.orange} />
           <Text style={styles.loadingText}>Loading subscription options...</Text>
         </View>
       ) : (
@@ -398,30 +401,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  rocketIcon: {
-    marginRight: 8,
-  },
-  gradientTextContainer: {
-    alignSelf: 'flex-start',
-  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
   },
+  titleWhite: {
+    color: '#ffffff',
+  },
+  titleOrange: {
+    color: '#ff7700',
+  },
+  featuresCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+  },
   subtitle: {
     fontSize: 16,
-    color: webColors.foreground,
-    opacity: 0.9,
+    color: '#36454F',
     lineHeight: 22,
+    marginBottom: 12,
+  },
+  orangeDivider: {
+    height: 5,
+    backgroundColor: '#ff7700',
+    width: '100%',
+    marginBottom: 12,
   },
   featureList: {
-    marginTop: 16,
+    marginTop: 0,
+  },
+  featureRow: {
+    marginBottom: 8,
   },
   featureItem: {
     fontSize: 14,
-    color: webColors.foreground,
-    opacity: 0.95,
+    color: '#36454F',
     lineHeight: 20,
+  },
+  paymentMethodsRow: {
+    marginTop: 20,
+    alignItems: 'center',
+    width: '100%',
+  },
+  paymentLogo: {
+    width: '100%',
+    height: 30,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -439,15 +465,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activeTab: {
-    backgroundColor: webColors.primary,
+    backgroundColor: colors.orange,
   },
   tabText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#000000',
+    color: '#ffffff',
   },
   activeTabText: {
-    color: '#000000',
+    color: '#ffffff',
   },
   listContent: {
     padding: 20,
@@ -457,7 +483,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: webColors.primary,
+    borderColor: colors.orange,
   },
   cardContent: {
     flexDirection: 'row',
@@ -483,7 +509,7 @@ const styles = StyleSheet.create({
   packagePrice: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: webColors.primary,
+    color: colors.orange,
   },
   pricePeriod: {
     fontSize: 12,
@@ -505,13 +531,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   currentPackageCard: {
-    borderColor: webColors.primary,
+    borderColor: colors.orange,
     borderWidth: 2,
     backgroundColor: webColors.card,
   },
   currentPackageBadge: {
     fontSize: 12,
-    color: webColors.primary,
+    color: colors.orange,
     fontWeight: '600',
     marginTop: 4,
   },

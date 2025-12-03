@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     paddingLeft: 10,
     paddingRight: 6,
     borderRadius: 4,
-    backgroundColor: '#e66a00',
+    backgroundColor: colors.orange,
   },
   upgradeButtonText: {
     color: '#ffffff',
