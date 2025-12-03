@@ -3,7 +3,7 @@ import { webColors } from '@/styles/webDesignTokens';
 import { useRouter } from 'expo-router';
 import { Text, View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { IconSymbol } from '@/components/IconSymbol';
-import { Mountain, Gem, Trophy } from 'lucide-react-native';
+import { Mountain } from 'lucide-react-native';
 
 export default function Achievements() {
   const router = useRouter();
@@ -53,7 +53,7 @@ export default function Achievements() {
       <View style={styles.achievementCard}>
         <View style={styles.achievementContent}>
           <View style={styles.achievementIconContainer}>
-            <Gem size={18} color={item.completed ? webColors.accent : colors.textMuted} />
+            <Text style={[styles.achievementEmoji, !item.completed && styles.achievementEmojiMuted]}>🔒</Text>
             <Text style={[styles.achievementGems, item.completed && styles.achievementGemsCompleted]}>
               +{item.gems}
             </Text>
@@ -83,7 +83,7 @@ export default function Achievements() {
           />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Trophy size={24} color="#FFD700" />
+          <Text style={styles.headerEmoji}>🔰</Text>
           <Text style={styles.headerTitle}>Awards and Achievements</Text>
         </View>
         <View style={styles.headerSpacer} />
@@ -108,7 +108,7 @@ export default function Achievements() {
               <Text style={styles.statLabel}>Experience</Text>
             </View>
             <View style={styles.statItem}>
-              <Gem size={20} color={webColors.accent} />
+              <Text style={styles.statEmoji}>🔒</Text>
               <Text style={styles.statValue}>12</Text>
               <Text style={styles.statLabel}>Achievements</Text>
             </View>
@@ -132,7 +132,7 @@ export default function Achievements() {
         {/* Achievements Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Gem size={18} color={webColors.accent} />
+            <Text style={styles.sectionEmoji}>🔒</Text>
             <Text style={styles.sectionTitle}>Achievements</Text>
           </View>
           {achievements.map((achievement, index) => (
@@ -174,6 +174,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  headerEmoji: {
+    fontSize: 24,
   },
   headerTitle: {
     fontSize: 20,
@@ -217,6 +220,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
+  statEmoji: {
+    fontSize: 20,
+  },
   statValue: {
     fontSize: 20,
     fontWeight: '700',
@@ -236,6 +242,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 16,
+  },
+  sectionEmoji: {
+    fontSize: 18,
   },
   sectionTitle: {
     fontSize: 18,
@@ -299,6 +308,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+  },
+  achievementEmoji: {
+    fontSize: 18,
+  },
+  achievementEmojiMuted: {
+    opacity: 0.5,
   },
   achievementGems: {
     fontSize: 12,
