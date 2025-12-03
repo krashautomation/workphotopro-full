@@ -1,3 +1,4 @@
+import React from 'react';
 import { globalStyles, colors } from '@/styles/globalStyles';
 import { webColors } from '@/styles/webDesignTokens';
 import { useRouter } from 'expo-router';

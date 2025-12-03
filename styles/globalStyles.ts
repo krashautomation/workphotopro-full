@@ -13,7 +13,7 @@ export const colors = {
   error: '#FF3B30',
   success: '#22c55e',
   blue: "#31f7eb",
-  orange: '#e66a00', // Premium orange color
+  orange: '#f59104', // Premium orange color
 }
 
 // Global typography

@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   titleOrange: {
-    color: '#ff7700',
+    color: '#f59104',
   },
   featuresCard: {
     backgroundColor: '#ffffff',
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
   },
   orangeDivider: {
     height: 5,
-    backgroundColor: '#ff7700',
+    backgroundColor: '#f59104',
     width: '100%',
     marginBottom: 12,
   },
