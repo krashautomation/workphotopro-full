@@ -69,6 +69,17 @@ module.exports = {
           action: 'VIEW',
           data: [
             {
+              scheme: 'https',
+              host: 'web.workphotopro.com',
+              pathPrefix: '/reset-password',
+            },
+          ],
+          category: ['BROWSABLE', 'DEFAULT'],
+        },
+        {
+          action: 'VIEW',
+          data: [
+            {
               scheme: 'workphotopro',
               host: 'team-invite',
             },

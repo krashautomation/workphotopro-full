@@ -137,7 +137,8 @@ export const authService = {
    */
   async forgotPassword(email: string) {
     try {
-      const url = 'workphotopro://reset-password';
+      // Use HTTPS URL instead of custom scheme - Appwrite requires valid HTTP/HTTPS URLs
+      const url = 'https://web.workphotopro.com/reset-password';
       return await account.createRecovery(email, url);
     } catch (error) {
       console.error('Forgot password error:', error);

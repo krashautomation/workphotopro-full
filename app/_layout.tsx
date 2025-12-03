@@ -187,6 +187,20 @@ function RootLayoutNav() {
           }
         }
         
+        // Check if this is an HTTPS reset-password link (web.workphotopro.com/reset-password?userId=...&secret=...)
+        if (url.hostname === 'web.workphotopro.com' && url.pathname === '/reset-password') {
+          const userId = url.searchParams.get('userId');
+          const secret = url.searchParams.get('secret');
+          if (userId && secret) {
+            console.log('🔗 HTTPS reset-password link detected!');
+            router.push({
+              pathname: '/(auth)/reset-password',
+              params: { userId, secret }
+            });
+            return;
+          }
+        }
+        
         // Check if this is a deep link invite (workphotopro://team-invite?teamId=...)
         if (url.pathname.includes('team-invite') || url.searchParams.get('teamId')) {
           const teamId = url.searchParams.get('teamId');
@@ -195,6 +209,20 @@ function RootLayoutNav() {
             router.push({
               pathname: '/(auth)/accept-invite',
               params: { teamId }
+            });
+            return;
+          }
+        }
+        
+        // Check if this is a deep link reset-password (workphotopro://reset-password?userId=...&secret=...)
+        if (url.pathname.includes('reset-password')) {
+          const userId = url.searchParams.get('userId');
+          const secret = url.searchParams.get('secret');
+          if (userId && secret) {
+            console.log('🔗 Deep link reset-password detected!');
+            router.push({
+              pathname: '/(auth)/reset-password',
+              params: { userId, secret }
             });
             return;
           }
