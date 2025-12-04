@@ -29,6 +29,7 @@ import JobTasks from './job-tasks'
 import * as SecureStore from 'expo-secure-store'
 import SaveImageModal from '@/components/SaveImageModal'
 import ShareJob from './share-job'
+import ShareReportModal from './share-report-modal'
 import VideoPlayer from '@/components/VideoPlayer'
 import FullScreenVideoPlayer from '@/components/FullScreenVideoPlayer'
 import AudioRecorder from '@/components/AudioRecorder'
@@ -93,6 +94,8 @@ export default function Job() {
     const [isRefreshing, setIsRefreshing] = React.useState(false);
     const [showShareLocation, setShowShareLocation] = React.useState(false);
     const [showShareJobModal, setShowShareJobModal] = React.useState(false);
+    const [showShareReportModal, setShowShareReportModal] = React.useState(false);
+    const [reportId, setReportId] = React.useState<string | null>(null);
     const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
     const [showAttachmentMenu, setShowAttachmentMenu] = React.useState(false);
     const [showClipboardMenu, setShowClipboardMenu] = React.useState(false);
@@ -3585,8 +3588,26 @@ const loadOlderMessages = async () => {
                 onClose={() => setShowShareJobModal(false)}
                 contentStyle={{ backgroundColor: Colors.Secondary }}
             >
-                <ShareJob onClose={() => setShowShareJobModal(false)} />
+                <ShareJob 
+                    onClose={() => setShowShareJobModal(false)} 
+                    jobId={jobId as string}
+                    user={user}
+                    onShareReport={() => {
+                        setShowShareJobModal(false);
+                        setShowShareReportModal(true);
+                    }}
+                    onCreateReport={(newReportId, reportUrl) => {
+                        setReportId(newReportId);
+                        console.log('✅ Report created:', { reportId: newReportId, reportUrl });
+                    }}
+                />
             </BottomModal2>
+            <ShareReportModal
+                visible={showShareReportModal}
+                reportUrl={reportId ? `https://web.workphotopro.com/reports/${reportId}` : `https://web.workphotopro.com/reports/${jobId}`}
+                shareMessage={`${user?.name || 'Someone'} has a job with you, ${reportId ? `https://web.workphotopro.com/reports/${reportId}` : `https://web.workphotopro.com/reports/${jobId}`}`}
+                onClose={() => setShowShareReportModal(false)}
+            />
             <BottomModal2
                 visible={showAudioRecorder}
                 onClose={() => {
