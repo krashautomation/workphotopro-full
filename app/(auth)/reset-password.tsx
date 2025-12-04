@@ -1,5 +1,6 @@
 import { authService } from '@/lib/appwrite/auth';
 import { getPlaceholderTextColor, globalStyles } from '@/styles/globalStyles';
+import { getUserFriendlyError } from '@/utils/errorHandler';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import {
@@ -106,8 +107,8 @@ export default function ResetPassword() {
       await authService.resetPassword(userId, secret, password);
       setSuccess(true);
     } catch (err: any) {
-      console.error('Reset password error:', err);
-      setError(err.message || 'Failed to reset password. The link may have expired. Please request a new one.');
+      const errorMessage = getUserFriendlyError(err);
+      setError(errorMessage || 'Failed to reset password. The link may have expired. Please request a new one.');
     } finally {
       setLoading(false);
     }

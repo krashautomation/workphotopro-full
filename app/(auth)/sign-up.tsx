@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { getPlaceholderTextColor, globalStyles } from '@/styles/globalStyles';
+import { getUserFriendlyError } from '@/utils/errorHandler';
 import { Link, useRouter, useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
@@ -171,8 +172,9 @@ export default function SignUp() {
       // Navigate directly to app (user is already logged in)
       router.replace('/(jobs)');
     } catch (err: any) {
-      console.error('Sign up error:', err);
-      setError(err.message || 'Sign up failed. Please try again.');
+      // Use error handler to get user-friendly message
+      const errorMessage = getUserFriendlyError(err);
+      setError(errorMessage);
       setLoading(false);
     }
   };

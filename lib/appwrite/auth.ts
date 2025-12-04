@@ -9,16 +9,25 @@ export const authService = {
    */
   async signUp(email: string, password: string, name: string) {
     try {
+      // Normalize email (trim and lowercase) to match sign-in behavior
+      const normalizedEmail = email.trim().toLowerCase();
+      
+      console.log('🔐 Creating account for email:', normalizedEmail);
+      
       // Create the account
-      const user = await account.create(ID.unique(), email, password, name);
+      const user = await account.create(ID.unique(), normalizedEmail, password, name);
+      
+      console.log('✅ Account created, creating session...');
       
       // Create a session immediately after account creation
       // User is now logged in and can access the app
-      await account.createEmailPasswordSession(email, password);
+      await account.createEmailPasswordSession(normalizedEmail, password);
       
+      console.log('✅ Sign up successful, session created');
       return user;
-    } catch (error) {
-      console.error('Sign up error:', error);
+    } catch (error: any) {
+      // Error details will be logged by error handler
+      // Just re-throw - don't log here to avoid duplicate logs
       throw error;
     }
   },
@@ -28,10 +37,18 @@ export const authService = {
    */
   async signIn(email: string, password: string) {
     try {
-      const session = await account.createEmailPasswordSession(email, password);
+      // Normalize email (trim and lowercase)
+      const normalizedEmail = email.trim().toLowerCase();
+      
+      console.log('🔐 Attempting sign in for email:', normalizedEmail);
+      
+      const session = await account.createEmailPasswordSession(normalizedEmail, password);
+      
+      console.log('✅ Sign in successful, session created');
       return session;
-    } catch (error) {
-      console.error('Sign in error:', error);
+    } catch (error: any) {
+      // Error details will be logged by error handler
+      // Just re-throw - don't log here to avoid duplicate logs
       throw error;
     }
   },

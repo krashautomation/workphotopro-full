@@ -42,10 +42,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
+      console.log('🔐 AuthContext: Starting sign in process');
       await authService.signIn(email, password);
+      console.log('🔐 AuthContext: Sign in successful, checking auth state');
       await checkAuth();
-    } catch (error) {
-      console.error('Sign in error in context:', error);
+      console.log('🔐 AuthContext: Auth state updated');
+    } catch (error: any) {
+      // Error details will be logged by error handler
+      // Just re-throw - don't log here to avoid duplicate logs
       throw error;
     }
   };

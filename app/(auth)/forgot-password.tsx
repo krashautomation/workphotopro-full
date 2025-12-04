@@ -1,5 +1,6 @@
 import { authService } from '@/lib/appwrite/auth';
 import { getPlaceholderTextColor, globalStyles } from '@/styles/globalStyles';
+import { getUserFriendlyError } from '@/utils/errorHandler';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -34,8 +35,8 @@ export default function ForgotPassword() {
       await authService.forgotPassword(email);
       setSuccess(true);
     } catch (err: any) {
-      console.error('Forgot password error:', err);
-      setError(err.message || 'Failed to send recovery email. Please try again.');
+      const errorMessage = getUserFriendlyError(err);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

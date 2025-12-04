@@ -1,5 +1,6 @@
 import { useAuth } from '@/context/AuthContext';
 import { getPlaceholderTextColor, globalStyles } from '@/styles/globalStyles';
+import { getUserFriendlyError } from '@/utils/errorHandler';
 import { Link, useRouter, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -48,8 +49,10 @@ export default function SignIn() {
       // Navigate to app
       router.replace('/(jobs)');
     } catch (err: any) {
-      console.error('Sign in error:', err);
-      setError(err.message || 'Sign in failed. Please check your credentials and try again.');
+      // Use error handler to get user-friendly message
+      // Technical details are logged but not shown to user
+      const errorMessage = getUserFriendlyError(err);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

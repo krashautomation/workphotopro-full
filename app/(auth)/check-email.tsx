@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { globalStyles } from '@/styles/globalStyles';
+import { globalStyles, getPlaceholderTextColor } from '@/styles/globalStyles';
+import { getUserFriendlyError } from '@/utils/errorHandler';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { authService } from '@/lib/appwrite/auth';
 import { useAuth } from '@/context/AuthContext';
-import { getPlaceholderTextColor } from '@/styles/globalStyles';
 
 export default function CheckEmail() {
   const router = useRouter();
@@ -41,8 +41,8 @@ export default function CheckEmail() {
       // Navigate to jobs screen
       router.replace('/(jobs)');
     } catch (err: any) {
-      console.error('Verify OTP error:', err);
-      setError(err.message || 'Invalid verification code. Please try again.');
+      const errorMessage = getUserFriendlyError(err);
+      setError(errorMessage || 'Invalid verification code. Please try again.');
       setOtp(''); // Clear OTP on error
     } finally {
       setVerifying(false);
@@ -65,8 +65,8 @@ export default function CheckEmail() {
       setOtp(''); // Clear previous OTP
       // Note: userId remains the same - each resend generates a new code for the same user
     } catch (err: any) {
-      console.error('Resend verification error:', err);
-      setError(err.message || 'Failed to resend verification code. Please try again.');
+      const errorMessage = getUserFriendlyError(err);
+      setError(errorMessage || 'Failed to resend verification code. Please try again.');
     } finally {
       setResending(false);
     }

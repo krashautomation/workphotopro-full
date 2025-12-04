@@ -1,6 +1,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { authService } from '@/lib/appwrite/auth';
 import { getPlaceholderTextColor, globalStyles } from '@/styles/globalStyles';
+import { getUserFriendlyError } from '@/utils/errorHandler';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import {
@@ -58,8 +59,8 @@ export default function AcceptInvite() {
         },
       });
     } catch (err: any) {
-      console.error('Sign up error:', err);
-      setError(err.message || 'Sign up failed. Please try again.');
+      const errorMessage = getUserFriendlyError(err);
+      setError(errorMessage || 'Sign up failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -75,13 +76,14 @@ export default function AcceptInvite() {
         params: { joinedTeamId: teamId }
       });
     } catch (error: any) {
-      setError(error.message || 'Google sign in failed. Please try again.');
+      const errorMessage = getUserFriendlyError(error);
+      setError(errorMessage || 'Google sign in failed. Please try again.');
     }
   };
 
   const handleGoogleError = (error: Error) => {
-    console.error('Google sign in error:', error);
-    setError(error.message || 'Google sign in failed. Please try again.');
+    const errorMessage = getUserFriendlyError(error);
+    setError(errorMessage || 'Google sign in failed. Please try again.');
   };
 
   if (!teamId) {

@@ -1,5 +1,6 @@
 import { authService } from '@/lib/appwrite/auth';
 import { globalStyles } from '@/styles/globalStyles';
+import { getUserFriendlyError } from '@/utils/errorHandler';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
@@ -77,8 +78,8 @@ export default function VerifyEmail() {
         params: { verified: 'true' },
       });
     } catch (err: any) {
-      console.error('Verify email error:', err);
-      setError(err.message || 'Verification failed. The link may have expired. Please try signing up again.');
+      const errorMessage = getUserFriendlyError(err);
+      setError(errorMessage || 'Verification failed. The link may have expired. Please try signing up again.');
     } finally {
       setLoading(false);
       setVerifying(false);
