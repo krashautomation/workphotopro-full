@@ -70,9 +70,28 @@ export const authService = {
    */
   async getCurrentUser() {
     try {
-      const user = await account.get();
+      console.log('🔐 Getting current user...');
+      
+      // Add timeout to prevent hanging indefinitely
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('getCurrentUser timeout after 10 seconds'));
+        }, 10000);
+      });
+      
+      const userPromise = account.get();
+      const user = await Promise.race([userPromise, timeoutPromise]);
+      
+      console.log('✅ Current user retrieved:', user ? user.email : 'null');
       return user;
-    } catch (error) {
+    } catch (error: any) {
+      // Check if it's a timeout error or a real auth error
+      if (error?.message?.includes('timeout')) {
+        console.warn('⚠️ getCurrentUser timeout - network may be slow or unavailable');
+      } else {
+        console.log('⚠️ getCurrentUser error:', error?.message || error);
+      }
+      // Return null instead of throwing - this allows the app to continue
       return null;
     }
   },

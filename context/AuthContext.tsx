@@ -26,16 +26,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkAuth();
+    let isMounted = true;
+    
+    // Add a safety timeout to ensure loading is always set to false
+    const safetyTimeout = setTimeout(() => {
+      if (isMounted) {
+        console.warn('🔐 AuthContext: Safety timeout - forcing loading to false');
+        setLoading(false);
+      }
+    }, 15000); // 15 seconds max wait time
+    
+    checkAuth().finally(() => {
+      if (isMounted) {
+        clearTimeout(safetyTimeout);
+      }
+    });
+    
+    return () => {
+      isMounted = false;
+      clearTimeout(safetyTimeout);
+    };
   }, []);
 
   const checkAuth = async () => {
     try {
+      console.log('🔐 AuthContext: Checking authentication...');
       const currentUser = await authService.getCurrentUser();
+      console.log('🔐 AuthContext: Auth check complete, user:', currentUser ? currentUser.email : 'null');
       setUser(currentUser);
-    } catch (error) {
+    } catch (error: any) {
+      console.warn('🔐 AuthContext: Auth check error:', error.message || error);
       setUser(null);
     } finally {
+      console.log('🔐 AuthContext: Setting loading to false');
       setLoading(false);
     }
   };
