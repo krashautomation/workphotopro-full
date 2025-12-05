@@ -62,6 +62,10 @@ const MAPPING = {
   "location": "place",
   "mappin": "place",
   "square.and.arrow.up": "share",
+  // Refresh icons
+  "arrow.clockwise": "refresh",
+  "arrow.triangle.2.circlepath": "refresh",
+  "arrow.triangle.2.circlepath.circle": "refresh",
   // Payment icons
   "creditcard": "credit-card",
   // Contact and settings icons

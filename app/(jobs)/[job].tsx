@@ -71,9 +71,13 @@ export default function Job() {
     const [oldestMessageId, setOldestMessageId] = React.useState<string | null>(null);
     const [isInitialLoad, setIsInitialLoad] = React.useState(true);
     const [shouldScrollToBottom, setShouldScrollToBottom] = React.useState(true);
+    const [allMessagesLoaded, setAllMessagesLoaded] = React.useState(false); // Track if all messages are loaded
     const [contentHeight, setContentHeight] = React.useState(0);
+    const [currentScrollY, setCurrentScrollY] = React.useState(0); // Track scroll position for RefreshControl
     const scrollY = React.useRef(0);
     const hasTriggeredLoadMore = React.useRef(false);
+    const isUserScrolling = React.useRef(false);
+    const scrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     const [selectedImages, setSelectedImages] = React.useState<string[]>([]);
     const [selectedVideo, setSelectedVideo] = React.useState<string | null>(null);
     const [fullScreenVideo, setFullScreenVideo] = React.useState<{ uri: string; fileId?: string } | null>(null);
@@ -92,6 +96,7 @@ export default function Job() {
     const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
     const [showSaveImageModal, setShowSaveImageModal] = React.useState(false);
     const [isRefreshing, setIsRefreshing] = React.useState(false);
+    const [isLoadingAllMessages, setIsLoadingAllMessages] = React.useState(false);
     const [showShareLocation, setShowShareLocation] = React.useState(false);
     const [showShareJobModal, setShowShareJobModal] = React.useState(false);
     const [showShareReportModal, setShowShareReportModal] = React.useState(false);
@@ -216,6 +221,15 @@ export default function Job() {
         checkCapturedMedia()
     }, []) // Run once on mount and when screen comes into focus
 
+    // Cleanup scroll timeout on unmount
+    React.useEffect(() => {
+        return () => {
+            if (scrollTimeoutRef.current) {
+                clearTimeout(scrollTimeoutRef.current);
+            }
+        };
+    }, []);
+
     // Auto-refresh when returning to the screen
     useFocusEffect(
         React.useCallback(() => {
@@ -326,19 +340,23 @@ export default function Job() {
     }, [jobId]);
 
     // Scroll to end when messages change (only if shouldScrollToBottom is true)
-    // This prevents auto-scroll when loading older messages
+    // This prevents auto-scroll when loading older messages or when user is scrolling
     React.useEffect(() => {
         console.log('🔍 Messages effect: Messages array changed, length:', messages.length);
-        console.log('🔍 Messages effect: shouldScrollToBottom:', shouldScrollToBottom, 'isLoadingOlder:', isLoadingOlderMessages);
+        console.log('🔍 Messages effect: shouldScrollToBottom:', shouldScrollToBottom, 'isLoadingOlder:', isLoadingOlderMessages, 'isUserScrolling:', isUserScrolling.current, 'allMessagesLoaded:', allMessagesLoaded);
         
-        // Don't scroll if we're loading older messages
-        if (isLoadingOlderMessages) {
+        // Don't scroll if we're loading older messages, user is actively scrolling, or all messages are loaded
+        if (isLoadingOlderMessages || isUserScrolling.current || allMessagesLoaded) {
             return;
         }
         
         if (messages.length > 0 && listRef.current && shouldScrollToBottom) {
             // Use multiple timing strategies to ensure scroll happens
             const scrollToBottom = () => {
+                // Double-check user isn't scrolling before scrolling
+                if (isUserScrolling.current) {
+                    return;
+                }
                 try {
                     listRef.current?.scrollToEnd({ animated: !isInitialLoad });
                 } catch (error) {
@@ -570,6 +588,7 @@ const getMessages = async (loadOlder: boolean = false) => {
             setMessages(sortedMessages);
             setShouldScrollToBottom(true);
             setIsInitialLoad(true);
+            setAllMessagesLoaded(false); // Reset flag when doing normal pagination load
             
             // Update pagination state
             if (sortedMessages.length > 0) {
@@ -589,8 +608,107 @@ const getMessages = async (loadOlder: boolean = false) => {
     }
 }
 
+    // Function to load ALL messages (bypassing pagination limits)
+    const loadAllMessages = async () => {
+        try {
+            setIsLoadingAllMessages(true);
+            console.log('🔍 loadAllMessages: Loading all messages for jobId:', jobId);
+            
+            let allMessages: Message[] = [];
+            let lastMessageId: string | null = null;
+            const limit = 100; // Appwrite max limit per query
+            
+            // Paginate through all messages
+            while (true) {
+                const queries: any[] = [
+                    Query.equal('jobId', jobId as string),
+                    Query.orderDesc('$createdAt'), // Get newest first
+                    Query.limit(limit),
+                ];
+                
+                // Add cursor for pagination if we have a last message ID
+                if (lastMessageId) {
+                    queries.push(Query.cursorAfter(lastMessageId));
+                }
+                
+                const { documents } = await db.listDocuments<Message>(
+                    appwriteConfig.db, 
+                    appwriteConfig.col.messages,
+                    queries
+                );
+                
+                if (documents.length === 0) {
+                    break; // No more messages
+                }
+                
+                // Process and normalize messages
+                const processedMessages = processMessages(documents);
+                allMessages = allMessages.concat(processedMessages);
+                
+                // Set last message ID for next iteration
+                lastMessageId = documents[documents.length - 1].$id;
+                
+                // If we got fewer than the limit, we've fetched all messages
+                if (documents.length < limit) {
+                    break;
+                }
+            }
+            
+            // Reverse to get chronological order (oldest to newest)
+            const sortedMessages = allMessages.sort((a, b) => {
+                return new Date(a.$createdAt).getTime() - new Date(b.$createdAt).getTime();
+            });
+            
+            console.log('🔍 loadAllMessages: Loaded all messages:', {
+                totalCount: sortedMessages.length
+            });
+            
+            // Update state with all messages
+            // Don't scroll anywhere - let the list maintain its natural position
+            setMessages(sortedMessages);
+            setShouldScrollToBottom(false); // Don't auto-scroll
+            setHasMoreMessages(false); // No more messages to load
+            setOldestMessageId(null);
+            setAllMessagesLoaded(true); // Mark that all messages are loaded
+            
+            // Preload media for offline access (in background)
+            if (sortedMessages.length > 0) {
+                const imageUrls: string[] = [];
+                sortedMessages.forEach(msg => {
+                    if (msg.imageUrl) imageUrls.push(msg.imageUrl);
+                    if (msg.imageUrls) imageUrls.push(...msg.imageUrls);
+                });
+                if (imageUrls.length > 0) {
+                    // Preload images in background (don't await)
+                    import('@/utils/offlineCache').then(({ offlineCache }) => {
+                        offlineCache.preloadRecentMedia(imageUrls, 'image').catch(err => {
+                            console.warn('[Job] Preload error (non-critical):', err);
+                        });
+                    });
+                }
+            }
+            
+            Alert.alert(
+                'All Messages Loaded',
+                `Loaded ${sortedMessages.length} message${sortedMessages.length !== 1 ? 's' : ''} from this chat.`,
+                [{ text: 'OK' }]
+            );
+        } catch (error) {
+            console.error('🔍 loadAllMessages: Error loading all messages:', error);
+            Alert.alert('Error', 'Failed to load all messages. Please try again.');
+        } finally {
+            setIsLoadingAllMessages(false);
+        }
+    };
+
 // Function to load older messages when user scrolls up
 const loadOlderMessages = async () => {
+    // Don't try to load older messages if all messages are already loaded
+    if (allMessagesLoaded) {
+        console.log('🔍 loadOlderMessages: Skipping - all messages already loaded');
+        return;
+    }
+    
     if (isLoadingOlderMessages || !hasMoreMessages || messages.length === 0) {
         console.log('🔍 loadOlderMessages: Skipping - isLoading:', isLoadingOlderMessages, 'hasMore:', hasMoreMessages, 'messages:', messages.length);
         return;
@@ -1595,13 +1713,35 @@ const loadOlderMessages = async () => {
     };
 
     const handleRefresh = async () => {
-        console.log('🔍 handleRefresh: Starting pull-to-refresh');
+        console.log('🔍 handleRefresh: Starting pull-to-refresh, allMessagesLoaded:', allMessagesLoaded, 'currentScrollY:', currentScrollY, 'hasMoreMessages:', hasMoreMessages);
         setIsRefreshing(true);
+        
+        // ⚠️ IMPORTANT: DO NOT CHANGE THIS BEHAVIOR
+        // If all messages are loaded, do nothing - don't reload all messages
+        // This prevents pull-to-refresh from triggering when user is at oldest message
+        // User can use the refresh icon button in header if they want to reload all messages
+        // This behavior is intentional and should be preserved
+        if (allMessagesLoaded) {
+            console.log('🔍 handleRefresh: All messages already loaded - doing nothing (use refresh icon to reload)');
+            setIsRefreshing(false);
+            return;
+        }
+        
+        // If user is near top and has more messages, they're trying to load older messages
+        // Don't trigger refresh - let loadOlderMessages handle it
+        if (currentScrollY < 300 && hasMoreMessages && !isLoadingOlderMessages) {
+            console.log('🔍 handleRefresh: User near top with more messages - triggering loadOlderMessages instead');
+            setIsRefreshing(false);
+            loadOlderMessages();
+            return;
+        }
+        
         setShouldScrollToBottom(true);
         try {
-            // Reset pagination state and reload from the beginning
+            // Reset pagination state and reload from the beginning (normal refresh)
             setOldestMessageId(null);
             setHasMoreMessages(true);
+            setAllMessagesLoaded(false); // Reset flag
             await getMessages(false);
         } catch (error) {
             console.error('🔍 handleRefresh: Error during refresh:', error);
@@ -1654,6 +1794,17 @@ const loadOlderMessages = async () => {
                                 }}
                             >
                                 <IconSymbol name="location" color="#fff" size={20} />
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={{ padding: 4 }}
+                                onPress={loadAllMessages}
+                                disabled={isLoadingAllMessages}
+                            >
+                                {isLoadingAllMessages ? (
+                                    <ActivityIndicator size="small" color="#ffffff" />
+                                ) : (
+                                    <IconSymbol name="arrow.clockwise" color="#ffffff" size={22} />
+                                )}
                             </TouchableOpacity>
                             <TouchableOpacity 
                                 style={{ padding: 4 }}
@@ -1841,14 +1992,26 @@ const loadOlderMessages = async () => {
                             ref={listRef}
                             data={messages}
                             refreshControl={
-                                <RefreshControl
-                                    refreshing={isRefreshing}
-                                    onRefresh={handleRefresh}
-                                    colors={[Colors.Primary]}
-                                    tintColor={Colors.Primary}
-                                    title="Pull to refresh messages"
-                                    titleColor={Colors.Text}
-                                />
+                                // ⚠️ IMPORTANT: DO NOT CHANGE THIS BEHAVIOR
+                                // Disable pull-to-refresh when:
+                                // 1. All messages are loaded (always disable - use refresh icon instead)
+                                //    This prevents pull-to-refresh from triggering when user is at oldest message
+                                // 2. User is scrolling up near top (trying to load older messages)
+                                // 3. Currently loading older messages
+                                // This behavior is intentional - when all messages are loaded, pull-to-refresh
+                                // should be disabled to prevent unwanted reloads. User must use refresh icon to reload.
+                                allMessagesLoaded || 
+                                (currentScrollY < 300 && hasMoreMessages && !allMessagesLoaded) ||
+                                isLoadingOlderMessages ? null : (
+                                    <RefreshControl
+                                        refreshing={isRefreshing}
+                                        onRefresh={handleRefresh}
+                                        colors={[Colors.Primary]}
+                                        tintColor={Colors.Primary}
+                                        title="Pull to refresh messages"
+                                        titleColor={Colors.Text}
+                                    />
+                                )
                             }
                             renderItem={({ item }: { item: Message }) => {
                                 console.log('🔍 LegendList renderItem: Rendering message:', { 
@@ -2330,24 +2493,38 @@ const loadOlderMessages = async () => {
                                 paddingBottom: 20
                             }}
                             recycleItems={false}
-                            maintainScrollAtEnd
+                            maintainScrollAtEnd={false} // Always disabled to allow free scrolling
                             maintainScrollAtEndThreshold={0.1}
                             estimatedItemSize={120}
                             onScroll={(event) => {
-                                const currentScrollY = event.nativeEvent.contentOffset.y;
+                                const scrollYValue = event.nativeEvent.contentOffset.y;
                                 const previousScrollY = scrollY.current;
-                                scrollY.current = currentScrollY;
+                                scrollY.current = scrollYValue;
+                                setCurrentScrollY(scrollYValue); // Update state for RefreshControl check
+                                
+                                // Mark that user is actively scrolling
+                                isUserScrolling.current = true;
+                                
+                                // Clear any existing timeout
+                                if (scrollTimeoutRef.current) {
+                                    clearTimeout(scrollTimeoutRef.current);
+                                }
+                                
+                                // Reset user scrolling flag after 500ms of no scrolling
+                                scrollTimeoutRef.current = setTimeout(() => {
+                                    isUserScrolling.current = false;
+                                }, 500);
                                 
                                 // Only trigger if scrolling up (scrollY decreasing)
-                                const isScrollingUp = currentScrollY < previousScrollY;
+                                const isScrollingUp = scrollYValue < previousScrollY;
                                 
                                 // Load older messages when user scrolls near the top (within 300px from top)
-                                // Only trigger if scrolling up, not already loading, and has more messages
-                                if (isScrollingUp && currentScrollY < 300 && !hasTriggeredLoadMore.current && hasMoreMessages && !isLoadingOlderMessages && messages.length > 0) {
-                                    console.log('🔍 onScroll: Triggering loadOlderMessages, scrollY:', currentScrollY);
+                                // Only trigger if scrolling up, not already loading, has more messages, and all messages aren't already loaded
+                                if (isScrollingUp && scrollYValue < 300 && !hasTriggeredLoadMore.current && hasMoreMessages && !isLoadingOlderMessages && !allMessagesLoaded && messages.length > 0) {
+                                    console.log('🔍 onScroll: Triggering loadOlderMessages, scrollY:', scrollYValue);
                                     hasTriggeredLoadMore.current = true;
                                     loadOlderMessages();
-                                } else if (currentScrollY > 600) {
+                                } else if (scrollYValue > 600) {
                                     // Reset trigger when user scrolls well away from top
                                     hasTriggeredLoadMore.current = false;
                                 }
@@ -2359,9 +2536,14 @@ const loadOlderMessages = async () => {
                                 setContentHeight(height);
                                 
                                 // If content height increased and we should scroll to bottom
-                                if (height > prevHeight && shouldScrollToBottom && !isLoadingOlderMessages) {
+                                // Don't scroll if user is actively scrolling or all messages are loaded
+                                if (height > prevHeight && shouldScrollToBottom && !isLoadingOlderMessages && !isUserScrolling.current && !allMessagesLoaded) {
                                     // Scroll to bottom when new content is added (new messages)
                                     requestAnimationFrame(() => {
+                                        // Double-check user isn't scrolling before scrolling
+                                        if (isUserScrolling.current || allMessagesLoaded) {
+                                            return;
+                                        }
                                         try {
                                             listRef.current?.scrollToEnd({ animated: !isInitialLoad });
                                         } catch (error) {
