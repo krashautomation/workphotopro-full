@@ -277,6 +277,25 @@ export interface JobChatWithTags extends JobChat {
   tagTemplates?: TagTemplate[];
 }
 
+// Report types
+export interface Report {
+  $id: string; // Report ID (document ID)
+  jobId: string; // Reference to JobChat
+  jobTitle?: string; // Title of the job
+  createdBy?: string; // User ID who created the report
+  createdByName?: string; // Name of the user who created the report
+  textEntries?: string; // JSON string array of text entries
+  images?: string; // JSON string array of image objects
+  messageCount?: number; // Number of messages in the report
+  generationTime?: string; // Time taken to generate (e.g., "123ms")
+  createdAt?: string; // ISO date string
+  $createdAt: string;
+  $updatedAt: string;
+  $permissions: string[];
+  $databaseId: string;
+  $collectionId: string;
+}
+
 // Multi-tenant context types
 export interface OrganizationContextType {
   currentOrganization: Organization | null;

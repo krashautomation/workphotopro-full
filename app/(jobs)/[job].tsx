@@ -74,10 +74,12 @@ export default function Job() {
     const [allMessagesLoaded, setAllMessagesLoaded] = React.useState(false); // Track if all messages are loaded
     const [contentHeight, setContentHeight] = React.useState(0);
     const [currentScrollY, setCurrentScrollY] = React.useState(0); // Track scroll position for RefreshControl
+    const [isScrollingUp, setIsScrollingUp] = React.useState(false); // Track scroll direction
     const scrollY = React.useRef(0);
     const hasTriggeredLoadMore = React.useRef(false);
     const isUserScrolling = React.useRef(false);
     const scrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+    const messageToMaintainPosition = React.useRef<string | null>(null); // Message ID to maintain scroll position after loading older messages
     const [selectedImages, setSelectedImages] = React.useState<string[]>([]);
     const [selectedVideo, setSelectedVideo] = React.useState<string | null>(null);
     const [fullScreenVideo, setFullScreenVideo] = React.useState<{ uri: string; fileId?: string } | null>(null);
@@ -101,6 +103,7 @@ export default function Job() {
     const [showShareJobModal, setShowShareJobModal] = React.useState(false);
     const [showShareReportModal, setShowShareReportModal] = React.useState(false);
     const [reportId, setReportId] = React.useState<string | null>(null);
+    const [isLoadingReport, setIsLoadingReport] = React.useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
     const [showAttachmentMenu, setShowAttachmentMenu] = React.useState(false);
     const [showClipboardMenu, setShowClipboardMenu] = React.useState(false);
@@ -230,6 +233,64 @@ export default function Job() {
         };
     }, []);
 
+            // Check for most recent report on mount - query from Reports collection
+            React.useEffect(() => {
+                const checkRecentReport = async () => {
+                    if (!jobId || !user?.$id) {
+                        console.log('🔍 checkRecentReport (mount): Missing jobId or user.$id', { jobId, userId: user?.$id });
+                        return;
+                    }
+                    
+                    // Don't check if we already have a reportId
+                    if (reportId) {
+                        console.log('🔍 checkRecentReport (mount): Already have reportId, skipping check:', reportId);
+                        return;
+                    }
+                    
+                    try {
+                        console.log('🔍 checkRecentReport (mount): Querying Reports collection for jobId', { jobId });
+                        setIsLoadingReport(true);
+                        
+                        // Query the Reports collection directly from Appwrite
+                        // Get the most recent report for this jobId
+                        const reportsResponse = await db.listDocuments(
+                            appwriteConfig.db,
+                            appwriteConfig.col.reports,
+                            [
+                                Query.equal('jobId', jobId as string),
+                                Query.orderDesc('$createdAt'),
+                                Query.limit(1),
+                            ]
+                        );
+                        
+                        console.log('🔍 checkRecentReport (mount): Reports response:', reportsResponse);
+                        
+                        if (reportsResponse.documents && reportsResponse.documents.length > 0) {
+                            const latestReport = reportsResponse.documents[0];
+                            const foundReportId = latestReport.$id;
+                            const reportUrl = `https://web.workphotopro.com/reports/${foundReportId}`;
+                            
+                            console.log('✅ checkRecentReport (mount): Found recent report:', { 
+                                reportId: foundReportId, 
+                                reportUrl 
+                            });
+                            setReportId(foundReportId);
+                        } else {
+                            console.log('🔍 checkRecentReport (mount): No reports found for this jobId');
+                        }
+                    } catch (error: any) {
+                        console.error('❌ checkRecentReport (mount): Error fetching reports:', error);
+                        // If collection doesn't exist, that's okay
+                        if (error.code !== 404 && error.code !== 404) {
+                            console.error('Unexpected error:', error);
+                        }
+                    } finally {
+                        setIsLoadingReport(false);
+                    }
+                };
+                checkRecentReport();
+            }, [jobId, user?.$id]); // Only run when jobId or user changes
+
     // Auto-refresh when returning to the screen
     useFocusEffect(
         React.useCallback(() => {
@@ -259,17 +320,70 @@ export default function Job() {
             }
             checkCapturedMedia()
             
-            // Refresh messages - only reload if we're not in the middle of loading older messages
+            // Check for most recent report when screen comes into focus - query from Reports collection
+            const checkRecentReportOnFocus = async () => {
+                if (!jobId || !user?.$id) {
+                    console.log('🔍 checkRecentReport (focus): Missing jobId or user.$id', { jobId, userId: user?.$id });
+                    return;
+                }
+                
+                try {
+                    console.log('🔍 checkRecentReport (focus): Querying Reports collection for jobId', { jobId });
+                    setIsLoadingReport(true);
+                    
+                    // Query the Reports collection directly from Appwrite
+                    // Get the most recent report for this jobId
+                    const reportsResponse = await db.listDocuments(
+                        appwriteConfig.db,
+                        appwriteConfig.col.reports,
+                        [
+                            Query.equal('jobId', jobId as string),
+                            Query.orderDesc('$createdAt'),
+                            Query.limit(1),
+                        ]
+                    );
+                    
+                    console.log('🔍 checkRecentReport (focus): Reports response:', reportsResponse);
+                    
+                    if (reportsResponse.documents && reportsResponse.documents.length > 0) {
+                        const latestReport = reportsResponse.documents[0];
+                        const foundReportId = latestReport.$id;
+                        const reportUrl = `https://web.workphotopro.com/reports/${foundReportId}`;
+                        
+                        console.log('✅ checkRecentReport (focus): Found recent report:', { 
+                            reportId: foundReportId, 
+                            reportUrl 
+                        });
+                        setReportId(foundReportId);
+                    } else {
+                        console.log('🔍 checkRecentReport (focus): No reports found for this jobId');
+                    }
+                } catch (error: any) {
+                    console.error('❌ checkRecentReport (focus): Error fetching reports:', error);
+                    // If collection doesn't exist, that's okay
+                    if (error.code !== 404) {
+                        console.error('Unexpected error:', error);
+                    }
+                } finally {
+                    setIsLoadingReport(false);
+                }
+            };
+            checkRecentReportOnFocus();
+            
+            // Refresh messages - only reload if we're not in the middle of loading older messages or refreshing
+            // This prevents race conditions where this useEffect and handleRefresh both try to update messages
             const refreshMessages = async () => {
-                if (!isLoadingOlderMessages) {
+                if (!isLoadingOlderMessages && !isRefreshing) {
                     setShouldScrollToBottom(true);
                     setOldestMessageId(null);
                     setHasMoreMessages(true);
                     await getMessages(false);
+                } else {
+                    console.log('🔍 useEffect jobId: Skipping refresh - isLoadingOlderMessages:', isLoadingOlderMessages, 'isRefreshing:', isRefreshing);
                 }
             };
             refreshMessages();
-        }, [jobId])
+        }, [jobId, user?.$id])
     );
 
     React.useEffect(() => {
@@ -339,22 +453,89 @@ export default function Job() {
         };
     }, [jobId]);
 
+    // Restore scroll position after loading older messages
+    // This maintains user's view when new messages are prepended above
+    React.useEffect(() => {
+        // Only restore if we're done loading older messages and have a message to maintain
+        const messageIdToRestore = messageToMaintainPosition.current;
+        if (!messageIdToRestore || isLoadingOlderMessages || !listRef.current || messages.length === 0) {
+            return;
+        }
+        
+        const messageIndex = messages.findIndex(m => m.$id === messageIdToRestore);
+        
+        if (messageIndex >= 0) {
+            console.log('🔍 Restore scroll position: Restoring to message index:', messageIndex, 'messageId:', messageIdToRestore);
+            
+            // Use multiple attempts with increasing delays to ensure list is fully rendered
+            const restorePosition = (attempt: number = 1) => {
+                const delays = [50, 100, 200]; // Progressive delays
+                const delay = delays[attempt - 1] || 200;
+                
+                setTimeout(() => {
+                    try {
+                        // Try scrollToIndex first (most accurate)
+                        listRef.current?.scrollToIndex({ 
+                            index: messageIndex, 
+                            animated: false, 
+                            viewPosition: 0 
+                        });
+                        console.log('🔍 Restore scroll position: Successfully restored (attempt', attempt, ')');
+                        messageToMaintainPosition.current = null; // Clear after successful restore
+                    } catch (error) {
+                        console.log('🔍 Restore scroll position: Attempt', attempt, 'failed:', error);
+                        
+                        // If scrollToIndex fails and we haven't tried all attempts, try again
+                        if (attempt < 3) {
+                            restorePosition(attempt + 1);
+                        } else {
+                            // Final fallback: use scrollToOffset with estimated position
+                            try {
+                                const estimatedOffset = messageIndex * 120; // Approximate message height
+                                listRef.current?.scrollToOffset({ offset: estimatedOffset, animated: false });
+                                console.log('🔍 Restore scroll position: Using fallback scrollToOffset');
+                                messageToMaintainPosition.current = null;
+                            } catch (fallbackError) {
+                                console.log('🔍 Restore scroll position: All attempts failed:', fallbackError);
+                                messageToMaintainPosition.current = null; // Clear even on failure to prevent infinite loops
+                            }
+                        }
+                    }
+                }, delay);
+            };
+            
+            // Start restoration process
+            requestAnimationFrame(() => {
+                restorePosition(1);
+            });
+        } else {
+            console.log('🔍 Restore scroll position: Message not found, clearing restore target');
+            messageToMaintainPosition.current = null; // Clear if message not found
+        }
+    }, [messages, isLoadingOlderMessages]);
+
     // Scroll to end when messages change (only if shouldScrollToBottom is true)
     // This prevents auto-scroll when loading older messages or when user is scrolling
     React.useEffect(() => {
         console.log('🔍 Messages effect: Messages array changed, length:', messages.length);
-        console.log('🔍 Messages effect: shouldScrollToBottom:', shouldScrollToBottom, 'isLoadingOlder:', isLoadingOlderMessages, 'isUserScrolling:', isUserScrolling.current, 'allMessagesLoaded:', allMessagesLoaded);
+        console.log('🔍 Messages effect: shouldScrollToBottom:', shouldScrollToBottom, 'isLoadingOlder:', isLoadingOlderMessages, 'isUserScrolling:', isUserScrolling.current, 'allMessagesLoaded:', allMessagesLoaded, 'maintainingPosition:', messageToMaintainPosition.current !== null);
         
-        // Don't scroll if we're loading older messages, user is actively scrolling, or all messages are loaded
-        if (isLoadingOlderMessages || isUserScrolling.current || allMessagesLoaded) {
+        // Don't scroll if:
+        // 1. Loading older messages (we're maintaining position)
+        // 2. User is actively scrolling
+        // 3. All messages are loaded (no auto-scroll needed)
+        // 4. We're maintaining scroll position after loading older messages
+        if (isLoadingOlderMessages || isUserScrolling.current || allMessagesLoaded || messageToMaintainPosition.current !== null) {
+            console.log('🔍 Messages effect: Skipping auto-scroll due to conditions');
             return;
         }
         
+        // Only auto-scroll to bottom for new messages (when shouldScrollToBottom is true)
         if (messages.length > 0 && listRef.current && shouldScrollToBottom) {
             // Use multiple timing strategies to ensure scroll happens
             const scrollToBottom = () => {
-                // Double-check user isn't scrolling before scrolling
-                if (isUserScrolling.current) {
+                // Double-check conditions before scrolling
+                if (isUserScrolling.current || isLoadingOlderMessages || messageToMaintainPosition.current !== null) {
                     return;
                 }
                 try {
@@ -717,15 +898,21 @@ const loadOlderMessages = async () => {
     console.log('🔍 loadOlderMessages: Loading older messages, current oldestMessageId:', oldestMessageId);
     setShouldScrollToBottom(false); // Don't auto-scroll when loading older messages
     
-    // Get the oldest message ID to use as cursor
-    const oldestMessage = messages[0];
-    if (oldestMessage && oldestMessage.$id) {
+    // Capture the message ID that should remain visible after loading
+    // This will be used to restore scroll position naturally
+    const currentOldestMessage = messages[0];
+    if (currentOldestMessage && currentOldestMessage.$id) {
+        // Store the message ID to maintain position
+        messageToMaintainPosition.current = currentOldestMessage.$id;
+        console.log('🔍 loadOlderMessages: Will maintain position at message:', messageToMaintainPosition.current);
+        
         // Set the oldest message ID before loading
-        setOldestMessageId(oldestMessage.$id);
+        setOldestMessageId(currentOldestMessage.$id);
         await getMessages(true);
         
-        // After loading, reset the trigger flag
+        // Reset the flag after a delay to allow scroll restoration
         setTimeout(() => {
+            messageToMaintainPosition.current = null;
             hasTriggeredLoadMore.current = false;
         }, 1000);
     }
@@ -1727,24 +1914,111 @@ const loadOlderMessages = async () => {
             return;
         }
         
-        // If user is near top and has more messages, they're trying to load older messages
+        // If user is scrolling up or near top with more messages, they're trying to load older messages
         // Don't trigger refresh - let loadOlderMessages handle it
-        if (currentScrollY < 300 && hasMoreMessages && !isLoadingOlderMessages) {
-            console.log('🔍 handleRefresh: User near top with more messages - triggering loadOlderMessages instead');
+        if ((isScrollingUp || currentScrollY < 300) && hasMoreMessages && !isLoadingOlderMessages) {
+            console.log('🔍 handleRefresh: User scrolling up or near top with more messages - triggering loadOlderMessages instead');
             setIsRefreshing(false);
             loadOlderMessages();
             return;
         }
         
+        // For normal refresh: Fetch NEW messages (newer than what we have) and append them
+        // CRITICAL: Never replace existing messages - always preserve what's currently visible
+        // This prevents messages from disappearing during refresh
         setShouldScrollToBottom(true);
+        
+        // Capture current messages count BEFORE any async operations
+        const messagesCountBefore = messages.length;
+        console.log('🔍 handleRefresh: Starting refresh with', messagesCountBefore, 'existing messages');
+        
         try {
-            // Reset pagination state and reload from the beginning (normal refresh)
-            setOldestMessageId(null);
-            setHasMoreMessages(true);
-            setAllMessagesLoaded(false); // Reset flag
-            await getMessages(false);
+            // Get the newest message ID we currently have
+            const currentNewestMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+            const newestMessageId = currentNewestMessage?.$id;
+            
+            // If we have no messages, this is an initial load - use getMessages instead
+            if (!newestMessageId || messages.length === 0) {
+                console.log('🔍 handleRefresh: No existing messages, using getMessages for initial load');
+                setOldestMessageId(null);
+                setHasMoreMessages(true);
+                setAllMessagesLoaded(false);
+                await getMessages(false);
+                setIsRefreshing(false);
+                return;
+            }
+            
+            // Fetch only new messages (messages created after our newest message)
+            const queries: any[] = [
+                Query.equal('jobId', jobId as string),
+                Query.orderDesc('$createdAt'),
+                Query.limit(50), // Get up to 50 new messages
+                Query.cursorAfter(newestMessageId), // Only get messages newer than what we have
+            ];
+            
+            const { documents } = await db.listDocuments<Message>(
+                appwriteConfig.db, 
+                appwriteConfig.col.messages,
+                queries
+            );
+            
+            // CRITICAL: Use functional update to ensure we're working with the latest state
+            // This prevents race conditions where messages might be updated between the capture and the update
+            setMessages(prevMessages => {
+                // CRITICAL SAFETY CHECK: Never return fewer messages than we started with
+                // If messages disappeared (shouldn't happen), preserve what we have
+                if (prevMessages.length < messagesCountBefore) {
+                    console.error('🔍 handleRefresh: ERROR - Message count decreased from', messagesCountBefore, 'to', prevMessages.length);
+                    console.error('🔍 handleRefresh: This should never happen! Preserving current state to prevent data loss.');
+                    // Return current state - don't modify anything if messages were lost
+                    return prevMessages;
+                }
+                
+                // Preserve all existing messages - never lose any
+                const existingIds = new Set(prevMessages.map(m => m.$id));
+                const existingCount = prevMessages.length;
+                
+                if (documents.length > 0) {
+                    // Process and normalize new messages
+                    const freshMessages = processMessages(documents);
+                    const sortedNewMessages = [...freshMessages].reverse().sort((a, b) => {
+                        return new Date(a.$createdAt).getTime() - new Date(b.$createdAt).getTime();
+                    });
+                    
+                    // Only add messages that don't already exist
+                    const newMessagesToAdd = sortedNewMessages.filter(msg => !existingIds.has(msg.$id));
+                    
+                    if (newMessagesToAdd.length === 0) {
+                        console.log('🔍 handleRefresh: No new messages to add (all already present) - preserved', existingCount, 'messages');
+                        return prevMessages; // Return unchanged if no new messages
+                    }
+                    
+                    // Combine: existing messages + new messages
+                    const combined = [...prevMessages, ...newMessagesToAdd];
+                    
+                    // Sort by date to maintain chronological order
+                    const sorted = combined.sort((a, b) => 
+                        new Date(a.$createdAt).getTime() - new Date(b.$createdAt).getTime()
+                    );
+                    
+                    // Final safety check: ensure we didn't lose any messages
+                    if (sorted.length < existingCount) {
+                        console.error('🔍 handleRefresh: ERROR - After adding new messages, count decreased from', existingCount, 'to', sorted.length);
+                        console.error('🔍 handleRefresh: Returning original messages to prevent data loss');
+                        return prevMessages; // Return original if something went wrong
+                    }
+                    
+                    console.log('🔍 handleRefresh: SUCCESS - Preserved', existingCount, 'existing messages, added', newMessagesToAdd.length, 'new messages. Total:', sorted.length);
+                    return sorted;
+                } else {
+                    console.log('🔍 handleRefresh: No new messages found - preserved all', existingCount, 'existing messages');
+                    return prevMessages; // Return unchanged if no new messages
+                }
+            });
         } catch (error) {
             console.error('🔍 handleRefresh: Error during refresh:', error);
+            // On error, don't modify messages - preserve what's visible
+            // The state should remain unchanged, so messages won't disappear
         } finally {
             setIsRefreshing(false);
         }
@@ -1993,16 +2267,18 @@ const loadOlderMessages = async () => {
                             data={messages}
                             refreshControl={
                                 // ⚠️ IMPORTANT: DO NOT CHANGE THIS BEHAVIOR
-                                // Disable pull-to-refresh when:
+                                // Completely disable pull-to-refresh when:
                                 // 1. All messages are loaded (always disable - use refresh icon instead)
                                 //    This prevents pull-to-refresh from triggering when user is at oldest message
-                                // 2. User is scrolling up near top (trying to load older messages)
-                                // 3. Currently loading older messages
-                                // This behavior is intentional - when all messages are loaded, pull-to-refresh
-                                // should be disabled to prevent unwanted reloads. User must use refresh icon to reload.
-                                allMessagesLoaded || 
-                                (currentScrollY < 300 && hasMoreMessages && !allMessagesLoaded) ||
-                                isLoadingOlderMessages ? null : (
+                                // 2. There are more messages to load (hasMoreMessages = true) - ALWAYS DISABLE
+                                //    User should scroll up to load older messages, not use pull-to-refresh
+                                //    This prevents refresh from interfering with loading older messages
+                                // 3. User is scrolling up (trying to load older messages) - disable to prevent interference
+                                // 4. Currently loading older messages
+                                // This behavior is intentional - when there are more messages, pull-to-refresh
+                                // should be COMPLETELY DISABLED to allow natural scroll-up loading. 
+                                // User must use refresh icon button to reload all messages.
+                                (allMessagesLoaded || hasMoreMessages || isScrollingUp || isLoadingOlderMessages) ? null : (
                                     <RefreshControl
                                         refreshing={isRefreshing}
                                         onRefresh={handleRefresh}
@@ -2502,6 +2778,10 @@ const loadOlderMessages = async () => {
                                 scrollY.current = scrollYValue;
                                 setCurrentScrollY(scrollYValue); // Update state for RefreshControl check
                                 
+                                // Determine scroll direction
+                                const scrollingUp = scrollYValue < previousScrollY;
+                                setIsScrollingUp(scrollingUp);
+                                
                                 // Mark that user is actively scrolling
                                 isUserScrolling.current = true;
                                 
@@ -2513,18 +2793,28 @@ const loadOlderMessages = async () => {
                                 // Reset user scrolling flag after 500ms of no scrolling
                                 scrollTimeoutRef.current = setTimeout(() => {
                                     isUserScrolling.current = false;
+                                    setIsScrollingUp(false); // Reset scroll direction when scrolling stops
                                 }, 500);
                                 
-                                // Only trigger if scrolling up (scrollY decreasing)
-                                const isScrollingUp = scrollYValue < previousScrollY;
+                                // Proactive loading: Load older messages as user approaches top
+                                // Start loading when within 600-800px from top to make it smooth
+                                // This loads messages in background before user reaches top
+                                const nearTop = scrollYValue < 800; // Increased threshold for proactive loading
+                                const veryNearTop = scrollYValue < 600; // Closer threshold
+                                const significantScrollUp = scrollingUp && (previousScrollY - scrollYValue) > 30; // Scrolled up at least 30px
                                 
-                                // Load older messages when user scrolls near the top (within 300px from top)
-                                // Only trigger if scrolling up, not already loading, has more messages, and all messages aren't already loaded
-                                if (isScrollingUp && scrollYValue < 300 && !hasTriggeredLoadMore.current && hasMoreMessages && !isLoadingOlderMessages && !allMessagesLoaded && messages.length > 0) {
-                                    console.log('🔍 onScroll: Triggering loadOlderMessages, scrollY:', scrollYValue);
+                                // Load when: approaching top (within 800px) OR scrolling up significantly
+                                // Use debouncing: only trigger if not already loading and haven't triggered recently
+                                if ((nearTop || significantScrollUp) && !hasTriggeredLoadMore.current && hasMoreMessages && !isLoadingOlderMessages && !allMessagesLoaded && messages.length > 0) {
+                                    console.log('🔍 onScroll: Proactive loading - scrollY:', scrollYValue, 'previousScrollY:', previousScrollY, 'scrollingUp:', scrollingUp, 'nearTop:', nearTop, 'veryNearTop:', veryNearTop);
                                     hasTriggeredLoadMore.current = true;
-                                    loadOlderMessages();
-                                } else if (scrollYValue > 600) {
+                                    
+                                    // Load in background - don't block UI
+                                    loadOlderMessages().catch(err => {
+                                        console.error('🔍 onScroll: Error loading older messages:', err);
+                                        hasTriggeredLoadMore.current = false; // Reset on error
+                                    });
+                                } else if (scrollYValue > 1000) {
                                     // Reset trigger when user scrolls well away from top
                                     hasTriggeredLoadMore.current = false;
                                 }
@@ -2535,13 +2825,26 @@ const loadOlderMessages = async () => {
                                 const prevHeight = contentHeight;
                                 setContentHeight(height);
                                 
-                                // If content height increased and we should scroll to bottom
-                                // Don't scroll if user is actively scrolling or all messages are loaded
-                                if (height > prevHeight && shouldScrollToBottom && !isLoadingOlderMessages && !isUserScrolling.current && !allMessagesLoaded) {
+                                // If content height increased, it means new messages were added
+                                // Only auto-scroll if:
+                                // 1. shouldScrollToBottom is true (new message sent)
+                                // 2. Not loading older messages (we're maintaining position)
+                                // 3. User isn't actively scrolling
+                                // 4. Not maintaining scroll position
+                                // 5. Not all messages loaded
+                                if (height > prevHeight && 
+                                    shouldScrollToBottom && 
+                                    !isLoadingOlderMessages && 
+                                    !isUserScrolling.current && 
+                                    !allMessagesLoaded &&
+                                    messageToMaintainPosition.current === null) {
                                     // Scroll to bottom when new content is added (new messages)
                                     requestAnimationFrame(() => {
-                                        // Double-check user isn't scrolling before scrolling
-                                        if (isUserScrolling.current || allMessagesLoaded) {
+                                        // Double-check conditions before scrolling
+                                        if (isUserScrolling.current || 
+                                            isLoadingOlderMessages || 
+                                            allMessagesLoaded ||
+                                            messageToMaintainPosition.current !== null) {
                                             return;
                                         }
                                         try {
@@ -3769,18 +4072,26 @@ const loadOlderMessages = async () => {
                 visible={showShareJobModal}
                 onClose={() => setShowShareJobModal(false)}
                 contentStyle={{ backgroundColor: Colors.Secondary }}
+                minHeightRatio={0.5}
+                maxHeightRatio={0.9}
             >
                 <ShareJob 
                     onClose={() => setShowShareJobModal(false)} 
                     jobId={jobId as string}
                     user={user}
+                    reportId={reportId}
                     onShareReport={() => {
                         setShowShareJobModal(false);
                         setShowShareReportModal(true);
                     }}
-                    onCreateReport={(newReportId, reportUrl) => {
+                    onCreateReport={async (newReportId, reportUrl) => {
                         setReportId(newReportId);
                         console.log('✅ Report created:', { reportId: newReportId, reportUrl });
+                        // Report is already stored in Reports collection by the web API
+                    }}
+                    onUnmountReport={() => {
+                        setReportId(null);
+                        console.log('🔍 Report unmounted');
                     }}
                 />
             </BottomModal2>

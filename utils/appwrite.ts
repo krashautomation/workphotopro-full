@@ -21,6 +21,7 @@ const appwriteConfig = {
     col: {
         jobchat: "jobchat",
         messages: "messages",
+        reports: "reports",
     },
 };
 
