@@ -57,14 +57,16 @@ export function useFCMToken() {
         // Save token to Appwrite Database
         if (token) {
           saveFCMTokenToAppwrite(user.$id, token).catch(err => {
-            console.error('Error saving FCM token:', err);
-            setError(err as Error);
+            // Log error to console only - don't show to user
+            console.error('[Push Notifications] Error saving FCM token to Appwrite:', err);
+            // Don't set error state - fail silently for user experience
           });
         }
       })
       .catch(err => {
-        console.error('Error getting push token:', err);
-        setError(err as Error);
+        // Log error to console only - don't show to user
+        console.error('[Push Notifications] Error getting push token:', err);
+        // Don't set error state - fail silently for user experience
         setLoading(false);
       });
   }, [user]);
@@ -108,33 +110,64 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
     // Note: For Appwrite Messaging, we'll use Expo push tokens
     // If Appwrite requires native FCM tokens, we'll need to use @react-native-firebase/messaging
     const projectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID || 'c27e77a1-19c8-4d7a-b2a7-0b8012878bfd';
-    const expoToken = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
     
-    // For now, use Expo push token
-    // Appwrite Messaging might accept Expo tokens, or we may need to convert to FCM tokens
-    token = expoToken;
+    try {
+      const expoToken = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+      // For now, use Expo push token
+      // Appwrite Messaging might accept Expo tokens, or we may need to convert to FCM tokens
+      token = expoToken;
+    } catch (tokenError: any) {
+      const tokenErrorMessage = tokenError?.message || '';
+      const tokenErrorBody = tokenError?.body || '';
+      
+      // Handle 503 Service Unavailable errors (Expo service down or network issues)
+      if (tokenErrorMessage.includes('503') || 
+          tokenErrorBody.includes('503') ||
+          tokenErrorMessage.includes('upstream connect error') ||
+          tokenErrorMessage.includes('connection termination') ||
+          tokenErrorMessage.includes('connection reset')) {
+        console.warn('[Push Notifications] ⚠️ Expo push service unavailable (503). This may be temporary.');
+        console.warn('[Push Notifications] Push notifications will be disabled until service is available.');
+        return null; // Fail gracefully without throwing
+      }
+      
+      // Handle network/connection errors
+      if (tokenErrorMessage.includes('Network request failed') ||
+          tokenErrorMessage.includes('timeout') ||
+          tokenErrorMessage.includes('ECONNREFUSED') ||
+          tokenErrorMessage.includes('ENOTFOUND')) {
+        console.warn('[Push Notifications] ⚠️ Network error connecting to Expo push service.');
+        console.warn('[Push Notifications] Check your internet connection.');
+        return null; // Fail gracefully without throwing
+      }
+      
+      // Re-throw other token errors to be handled by outer catch
+      throw tokenError;
+    }
     
   } catch (e: any) {
     const errorMessage = e?.message || '';
     
     // Handle "Cannot find native module" error gracefully
     if (errorMessage.includes('Cannot find native module') || errorMessage.includes('ExpoPushTokenManager')) {
-      console.warn('⚠️ Push notifications require a development build. Run: npx expo run:android or npx expo run:ios');
+      console.warn('[Push Notifications] ⚠️ Push notifications require a development build. Run: npx expo run:android or npx expo run:ios');
       return null;
     }
     
     // Handle Firebase initialization error
     if (errorMessage.includes('FirebaseApp is not initialized') || errorMessage.includes('Firebase')) {
-      console.warn('⚠️ Firebase not initialized. Upload FCM credentials to EAS:');
-      console.warn('   1. Run: eas credentials');
-      console.warn('   2. Select: Android → Push Notifications (Legacy)');
-      console.warn('   3. Upload Google Service Account Key or enter Server Key');
-      console.warn('   See: docs/FCM_CREDENTIALS_SETUP.md');
+      console.warn('[Push Notifications] ⚠️ Firebase not initialized. Upload FCM credentials to EAS:');
+      console.warn('[Push Notifications]   1. Run: eas credentials');
+      console.warn('[Push Notifications]   2. Select: Android → Push Notifications (Legacy)');
+      console.warn('[Push Notifications]   3. Upload Google Service Account Key or enter Server Key');
+      console.warn('[Push Notifications]   See: docs/FCM_CREDENTIALS_SETUP.md');
       return null;
     }
     
-    console.error('Error getting push token:', e);
-    throw e;
+    // Log all other errors to console but don't throw - fail gracefully
+    console.error('[Push Notifications] Error getting push token:', e);
+    console.warn('[Push Notifications] Push notifications will be disabled. Error details logged above.');
+    return null; // Return null instead of throwing to prevent user-facing errors
   }
 
   return token;

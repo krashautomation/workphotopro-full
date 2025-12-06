@@ -49,11 +49,12 @@ function RootLayoutNav() {
   
   useEffect(() => {
     if (user && fcmToken) {
-      console.log('✅ Push token registered:', fcmToken.substring(0, 20) + '...');
-      console.log('📱 Full push token (copy this):', fcmToken);
+      console.log('[Push Notifications] ✅ Push token registered:', fcmToken.substring(0, 20) + '...');
+      console.log('[Push Notifications] 📱 Full push token (copy this):', fcmToken);
     }
+    // Log errors to console only - don't show warnings to users
     if (tokenError) {
-      console.warn('⚠️ Push token registration error:', tokenError);
+      console.error('[Push Notifications] ⚠️ Push token registration error (logged for debugging):', tokenError);
     }
   }, [user, fcmToken, tokenError]);
 
