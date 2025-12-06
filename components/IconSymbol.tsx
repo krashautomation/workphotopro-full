@@ -62,6 +62,12 @@ const MAPPING = {
   "location": "place",
   "mappin": "place",
   "square.and.arrow.up": "share",
+  // File export icons
+  "arrow.up.doc": "publish",
+  "tray.and.arrow.up": "publish",
+  "file-send": "send",
+  "export-variant": "publish",
+  "arrowOutward": "open-in-new",
   // Refresh icons
   "arrow.clockwise": "refresh",
   "arrow.triangle.2.circlepath": "refresh",

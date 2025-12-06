@@ -2100,7 +2100,7 @@ const loadOlderMessages = async () => {
                                 }}
                             >
                                 <IconSymbol 
-                                    name="square.and.arrow.up" 
+                                    name="arrowOutward" 
                                     color={canShareJobReports ? "#fff" : "#888"} 
                                     size={20} 
                                 />
