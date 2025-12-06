@@ -24,6 +24,7 @@ export default function ManageMemberScreen() {
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>('member');
   const [updatingRole, setUpdatingRole] = useState(false);
+  const [savingPermission, setSavingPermission] = useState(false);
   
   // Get the actual teamId (prefer param, fallback to currentTeam)
   const actualTeamId = teamId || currentTeam?.$id || '';
@@ -53,6 +54,12 @@ export default function ManageMemberScreen() {
       
       if (foundMember) {
         setMember(foundMember);
+        // Load the permission value from membership data
+        if (foundMember.membershipData?.canShareJobReports !== undefined) {
+          setSendJobReports(foundMember.membershipData.canShareJobReports);
+        } else {
+          setSendJobReports(false); // Default to false if not set
+        }
       } else {
         // If not found, create a basic member object from params
         setMember({
@@ -62,6 +69,7 @@ export default function ManageMemberScreen() {
           roles: [],
           membershipData: null
         });
+        setSendJobReports(false);
       }
     } catch (error) {
       console.error('Error loading member data:', error);
@@ -73,6 +81,7 @@ export default function ManageMemberScreen() {
         roles: [],
         membershipData: null
       });
+      setSendJobReports(false);
     } finally {
       setLoading(false);
     }
@@ -113,8 +122,50 @@ export default function ManageMemberScreen() {
     if (member) {
       const role = getMemberRole();
       setSelectedRole(role);
+      // Update permission value when member data loads
+      if (member.membershipData?.canShareJobReports !== undefined) {
+        setSendJobReports(member.membershipData.canShareJobReports);
+      }
     }
   }, [member]);
+
+  // Handle toggle for job reports permission
+  const handleToggleJobReports = async (value: boolean) => {
+    if (!member || !actualTeamId || !member.$id) {
+      Alert.alert('Error', 'Cannot update permission. Member information is missing.');
+      return;
+    }
+
+    // Don't allow changing permission for owners (they always have permission)
+    if (isOwner()) {
+      Alert.alert('Info', 'Owners always have permission to share job reports.');
+      return;
+    }
+
+    try {
+      setSavingPermission(true);
+      await teamService.updateMembershipJobReportsPermission(
+        actualTeamId,
+        member.$id,
+        value
+      );
+      
+      setSendJobReports(value);
+      
+      // Reload member data to ensure sync
+      await loadMemberData();
+      
+      // Show success message (optional, can be removed if too noisy)
+      // Alert.alert('Success', `Permission ${value ? 'granted' : 'revoked'}`);
+    } catch (error: any) {
+      console.error('Error updating permission:', error);
+      Alert.alert('Error', error.message || 'Failed to update permission. Please try again.');
+      // Revert toggle on error
+      setSendJobReports(!value);
+    } finally {
+      setSavingPermission(false);
+    }
+  };
 
   // Get display name for member
   const getMemberDisplayName = (): string => {
@@ -297,20 +348,34 @@ export default function ManageMemberScreen() {
           </View>
         </View>
 
-        {/* Permissions Section */}
-        <View style={styles.permissionsSection}>
-          <Text style={styles.permissionsTitle}>PERMISSIONS</Text>
-          
-          <View style={styles.permissionItem}>
-            <Text style={styles.permissionLabel}>Send job reports</Text>
-            <Switch
-              value={sendJobReports}
-              onValueChange={setSendJobReports}
-              trackColor={{ false: Colors.Gray, true: Colors.Primary }}
-              thumbColor={sendJobReports ? Colors.White : Colors.White}
-            />
+        {/* Permissions Section - Only show if current user is owner */}
+        {isCurrentUserOwner() && (
+          <View style={styles.permissionsSection}>
+            <Text style={styles.permissionsTitle}>PERMISSIONS</Text>
+            
+            <View style={styles.permissionItem}>
+              <Text style={styles.permissionLabel}>Allow member to share job reports</Text>
+              <Switch
+                value={sendJobReports}
+                onValueChange={handleToggleJobReports}
+                trackColor={{ false: Colors.Gray, true: Colors.Primary }}
+                thumbColor={sendJobReports ? Colors.White : Colors.White}
+                disabled={savingPermission || isOwner()}
+              />
+            </View>
+            {savingPermission && (
+              <View style={styles.updatingIndicator}>
+                <ActivityIndicator size="small" color={Colors.Primary} />
+                <Text style={styles.updatingText}>Updating permission...</Text>
+              </View>
+            )}
+            {isOwner() && (
+              <Text style={styles.ownerPermissionNote}>
+                Owners always have permission to share job reports.
+              </Text>
+            )}
           </View>
-        </View>
+        )}
 
         {/* Role Change Section - Only show if current user is owner and member is not owner */}
         {isCurrentUserOwner() && !isOwner() && (
@@ -533,5 +598,12 @@ const styles = StyleSheet.create({
   updatingText: {
     fontSize: 14,
     color: Colors.Gray,
+  },
+  ownerPermissionNote: {
+    fontSize: 12,
+    color: Colors.Gray,
+    fontStyle: 'italic',
+    marginTop: 8,
+    paddingHorizontal: 16,
   },
 });

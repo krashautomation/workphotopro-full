@@ -2,6 +2,7 @@ import * as React from 'react';
 import { View, Text, Pressable, StyleSheet, ActivityIndicator, Alert, Linking, Platform } from 'react-native';
 import { Colors } from '@/utils/colors';
 import { Models } from 'react-native-appwrite';
+import { useJobReportsPermission } from '@/hooks/useJobReportsPermission';
 
 type User = Models.User<Models.Preferences>;
 
@@ -9,13 +10,14 @@ type ShareJobProps = {
   onClose?: () => void;
   jobId: string;
   user: User | null;
+  teamId?: string;
   onShareReport: () => void;
   onCreateReport?: (reportId: string, reportUrl: string) => void;
   onUnmountReport?: () => void;
   reportId?: string | null;
 };
 
-const ShareJob: React.FC<ShareJobProps> = ({ onClose, onShareReport, jobId, user, onCreateReport, onUnmountReport, reportId: existingReportId }) => {
+const ShareJob: React.FC<ShareJobProps> = ({ onClose, onShareReport, jobId, user, teamId, onCreateReport, onUnmountReport, reportId: existingReportId }) => {
   const [isCreatingReport, setIsCreatingReport] = React.useState(false);
   const [hasReport, setHasReport] = React.useState(!!existingReportId);
   const [reportUrl, setReportUrl] = React.useState<string | null>(
@@ -23,6 +25,9 @@ const ShareJob: React.FC<ShareJobProps> = ({ onClose, onShareReport, jobId, user
   );
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  
+  // Check permission to share job reports
+  const { canShare, loading: permissionLoading } = useJobReportsPermission(teamId);
 
   const handleClose = React.useCallback(() => {
     if (onClose) {
@@ -35,6 +40,16 @@ const ShareJob: React.FC<ShareJobProps> = ({ onClose, onShareReport, jobId, user
     
     if (!jobId || !user) {
       setErrorMessage('Missing job ID or user information');
+      return;
+    }
+
+    // Check permission before creating report
+    if (!canShare) {
+      Alert.alert(
+        'Permission Denied',
+        'You do not have permission to share job reports. Please contact your team owner to enable this permission.',
+        [{ text: 'OK' }]
+      );
       return;
     }
 
@@ -86,7 +101,7 @@ const ShareJob: React.FC<ShareJobProps> = ({ onClose, onShareReport, jobId, user
     } finally {
       setIsCreatingReport(false);
     }
-  }, [jobId, user, onCreateReport]);
+  }, [jobId, user, onCreateReport, canShare]);
 
   // Update hasReport and reportUrl when existingReportId changes
   React.useEffect(() => {
@@ -134,6 +149,33 @@ const ShareJob: React.FC<ShareJobProps> = ({ onClose, onShareReport, jobId, user
       onUnmountReport();
     }
   }, [onUnmountReport]);
+
+  // Show permission denied message if user doesn't have permission
+  if (permissionLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={Colors.Primary} />
+        <Text style={styles.message}>Checking permissions...</Text>
+      </View>
+    );
+  }
+
+  if (!canShare) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Share Report</Text>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={styles.errorText}>
+            You do not have permission to share job reports. Please contact your team owner to enable this permission.
+          </Text>
+        </View>
+        <Pressable onPress={handleClose} style={styles.cancelButton}>
+          <Text style={styles.cancelText}>Close</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

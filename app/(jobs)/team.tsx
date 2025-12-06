@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Building2 } from 'lucide-react-native';
@@ -32,6 +32,15 @@ export default function TeamScreen() {
   useEffect(() => {
     loadTeamData();
   }, [currentTeam]);
+
+  // Refresh team data when screen comes into focus (e.g., after returning from manage-member)
+  useFocusEffect(
+    useCallback(() => {
+      if (currentTeam?.$id) {
+        loadTeamData();
+      }
+    }, [currentTeam?.$id])
+  );
 
   const loadTeamData = async () => {
     try {

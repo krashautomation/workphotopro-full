@@ -163,6 +163,7 @@ export interface MembershipData {
   invitedBy: string; // User who invited this member
   joinedAt: string; // ISO date string
   isActive: boolean;
+  canShareJobReports?: boolean; // Permission to share job reports (default: false)
   $createdAt: string;
   $updatedAt: string;
   $permissions: string[];

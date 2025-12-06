@@ -30,6 +30,7 @@ import * as SecureStore from 'expo-secure-store'
 import SaveImageModal from '@/components/SaveImageModal'
 import ShareJob from './share-job'
 import ShareReportModal from './share-report-modal'
+import { useJobReportsPermission } from '@/hooks/useJobReportsPermission'
 import VideoPlayer from '@/components/VideoPlayer'
 import FullScreenVideoPlayer from '@/components/FullScreenVideoPlayer'
 import AudioRecorder from '@/components/AudioRecorder'
@@ -57,6 +58,9 @@ export default function Job() {
     const [messageContent, setMessageContent] = React.useState('');
     const [jobChat, setJobChat] = React.useState<JobChat | null>(null);
     const [activeTab, setActiveTab] = React.useState<'chat' | 'details' | 'photos' | 'tasks'>('chat');
+    
+    // Check permission to share job reports
+    const { canShare: canShareJobReports } = useJobReportsPermission(jobChat?.teamId);
 
     const [messages, setMessages] = React.useState<Message[]>([]);
     const [isLoading, setIsLoading] = React.useState(false);
@@ -2081,13 +2085,25 @@ const loadOlderMessages = async () => {
                                 )}
                             </TouchableOpacity>
                             <TouchableOpacity 
-                                style={{ padding: 4 }}
+                                style={{ padding: 4, opacity: canShareJobReports ? 1 : 0.5 }}
                                 onPress={() => {
+                                    if (!canShareJobReports) {
+                                        Alert.alert(
+                                            'Permission Denied',
+                                            'You do not have permission to share job reports. Ask owner for permission.',
+                                            [{ text: 'OK' }]
+                                        );
+                                        return;
+                                    }
                                     console.log('🔍 Share icon clicked, opening ShareJob modal');
                                     setShowShareJobModal(true);
                                 }}
                             >
-                                <IconSymbol name="square.and.arrow.up" color="#fff" size={20} />
+                                <IconSymbol 
+                                    name="square.and.arrow.up" 
+                                    color={canShareJobReports ? "#fff" : "#888"} 
+                                    size={20} 
+                                />
                             </TouchableOpacity>
                         </View>
                     ),
@@ -4079,6 +4095,7 @@ const loadOlderMessages = async () => {
                     onClose={() => setShowShareJobModal(false)} 
                     jobId={jobId as string}
                     user={user}
+                    teamId={jobChat?.teamId}
                     reportId={reportId}
                     onShareReport={() => {
                         setShowShareJobModal(false);

@@ -793,7 +793,8 @@ export const teamService = {
         userEmail: email, // Store the email for later use
         invitedBy: invitedBy,
         joinedAt: new Date().toISOString(),
-        isActive: true
+        isActive: true,
+        canShareJobReports: false // Default to false - owners can enable this later
       };
 
       await databaseService.createDocument('memberships', membershipData);
@@ -1247,6 +1248,39 @@ export const teamService = {
       return appwriteMembership;
     } catch (error) {
       console.error('Update membership roles error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update membership permission for sharing job reports
+   */
+  async updateMembershipJobReportsPermission(
+    teamId: string,
+    membershipId: string,
+    canShare: boolean
+  ) {
+    try {
+      // Get the membership to find userId
+      const membership = await teams.getMembership(teamId, membershipId);
+      
+      // Update our custom membership data
+      const membershipData = await databaseService.listDocuments('memberships', [
+        Query.equal('userId', membership.userId),
+        Query.equal('teamId', teamId)
+      ]);
+
+      if (membershipData.documents.length > 0) {
+        await databaseService.updateDocument('memberships', membershipData.documents[0].$id, {
+          canShareJobReports: canShare
+        });
+      } else {
+        throw new Error('Membership data not found');
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Update membership permission error:', error);
       throw error;
     }
   },
