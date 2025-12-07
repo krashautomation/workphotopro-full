@@ -193,9 +193,14 @@ function RootLayoutNav() {
                 const teamId = redirectUrl.pathname.split('/invite/')[1]?.split('?')[0];
                 const token = redirectUrl.searchParams.get('token');
                 
-                if (teamId && token) {
-                  console.log('🔗 Short link resolved! Team ID:', teamId);
-                  router.push(`/(auth)/accept-invite?teamId=${encodeURIComponent(teamId)}&token=${encodeURIComponent(token)}`);
+                if (teamId) {
+                  if (token) {
+                    console.log('🔗 Short link resolved! Team ID:', teamId, 'Token:', token);
+                    router.push(`/(auth)/accept-invite?teamId=${encodeURIComponent(teamId)}&token=${encodeURIComponent(token)}`);
+                  } else {
+                    console.log('🔗 Short link resolved (no token)! Team ID:', teamId);
+                    router.push(`/(auth)/accept-invite?teamId=${encodeURIComponent(teamId)}`);
+                  }
                   return;
                 }
               }
@@ -210,9 +215,14 @@ function RootLayoutNav() {
           const teamId = url.pathname.split('/invite/')[1]?.split('?')[0];
           const token = url.searchParams.get('token');
           
-          if (teamId && token) {
-            console.log('🔗 HTTPS invite link detected! Team ID:', teamId, 'Token:', token);
-            router.push(`/(auth)/accept-invite?teamId=${encodeURIComponent(teamId)}&token=${encodeURIComponent(token)}`);
+          if (teamId) {
+            if (token) {
+              console.log('🔗 HTTPS invite link detected! Team ID:', teamId, 'Token:', token);
+              router.push(`/(auth)/accept-invite?teamId=${encodeURIComponent(teamId)}&token=${encodeURIComponent(token)}`);
+            } else {
+              console.log('🔗 HTTPS invite link detected (no token)! Team ID:', teamId);
+              router.push(`/(auth)/accept-invite?teamId=${encodeURIComponent(teamId)}`);
+            }
             return;
           }
         }

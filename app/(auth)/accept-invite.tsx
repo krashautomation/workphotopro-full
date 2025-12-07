@@ -17,6 +17,8 @@ import {
 } from 'react-native';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Linking } from 'react-native';
+import Avatar from '@/components/Avatar';
+import { teamService, organizationService } from '@/lib/appwrite/teams';
 
 export default function AcceptInvite() {
   const { signIn } = useAuth();
@@ -28,11 +30,73 @@ export default function AcceptInvite() {
   const [error, setError] = useState('');
   const [teamName, setTeamName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
+  const [inviterName, setInviterName] = useState('');
+  const [inviterProfilePicture, setInviterProfilePicture] = useState<string | undefined>(undefined);
+  const [organizationName, setOrganizationName] = useState('');
+  const [loadingInviteData, setLoadingInviteData] = useState(true);
 
   useEffect(() => {
-    // TODO: Fetch team details to show team name
-    console.log('Accept invite for team:', teamId, 'token:', token);
+    fetchInviteData();
   }, [teamId, token]);
+
+  const fetchInviteData = async () => {
+    if (!teamId) {
+      setLoadingInviteData(false);
+      return;
+    }
+
+    try {
+      setLoadingInviteData(true);
+      
+      // Fetch team information
+      const team = await teamService.getTeam(teamId);
+      if (team?.teamData?.teamName) {
+        setTeamName(team.teamData.teamName);
+      }
+
+      // Fetch team memberships to find the owner/inviter
+      const membershipsResult = await teamService.listMemberships(teamId);
+      const memberships = membershipsResult.memberships || [];
+      
+      // Find the owner or first member as inviter
+      let inviter = memberships.find((m: any) => 
+        m.membershipData?.role === 'owner' || m.roles?.includes('owner')
+      ) || memberships[0];
+
+      if (inviter) {
+        // Get inviter name
+        const name = inviter.userInfo?.name || 
+                    inviter.membershipData?.name || 
+                    inviter.userName || 
+                    'Team Member';
+        setInviterName(name);
+
+        // Get inviter profile picture
+        const profilePic = inviter.userInfo?.profilePicture || 
+                          inviter.membershipData?.profilePicture;
+        if (profilePic) {
+          setInviterProfilePicture(profilePic);
+        }
+
+        // Get organization name
+        if (team?.teamData?.orgId) {
+          try {
+            const org = await organizationService.getOrganization(team.teamData.orgId);
+            if (org?.orgName) {
+              setOrganizationName(org.orgName);
+            }
+          } catch (orgError) {
+            console.warn('Could not fetch organization:', orgError);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching invite data:', err);
+      // Don't show error to user, just use defaults
+    } finally {
+      setLoadingInviteData(false);
+    }
+  };
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -86,8 +150,8 @@ export default function AcceptInvite() {
       router.push({
         pathname: '/(auth)/verify-email',
         params: {
-          userId: result.userId,
-          email: result.email,
+          userId: result.$id,
+          email: result.email || email,
           teamId: teamId || '',
           token: token || '',
           isInvite: 'true',
@@ -136,6 +200,36 @@ export default function AcceptInvite() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Inviter Card */}
+        {loadingInviteData ? (
+          <View style={styles.inviterCard}>
+            <ActivityIndicator size="large" color="#4263eb" />
+          </View>
+        ) : (
+          <View style={styles.inviterCard}>
+            <Avatar
+              name={inviterName}
+              imageUrl={inviterProfilePicture}
+              size={80}
+            />
+            {inviterName ? (
+              <Text style={styles.inviterName}>{inviterName}</Text>
+            ) : null}
+            {organizationName ? (
+              <Text style={styles.organizationName}>{organizationName}</Text>
+            ) : null}
+          </View>
+        )}
+
+        {/* Invitation Copy */}
+        {inviterName && (
+          <Text style={styles.invitationCopy}>
+            <Text style={styles.invitationCopyBlue}>You've been invited to join </Text>
+            <Text style={styles.invitationCopyBold}>{inviterName}'s</Text>
+            <Text style={styles.invitationCopyBlue}> team on Work Photo Pro...</Text>
+          </Text>
+        )}
+
         {/* Title */}
         <Text style={styles.title}>You've been invited</Text>
         <Text style={styles.subtitle}>Verify your device</Text>
@@ -237,12 +331,50 @@ export default function AcceptInvite() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#e8f4f8',
   },
   scrollContent: {
     flexGrow: 1,
     padding: 24,
     justifyContent: 'center',
+  },
+  inviterCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  inviterName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000',
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  organizationName: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  invitationCopy: {
+    fontSize: 20,
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 28,
+  },
+  invitationCopyBlue: {
+    color: '#4263eb',
+  },
+  invitationCopyBold: {
+    color: '#000',
+    fontWeight: 'bold',
   },
   title: {
     fontSize: 32,

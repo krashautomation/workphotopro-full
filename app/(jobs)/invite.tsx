@@ -8,6 +8,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { teamService } from '@/lib/appwrite/teams';
+import { generateInviteLink } from '@/utils/inviteLink';
 
 export default function InviteScreen() {
   const { user } = useAuth();
@@ -30,11 +31,22 @@ export default function InviteScreen() {
     try {
       setLoading(true);
 
-      // Generate invite link - use HTTPS for production
-      // This will work in browsers and automatically open the app if installed
-      const teamId = currentTeam.$id;
-      const inviteUrl = `https://web.workphotopro.com/invite/${teamId}`;
-      setInviteLink(inviteUrl);
+      // Generate invite link via web API
+      // This will create a base62-encoded short link and store it in the Invites collection
+      // Returns: https://web.workphotopro.com/links/{base62Code}
+      try {
+        const shortLink = await generateInviteLink(currentTeam.$id, user.$id);
+        setInviteLink(shortLink);
+      } catch (inviteError) {
+        console.error('Error generating invite link:', inviteError);
+        // Fallback to direct link if API fails
+        const fallbackLink = `https://web.workphotopro.com/invite/${currentTeam.$id}`;
+        setInviteLink(fallbackLink);
+        Alert.alert(
+          'Warning',
+          'Could not generate short invite link. Using direct link instead.'
+        );
+      }
 
       // Fetch member count - wrap in try/catch to handle Appwrite errors gracefully
       try {
