@@ -182,7 +182,7 @@ function RootLayoutNav() {
             console.log('🔗 Short link detected! Short ID:', shortId);
             // Fetch invite data from API (will redirect to full invite URL)
             try {
-              const response = await fetch(`https://web.workphotopro.com/api/links/${shortId}`, {
+              const response = await fetch(`https://web.workphotopro.com/links/${shortId}`, {
                 method: 'GET',
                 redirect: 'follow', // Follow redirects
               });
@@ -195,10 +195,7 @@ function RootLayoutNav() {
                 
                 if (teamId && token) {
                   console.log('🔗 Short link resolved! Team ID:', teamId);
-                  router.push({
-                    pathname: '/(auth)/accept-invite',
-                    params: { teamId, token }
-                  });
+                  router.push(`/(auth)/accept-invite?teamId=${encodeURIComponent(teamId)}&token=${encodeURIComponent(token)}`);
                   return;
                 }
               }
@@ -215,10 +212,7 @@ function RootLayoutNav() {
           
           if (teamId && token) {
             console.log('🔗 HTTPS invite link detected! Team ID:', teamId, 'Token:', token);
-            router.push({
-              pathname: '/(auth)/accept-invite',
-              params: { teamId, token }
-            });
+            router.push(`/(auth)/accept-invite?teamId=${encodeURIComponent(teamId)}&token=${encodeURIComponent(token)}`);
             return;
           }
         }
@@ -229,10 +223,7 @@ function RootLayoutNav() {
           const secret = url.searchParams.get('secret');
           if (userId && secret) {
             console.log('🔗 HTTPS reset-password link detected!');
-            router.push({
-              pathname: '/(auth)/reset-password',
-              params: { userId, secret }
-            });
+            router.push(`/(auth)/reset-password?userId=${encodeURIComponent(userId)}&secret=${encodeURIComponent(secret)}`);
             return;
           }
         }
@@ -244,10 +235,7 @@ function RootLayoutNav() {
           
           if (teamId && token) {
             console.log('🔗 Custom scheme invite detected! Team ID:', teamId, 'Token:', token);
-            router.push({
-              pathname: '/(auth)/accept-invite',
-              params: { teamId, token }
-            });
+            router.push(`/(auth)/accept-invite?teamId=${encodeURIComponent(teamId)}&token=${encodeURIComponent(token)}`);
             return;
           }
         }
@@ -257,10 +245,7 @@ function RootLayoutNav() {
           const teamId = url.searchParams.get('teamId');
           if (teamId) {
             console.log('🔗 Legacy deep link invite detected! Team ID:', teamId);
-            router.push({
-              pathname: '/(auth)/accept-invite',
-              params: { teamId }
-            });
+            router.push(`/(auth)/accept-invite?teamId=${encodeURIComponent(teamId)}`);
             return;
           }
         }
@@ -271,10 +256,7 @@ function RootLayoutNav() {
           const secret = url.searchParams.get('secret');
           if (userId && secret) {
             console.log('🔗 Deep link reset-password detected!');
-            router.push({
-              pathname: '/(auth)/reset-password',
-              params: { userId, secret }
-            });
+            router.push(`/(auth)/reset-password?userId=${encodeURIComponent(userId)}&secret=${encodeURIComponent(secret)}`);
             return;
           }
         }
