@@ -64,14 +64,28 @@ export const notificationService = {
 
       return await databaseService.listDocuments(COLLECTION_ID, queries);
     } catch (error: any) {
+      const errorMessage = error?.message || '';
+      
+      // Check if this is a JSON parse error (network/connectivity issue)
+      const isJsonParseError = 
+        errorMessage.includes('JSON Parse error') ||
+        errorMessage.includes('Unexpected end of input') ||
+        errorMessage.includes('Unexpected token') ||
+        error?.name === 'SyntaxError';
+      
       // If collection doesn't exist, return empty result
-      if (error?.message?.includes('Collection with the requested ID could not be found')) {
+      if (errorMessage.includes('Collection with the requested ID could not be found')) {
         console.warn('Notifications collection not found - returning empty list');
         return { documents: [], total: 0 };
       }
       // If user is not authorized, return empty result (user might not be fully authenticated)
-      if (error?.message?.includes('not authorized') || error?.message?.includes('unauthorized')) {
+      if (errorMessage.includes('not authorized') || errorMessage.includes('unauthorized')) {
         console.warn('User not authorized to access notifications - returning empty list');
+        return { documents: [], total: 0 };
+      }
+      // Handle JSON parse errors (network issues) - return empty result gracefully
+      if (isJsonParseError) {
+        console.warn('JSON parse error when loading notifications (likely network issue) - returning empty list');
         return { documents: [], total: 0 };
       }
       throw error;

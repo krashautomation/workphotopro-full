@@ -35,6 +35,13 @@ export function useNotifications() {
       // Handle different error types gracefully
       const errorMessage = err?.message || '';
       
+      // Check if this is a JSON parse error (network/connectivity issue)
+      const isJsonParseError = 
+        errorMessage.includes('JSON Parse error') ||
+        errorMessage.includes('Unexpected end of input') ||
+        errorMessage.includes('Unexpected token') ||
+        err?.name === 'SyntaxError';
+      
       // If collection doesn't exist, show empty list
       if (errorMessage.includes('Collection with the requested ID could not be found')) {
         setNotifications([]);
@@ -44,6 +51,13 @@ export function useNotifications() {
       // If user is not authorized, treat as no notifications (user might not be fully authenticated yet)
       else if (errorMessage.includes('not authorized') || errorMessage.includes('unauthorized')) {
         console.warn('User not authorized to access notifications - treating as empty');
+        setNotifications([]);
+        setUnreadCount(0);
+        setError(null);
+      }
+      // Handle JSON parse errors (network issues) - treat as empty list
+      else if (isJsonParseError) {
+        console.warn('JSON parse error when loading notifications (likely network issue) - treating as empty');
         setNotifications([]);
         setUnreadCount(0);
         setError(null);

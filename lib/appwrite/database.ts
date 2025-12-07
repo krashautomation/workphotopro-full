@@ -42,11 +42,27 @@ export const databaseService = {
     try {
       return await databases.listDocuments(DATABASE_ID, collectionId, queries);
     } catch (error: any) {
+      const errorMessage = error?.message || '';
+      
+      // Check if this is a JSON parse error (network/connectivity issue)
+      const isJsonParseError = 
+        errorMessage.includes('JSON Parse error') ||
+        errorMessage.includes('Unexpected end of input') ||
+        errorMessage.includes('Unexpected token') ||
+        error?.name === 'SyntaxError';
+      
       // Check if this is a "collection not found" error (expected for optional collections)
       const isCollectionNotFound = 
-        error?.message?.includes('Collection with the requested ID could not be found') ||
+        errorMessage.includes('Collection with the requested ID could not be found') ||
         error?.code === 404 ||
         error?.type === 'general_not_found';
+      
+      // Handle JSON parse errors (network issues) - return empty result gracefully
+      if (isJsonParseError) {
+        console.warn(`JSON parse error when listing "${collectionId}" (likely network issue):`, errorMessage);
+        // Return empty result instead of throwing - this allows the app to continue functioning
+        return { documents: [], total: 0 };
+      }
       
       // For "users" collection specifically, log at debug level since it's optional
       // For other collections, still log as error but less verbosely
@@ -55,7 +71,7 @@ export const databaseService = {
         console.debug(`Collection "${collectionId}" not found (expected)`);
       } else if (isCollectionNotFound) {
         // Other collections not found - log as warning
-        console.warn(`Collection "${collectionId}" not found:`, error?.message || error);
+        console.warn(`Collection "${collectionId}" not found:`, errorMessage);
       } else {
         // Other errors - log as error
         console.error('List documents error:', error);
