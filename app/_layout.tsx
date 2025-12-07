@@ -169,20 +169,55 @@ function RootLayoutNav() {
     WebBrowser.maybeCompleteAuthSession();
     
     // Handle deep links when app is already running
-    const handleUrl = (event: { url: string }) => {
+    const handleUrl = async (event: { url: string }) => {
       console.log('🔗 Deep link received:', event.url);
       
       try {
         const url = new URL(event.url);
         
-        // Check if this is an HTTPS invite link (web.workphotopro.com/invite/{teamId})
+        // Handle short links: https://web.workphotopro.com/links/{shortId}
+        if (url.hostname === 'web.workphotopro.com' && url.pathname.startsWith('/links/')) {
+          const shortId = url.pathname.split('/links/')[1];
+          if (shortId) {
+            console.log('🔗 Short link detected! Short ID:', shortId);
+            // Fetch invite data from API (will redirect to full invite URL)
+            try {
+              const response = await fetch(`https://web.workphotopro.com/api/links/${shortId}`, {
+                method: 'GET',
+                redirect: 'follow', // Follow redirects
+              });
+              
+              // If redirected, extract teamId and token from redirect URL
+              if (response.redirected) {
+                const redirectUrl = new URL(response.url);
+                const teamId = redirectUrl.pathname.split('/invite/')[1]?.split('?')[0];
+                const token = redirectUrl.searchParams.get('token');
+                
+                if (teamId && token) {
+                  console.log('🔗 Short link resolved! Team ID:', teamId);
+                  router.push({
+                    pathname: '/(auth)/accept-invite',
+                    params: { teamId, token }
+                  });
+                  return;
+                }
+              }
+            } catch (fetchError) {
+              console.error('🔗 Error resolving short link:', fetchError);
+            }
+          }
+        }
+        
+        // Check if this is an HTTPS invite link (web.workphotopro.com/invite/{teamId}?token=...)
         if (url.hostname === 'web.workphotopro.com' && url.pathname.startsWith('/invite/')) {
-          const teamId = url.pathname.split('/invite/')[1];
-          if (teamId) {
-            console.log('🔗 HTTPS invite link detected! Team ID:', teamId);
+          const teamId = url.pathname.split('/invite/')[1]?.split('?')[0];
+          const token = url.searchParams.get('token');
+          
+          if (teamId && token) {
+            console.log('🔗 HTTPS invite link detected! Team ID:', teamId, 'Token:', token);
             router.push({
               pathname: '/(auth)/accept-invite',
-              params: { teamId }
+              params: { teamId, token }
             });
             return;
           }
@@ -202,11 +237,26 @@ function RootLayoutNav() {
           }
         }
         
-        // Check if this is a deep link invite (workphotopro://team-invite?teamId=...)
-        if (url.pathname.includes('team-invite') || url.searchParams.get('teamId')) {
+        // Handle custom scheme: workphotopro://invite?teamId=...&token=...
+        if (url.protocol === 'workphotopro:' && url.hostname === 'invite') {
+          const teamId = url.searchParams.get('teamId');
+          const token = url.searchParams.get('token');
+          
+          if (teamId && token) {
+            console.log('🔗 Custom scheme invite detected! Team ID:', teamId, 'Token:', token);
+            router.push({
+              pathname: '/(auth)/accept-invite',
+              params: { teamId, token }
+            });
+            return;
+          }
+        }
+        
+        // Legacy support: workphotopro://team-invite?teamId=... (without token)
+        if (url.pathname.includes('team-invite') || (url.protocol === 'workphotopro:' && url.searchParams.get('teamId'))) {
           const teamId = url.searchParams.get('teamId');
           if (teamId) {
-            console.log('🔗 Deep link invite detected! Team ID:', teamId);
+            console.log('🔗 Legacy deep link invite detected! Team ID:', teamId);
             router.push({
               pathname: '/(auth)/accept-invite',
               params: { teamId }
@@ -216,7 +266,7 @@ function RootLayoutNav() {
         }
         
         // Check if this is a deep link reset-password (workphotopro://reset-password?userId=...&secret=...)
-        if (url.pathname.includes('reset-password')) {
+        if (url.pathname.includes('reset-password') || (url.protocol === 'workphotopro:' && url.hostname === 'reset-password')) {
           const userId = url.searchParams.get('userId');
           const secret = url.searchParams.get('secret');
           if (userId && secret) {

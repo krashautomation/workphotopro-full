@@ -26,6 +26,7 @@ module.exports = {
       associatedDomains: [
         'applinks:web.workphotopro.com',
         'applinks:workphotopro.app',
+        'applinks:links.workphotopro.com',
       ],
       infoPlist: {
         NSPhotoLibraryAddUsageDescription:
@@ -56,32 +57,25 @@ module.exports = {
       intentFilters: [
         {
           action: 'VIEW',
+          autoVerify: true,
           data: [
             {
               scheme: 'https',
               host: 'web.workphotopro.com',
               pathPrefix: '/invite',
             },
-          ],
-          category: ['BROWSABLE', 'DEFAULT'],
-        },
-        {
-          action: 'VIEW',
-          data: [
+            {
+              scheme: 'https',
+              host: 'web.workphotopro.com',
+              pathPrefix: '/links',
+            },
             {
               scheme: 'https',
               host: 'web.workphotopro.com',
               pathPrefix: '/reset-password',
             },
-          ],
-          category: ['BROWSABLE', 'DEFAULT'],
-        },
-        {
-          action: 'VIEW',
-          data: [
             {
               scheme: 'workphotopro',
-              host: 'team-invite',
             },
           ],
           category: ['BROWSABLE', 'DEFAULT'],
