@@ -1,10 +1,16 @@
 const { config } = require('dotenv');
+const fs = require('fs');
+const path = require('path');
 
 config();
 
 const pkg = require('./package.json');
 
 const version = process.env.APP_VERSION ?? pkg.version;
+
+// Check if google-services.json exists
+const googleServicesPath = path.join(__dirname, 'google-services.json');
+const hasGoogleServices = fs.existsSync(googleServicesPath);
 
 module.exports = {
   expo: {
@@ -43,7 +49,7 @@ module.exports = {
         backgroundColor: '#000000',
       },
       package: 'com.workphotopro.app',
-      googleServicesFile: './google-services.json',
+      ...(hasGoogleServices && { googleServicesFile: './google-services.json' }),
       privacyPolicy: 'https://workphotopro.com/privacy',
       permissions: [
         'android.permission.READ_MEDIA_IMAGES',
