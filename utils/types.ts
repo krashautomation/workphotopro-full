@@ -120,7 +120,11 @@ export interface Team {
 export interface TeamData {
   $id: string; // Our database document ID
   teamName: string;
-  appwriteTeamId: string; // Appwrite Teams ID (links to Appwrite Teams)
+  /**
+   * @deprecated Appwrite Teams SDK has been removed. This field is no longer used
+   * and will be removed in a future cleanup. Kept for backwards compatibility.
+   */
+  appwriteTeamId?: string;
   orgId: string; // References Organizations
   description?: string;
   email?: string;

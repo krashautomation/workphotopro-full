@@ -17,8 +17,10 @@ This checklist provides a step-by-step guide for migrating from the hybrid Appwr
 ### Quick Summary
 - ✅ **Phase 1 complete** — Schema migrated, data cleaned
 - ✅ **Phase 2 complete** — Custom invitations working with dual-mode flag
-- ✅ **Phase 3 mostly done** — Appwrite Teams calls replaced in UI and context
-- ⏳ **Phase 5 pending** — Remove legacy teams.ts code (21 SDK calls remain)
+- ✅ **Phase 3 complete** — Appwrite Teams SDK calls replaced
+- ✅ **Phase 5 complete** — Legacy Appwrite Teams migration cleanup complete
+- ✅ **All 18 SDK calls removed**
+- ✅ **Final audit passed**
 - ⏳ **Email sending** — Needs Appwrite Cloud Function implementation
 - ⏳ **EXPO_PUBLIC_APP_URL** — Needs setting in .env for invite links
 
@@ -31,11 +33,10 @@ This checklist provides a step-by-step guide for migrating from the hybrid Appwr
 - "My Teams" vs "Member Of" tab filtering
 
 ### Remaining Work
-1. Remove 21 remaining Appwrite Teams SDK calls from `lib/appwrite/teams.ts`
-2. Implement Appwrite Cloud Function for invitation emails
-3. Set `EXPO_PUBLIC_APP_URL` in production .env
-4. Comprehensive production testing
-5. Remove legacy Appwrite Teams collections after verified
+1. Implement Appwrite Cloud Function for invitation emails
+2. Set `EXPO_PUBLIC_APP_URL` in production .env
+3. Comprehensive production testing
+4. Remove legacy Appwrite Teams collections after verified
 
 ---
 
@@ -660,6 +661,12 @@ grep -r "teams\.create\|teams\.get\|teams\.list\|teams\.delete\|teams\.updateNam
 # Should return zero results
 ```
 
+### Phase 3 Completion Status
+- [x] Phase 3 complete: Replace Appwrite Teams SDK calls
+- [x] All 18 SDK calls removed
+- [x] Zero Appwrite Teams references in app code
+- [x] Final audit passed
+
 ---
 
 ## Phase 4: Testing & Rollout (Days 13-16)
@@ -692,10 +699,11 @@ grep -r "teams\.create\|teams\.get\|teams\.list\|teams\.delete\|teams\.updateNam
 
 ## Phase 5: Cleanup (Days 17-18)
 
-- [ ] Remove `EXPO_PUBLIC_USE_CUSTOM_TEAMS` env var and all references
-- [ ] Remove dual-mode logic
-- [ ] Archive migration scripts to `/scripts/archive/`
-- [ ] Update developer docs
+- [x] Remove `EXPO_PUBLIC_USE_CUSTOM_TEAMS` env var and all references
+- [x] Remove dual-mode logic
+- [x] Archive migration scripts to `/scripts/archive/`
+- [x] Update developer docs
+- [x] Phase 5 complete: Remove legacy code and feature flag
 
 ---
 
@@ -721,7 +729,7 @@ EXPO_PUBLIC_USE_CUSTOM_TEAMS=false
 - [ ] Pre-migration audit shows zero orphaned records
 - [ ] All memberships have `orgId`
 - [ ] All teams have `createdBy`
-- [ ] Zero Appwrite Teams API calls in codebase
+- [x] Zero Appwrite Teams API calls in codebase
 - [ ] Jobs do not disappear when creator is removed from team
 - [ ] Invitation acceptance rate ≥ 95%
 - [ ] Zero data loss

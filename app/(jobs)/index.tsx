@@ -155,11 +155,21 @@ export default function Jobs() {
         return;
       }
 
+      // Debug: Show values being passed to listJobChats
+      console.log('🔍 DEBUG listJobChats params:', {
+        teamId: currentTeam.$id,
+        teamName: currentTeam.teamName,
+        orgId: currentTeam.orgId,
+        orgName: currentOrganization?.orgName,
+        userId: user?.$id,
+        userName: user?.name
+      });
+
       // Load user profile picture, Google user data, fetch job chats, and load tag templates in parallel
       await Promise.all([
         loadUserProfilePicture(),
         loadGoogleUserData(),
-        jobChatService.listJobChats(currentTeam.$id, currentOrganization?.$id).then(async response => {
+        jobChatService.listJobChats(currentTeam.$id, currentTeam.orgId, user?.$id).then(async response => {
           console.log('🔍 Jobs Index: Fetched jobs response:', response);
           console.log('🔍 Jobs Index: Number of jobs:', response.documents.length);
           

@@ -1,4 +1,4 @@
-import { Client, Account, Databases, Storage, Teams, Avatars } from 'react-native-appwrite';
+import { Client, Account, Databases, Storage, Avatars } from 'react-native-appwrite';
 
 if (!process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT) {
   throw new Error('Missing EXPO_PUBLIC_APPWRITE_ENDPOINT');
@@ -20,7 +20,6 @@ console.log('🔧 Project ID:', process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID);
 export const account = new Account(client);
 export const databases = new Databases(client);
 export const storage = new Storage(client);
-export const teams = new Teams(client);
 export const avatars = new Avatars(client);
 
 export default client;

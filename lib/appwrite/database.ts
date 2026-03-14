@@ -130,38 +130,45 @@ export const jobChatService = {
     return databaseService.getDocument(this.COLLECTION_ID, jobChatId);
   },
 
-  async listJobChats(teamId?: string, orgId?: string) {
-    const queries = [
+  async listJobChats(teamId?: string, orgId?: string, userId?: string) {
+    console.log('🔍 listJobChats: Called with params:', { teamId, orgId, userId });
+
+    const baseQueries = [
       Query.limit(100),
-      Query.orderDesc('$createdAt') // Order by creation date to get latest jobs first
+      Query.orderDesc('$createdAt'),
     ];
 
-    // Filter by team if provided
-    if (teamId) {
-      queries.push(Query.equal('teamId', teamId));
+    // Always filter by deletedAt = null
+    baseQueries.push(Query.isNull('deletedAt'));
+
+    // Primary query: filter by teamId AND orgId
+    // This is the normal case
+    if (teamId && orgId) {
+      console.log('🔍 listJobChats: Using primary query (teamId + orgId)');
+      const result = await databaseService.listDocuments(this.COLLECTION_ID, [
+        ...baseQueries,
+        Query.equal('teamId', teamId),
+        Query.equal('orgId', orgId)
+      ]);
+      console.log('🔍 listJobChats: Found', result.documents.length, 'jobs for team');
+      return { documents: result.documents, total: result.documents.length };
     }
 
-    // Filter by organization if provided
-    if (orgId) {
-      queries.push(Query.equal('orgId', orgId));
+    // Fallback: only if no teamId — show jobs created by user
+    // This handles the case where user was removed from team
+    if (userId && orgId) {
+      console.log('🔍 listJobChats: Using fallback query (createdBy + orgId)');
+      const result = await databaseService.listDocuments(this.COLLECTION_ID, [
+        ...baseQueries,
+        Query.equal('createdBy', userId),
+        Query.equal('orgId', orgId)
+      ]);
+      console.log('🔍 listJobChats: Found', result.documents.length, 'jobs for user');
+      return { documents: result.documents, total: result.documents.length };
     }
 
-    const response = await databaseService.listDocuments(this.COLLECTION_ID, queries);
-    
-    console.log('🔍 Database Service: Raw jobs response:', response.documents.length, 'jobs');
-    
-    // Filter out soft-deleted jobs in the application
-    const activeJobs = response.documents.filter((job: any) => 
-      !job.deletedAt || job.deletedAt === null
-    );
-    
-    console.log('🔍 Database Service: Active jobs after filtering:', activeJobs.length, 'jobs');
-    
-    return {
-      ...response,
-      documents: activeJobs,
-      total: activeJobs.length
-    };
+    console.log('🔍 listJobChats: No valid filters, returning empty');
+    return { documents: [], total: 0 };
   },
 
   async updateJobChat(jobChatId: string, data: any) {

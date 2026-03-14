@@ -68,10 +68,18 @@ export default function Teams() {
   }, [user?.$id, currentTeam?.$id, currentTeam?.createdBy]);
 
   /**
-   * Load teams from current organization
+   * Load teams from user's OWNED organization (not current org)
+   * My Teams tab should always show teams where user is owner in their own org
    */
   const loadMyTeams = useCallback(async () => {
-    if (!user?.$id || !currentOrganization?.$id) {
+    if (!user?.$id) {
+      setMyOwnedTeams([]);
+      return;
+    }
+
+    // Find the user's owned organization
+    const ownedOrg = userOrganizations.find(o => o.ownerId === user.$id);
+    if (!ownedOrg?.$id) {
       setMyOwnedTeams([]);
       return;
     }
@@ -79,8 +87,8 @@ export default function Teams() {
     try {
       setLoading(true);
       
-      // Fetch teams for current organization only
-      const teams = await teamService.listTeams(user.$id, currentOrganization.$id);
+      // Fetch teams for user's owned organization only
+      const teams = await teamService.listTeams(user.$id, ownedOrg.$id);
       
       // Add membershipRole property to each team for consistency
       const teamsWithRoles = await Promise.all(
@@ -95,24 +103,28 @@ export default function Teams() {
             
             return {
               ...team,
-              membershipRole: memberships.documents[0]?.role || 'owner'
+              membershipRole: memberships.documents[0]?.role || 'member'
             };
           } catch (error) {
             return {
               ...team,
-              membershipRole: 'owner'
+              membershipRole: 'member'
             };
           }
         })
       );
       
-      setMyOwnedTeams(teamsWithRoles);
+      // Filter to only owned teams (where membershipRole === 'owner')
+      const ownedTeams = teamsWithRoles.filter(
+        team => team.membershipRole === 'owner'
+      );
+      setMyOwnedTeams(ownedTeams);
     } catch (error) {
       console.error('Error loading my teams:', error);
     } finally {
       setLoading(false);
     }
-  }, [user?.$id, currentOrganization?.$id]);
+  }, [user?.$id, userOrganizations]);
 
   /**
    * Load all memberships across ALL orgs (for My Memberships tab)
@@ -196,6 +208,7 @@ export default function Teams() {
    * Handle team selection
    */
   const handleTeamSelect = async (team: TeamData) => {
+    console.log('Team tapped:', team.teamName, team.$id, team.orgId);
     try {
       console.log('🔍 teams.tsx - handleTeamSelect called:', {
         teamId: team?.$id,

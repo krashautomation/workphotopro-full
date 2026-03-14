@@ -331,13 +331,10 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       const detailedTeam = await teamService.getTeam(team.$id, team.orgId);
       setCurrentTeam(detailedTeam);
 
-      // Update current organization to match the team's organization
-      try {
-        const org = applyOrgDefaults(await organizationService.getOrganization(team.orgId));
-        setCurrentOrganization(org);
-      } catch (error) {
-        console.error('Error loading organization for team:', error);
-      }
+      // Note: We do NOT switch currentOrganization here.
+      // currentOrganization should remain as the user's owned organization.
+      // The user can work in teams across different orgs while keeping their
+      // "home" organization context stable.
     } catch (error) {
       console.error('Error switching team:', error);
       throw error;
@@ -553,6 +550,9 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
    * Switch to a different team (accepts team object or teamId)
    */
   const switchTeamDirect = async (teamOrId: TeamData | string) => {
+    const teamId = typeof teamOrId === 'string' ? teamOrId : teamOrId.$id;
+    const orgId = typeof teamOrId === 'string' ? 'unknown' : teamOrId.orgId;
+    console.log('switchTeam called with:', teamId, orgId);
     let team: TeamData | null = null;
     
     if (typeof teamOrId === 'string') {
@@ -603,22 +603,10 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     // Set the current team
     setCurrentTeam(team);
     
-    // Update currentOrganization to match the team's organization
-    if (team?.orgId) {
-      try {
-        console.log('🔍 switchTeamDirect: Fetching organization:', team.orgId);
-        const org = applyOrgDefaults(
-          await organizationService.getOrganization(team.orgId)
-        );
-        console.log('🔍 switchTeamDirect: Fetched organization:', org.orgName);
-        setCurrentOrganization(org);
-      } catch (error) {
-        console.error('Error fetching organization for team:', error);
-        // Continue even if organization fetch fails
-      }
-    } else {
-      console.warn('🔍 switchTeamDirect: No orgId found in team');
-    }
+    // Note: We do NOT switch currentOrganization here.
+    // currentOrganization should remain as the user's owned organization.
+    // This allows users to work in teams across different orgs while keeping
+    // their "home" organization context stable for "My Teams" tab.
   };
 
   const currentOrgPremiumTier = currentOrganization?.premiumTier || 'free';

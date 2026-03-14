@@ -21,23 +21,32 @@ export default function DeleteTeam() {
   // Validate team exists and check if user can delete it
   useEffect(() => {
     const validateTeam = async () => {
-      if (!teamId || !currentOrganization?.$id) {
+      if (!teamId || !currentOrganization?.$id || !user?.$id) {
         setIsValidating(false);
         return;
       }
 
       try {
-        // Try to get the team to see if it exists (including soft-deleted teams)
-        await teamService.getTeam(teamId, true);
+        // Try to get the team to see if it exists
+        await teamService.getTeam(teamId, currentOrganization.$id);
         setTeamExists(true);
 
-        // Check how many teams the user has in their current organization
+        // Count how many teams the user OWNS (not just belongs to) in this organization
         const orgTeamsResponse = await teamService.listOrganizationTeams(currentOrganization.$id);
-        const teamCount = orgTeamsResponse.teams.length;
-        setOrganizationTeamCount(teamCount);
+        
+        // Check each team for user ownership
+        let ownedTeamCount = 0;
+        for (const team of orgTeamsResponse.teams) {
+          const membership = await teamService.getMembership(team.$id, user.$id, currentOrganization.$id);
+          if (membership?.role === 'owner') {
+            ownedTeamCount++;
+          }
+        }
+        
+        setOrganizationTeamCount(ownedTeamCount);
 
-        // User can only delete if they have more than one team
-        setCanDeleteTeam(teamCount > 1);
+        // User can only delete if they own more than one team
+        setCanDeleteTeam(ownedTeamCount > 1);
       } catch (error) {
         console.warn('Team validation failed:', error);
         setTeamExists(false);
@@ -48,7 +57,7 @@ export default function DeleteTeam() {
     };
 
     validateTeam();
-  }, [teamId, currentOrganization?.$id]);
+  }, [teamId, currentOrganization?.$id, user?.$id]);
 
   const handleDeleteTeam = async () => {
     if (!teamId) {
@@ -56,11 +65,16 @@ export default function DeleteTeam() {
       return;
     }
 
-    // Check if user can delete this team (must have more than one team)
+    if (!currentOrganization?.$id) {
+      Alert.alert('Error', 'Organization information is missing');
+      return;
+    }
+
+    // Check if user can delete this team (must own more than one team)
     if (!canDeleteTeam) {
       Alert.alert(
         'Cannot Delete Team',
-        'You must have at least one team in your organization. You cannot delete your last team.',
+        'Cannot delete your only team. Create another team first before deleting this one.',
         [{ text: 'OK' }]
       );
       return;
@@ -69,8 +83,8 @@ export default function DeleteTeam() {
     try {
       setIsDeleting(true);
       
-      // Delete the team using teamService
-      await teamService.deleteTeam(teamId);
+      // Delete the team using teamService with orgId
+      await teamService.deleteTeam(teamId, currentOrganization.$id);
       
       // Force-set our database team inactive by name as a safety net
       if (teamName) {
@@ -160,10 +174,10 @@ export default function DeleteTeam() {
           ) : !canDeleteTeam ? (
             <View style={styles.warningContainer}>
               <Text style={styles.warningText}>
-                You cannot delete this team because it is your last team in this organization.
+                Cannot delete your only team.
               </Text>
               <Text style={styles.warningSubText}>
-                You must have at least one team in your organization. Create another team first if you want to delete this one.
+                Create another team first before deleting this one.
               </Text>
               <TouchableOpacity
                 style={styles.backButton}

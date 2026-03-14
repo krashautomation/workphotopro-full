@@ -28,7 +28,7 @@
 
 import { ID, Query } from 'react-native-appwrite';
 import { databaseService } from '@/lib/appwrite/database';
-import { teams as appwriteTeams, account } from '@/lib/appwrite/client';
+import { account } from '@/lib/appwrite/client';
 import { generateSecureToken, hashToken } from '@/utils/crypto';
 import { 
   Team, 
@@ -38,13 +38,11 @@ import {
   Organization 
 } from '@/utils/types';
 
-// Feature flag to toggle between implementations
-const USE_CUSTOM_TEAMS = process.env.EXPO_PUBLIC_USE_CUSTOM_TEAMS === 'true';
-
-console.log(`🔧 TeamService initialized with USE_CUSTOM_TEAMS=${USE_CUSTOM_TEAMS}`);
-
 /**
  * Team Service - All team operations go through here
+ * 
+ * This service uses a pure database implementation for all team operations.
+ * The Appwrite Teams SDK has been removed as part of the migration to custom collections.
  */
 export const teamService = {
   // ==========================================
@@ -67,11 +65,7 @@ export const teamService = {
     description?: string
   ): Promise<TeamData> {
     console.log(`[TeamService] Creating team: ${name} in org: ${orgId}`);
-    
-    if (USE_CUSTOM_TEAMS) {
-      return this._customCreateTeam(name, orgId, userId, description);
-    }
-    return this._appwriteCreateTeam(name, orgId, userId, description);
+    return this._customCreateTeam(name, orgId, userId, description);
   },
 
   /**
@@ -83,11 +77,7 @@ export const teamService = {
    */
   async getTeam(teamId: string, orgId: string): Promise<TeamData> {
     console.log(`[TeamService] Getting team: ${teamId}`);
-    
-    if (USE_CUSTOM_TEAMS) {
-      return this._customGetTeam(teamId, orgId);
-    }
-    return this._appwriteGetTeam(teamId, orgId);
+    return this._customGetTeam(teamId, orgId);
   },
 
   /**
@@ -99,11 +89,7 @@ export const teamService = {
    */
   async listTeams(userId: string, orgId: string): Promise<TeamData[]> {
     console.log(`[TeamService] Listing teams for user: ${userId} in org: ${orgId}`);
-    
-    if (USE_CUSTOM_TEAMS) {
-      return this._customListTeams(userId, orgId);
-    }
-    return this._appwriteListTeams(userId, orgId);
+    return this._customListTeams(userId, orgId);
   },
 
   /**
@@ -120,11 +106,7 @@ export const teamService = {
     updates: Partial<TeamData>
   ): Promise<TeamData> {
     console.log(`[TeamService] Updating team: ${teamId}`);
-    
-    if (USE_CUSTOM_TEAMS) {
-      return this._customUpdateTeam(teamId, orgId, updates);
-    }
-    return this._appwriteUpdateTeam(teamId, orgId, updates);
+    return this._customUpdateTeam(teamId, orgId, updates);
   },
 
   /**
@@ -136,11 +118,7 @@ export const teamService = {
    */
   async deleteTeam(teamId: string, orgId: string): Promise<{ success: boolean }> {
     console.log(`[TeamService] Deleting team: ${teamId}`);
-    
-    if (USE_CUSTOM_TEAMS) {
-      return this._customDeleteTeam(teamId, orgId);
-    }
-    return this._appwriteDeleteTeam(teamId, orgId);
+    return this._customDeleteTeam(teamId, orgId);
   },
 
   // ==========================================
@@ -165,11 +143,7 @@ export const teamService = {
     invitedBy: string
   ): Promise<{ invitation: any; token: string }> {
     console.log(`[TeamService] Inviting member: ${email} to team: ${teamId}`);
-    
-    if (USE_CUSTOM_TEAMS) {
-      return this._customInviteMember(teamId, orgId, email, roles, invitedBy);
-    }
-    return this._appwriteInviteMember(teamId, orgId, email, roles, invitedBy);
+    return this._customInviteMember(teamId, orgId, email, roles, invitedBy);
   },
 
   /**
@@ -186,11 +160,7 @@ export const teamService = {
     orgId: string
   ): Promise<{ success: boolean }> {
     console.log(`[TeamService] Removing member: ${membershipId} from team: ${teamId}`);
-    
-    if (USE_CUSTOM_TEAMS) {
-      return this._customRemoveMember(teamId, membershipId, orgId);
-    }
-    return this._appwriteRemoveMember(teamId, membershipId, orgId);
+    return this._customRemoveMember(teamId, membershipId, orgId);
   },
 
   /**
@@ -207,11 +177,7 @@ export const teamService = {
     orgId: string
   ): Promise<MembershipData | null> {
     console.log(`[TeamService] Getting membership for user: ${userId} in team: ${teamId}`);
-    
-    if (USE_CUSTOM_TEAMS) {
-      return this._customGetMembership(teamId, userId, orgId);
-    }
-    return this._appwriteGetMembership(teamId, userId, orgId);
+    return this._customGetMembership(teamId, userId, orgId);
   },
 
   /**
@@ -223,11 +189,7 @@ export const teamService = {
    */
   async listMembers(teamId: string, orgId: string): Promise<MembershipData[]> {
     console.log(`[TeamService] Listing members for team: ${teamId}`);
-    
-    if (USE_CUSTOM_TEAMS) {
-      return this._customListMembers(teamId, orgId);
-    }
-    return this._appwriteListMembers(teamId, orgId);
+    return this._customListMembers(teamId, orgId);
   },
 
   /**
@@ -246,11 +208,7 @@ export const teamService = {
     orgId: string
   ): Promise<MembershipData> {
     console.log(`[TeamService] Updating role for member: ${membershipId}`);
-    
-    if (USE_CUSTOM_TEAMS) {
-      return this._customUpdateRole(teamId, membershipId, roles, orgId);
-    }
-    return this._appwriteUpdateRole(teamId, membershipId, roles, orgId);
+    return this._customUpdateRole(teamId, membershipId, roles, orgId);
   },
 
   /**
@@ -267,11 +225,7 @@ export const teamService = {
     orgId: string
   ): Promise<{ success: boolean }> {
     console.log(`[TeamService] Accepting invitation with token`);
-    
-    if (USE_CUSTOM_TEAMS) {
-      return this._customAcceptInvitation(token, userId, orgId);
-    }
-    return this._appwriteAcceptInvitation(token, userId, orgId);
+    return this._customAcceptInvitation(token, userId, orgId);
   },
 
   // ==========================================
@@ -669,360 +623,6 @@ export const teamService = {
     });
 
     return { success: true };
-  },
-
-  // ==========================================
-  // APPWRITE IMPLEMENTATION (Legacy)
-  // ==========================================
-
-  async _appwriteCreateTeam(
-    name: string,
-    orgId: string,
-    userId: string,
-    description?: string
-  ): Promise<TeamData> {
-    // Create in Appwrite
-    const appwriteTeam = await appwriteTeams.create(ID.unique(), name);
-
-    // Create in our database
-    const teamData = {
-      teamName: name,
-      appwriteTeamId: appwriteTeam.$id,
-      orgId,
-      description: description || '',
-      isActive: true,
-      settings: '{}',
-    };
-
-    const team = await databaseService.createDocument('teams', teamData);
-
-    // Create owner membership
-    await databaseService.createDocument('memberships', {
-      userId,
-      teamId: team.$id,
-      role: 'owner',
-      invitedBy: userId,
-      joinedAt: new Date().toISOString(),
-      isActive: true,
-    });
-
-    console.log(`[TeamService] Appwrite: Created team ${team.$id}`);
-    return team as unknown as TeamData;
-  },
-
-  async _appwriteGetTeam(teamId: string, orgId: string): Promise<TeamData> {
-    // Get from database
-    const teamData = await databaseService.listDocuments('teams', [
-      Query.equal('$id', teamId),
-    ]);
-
-    if (teamData.documents.length === 0) {
-      throw new Error('Team not found');
-    }
-
-    const team = teamData.documents[0] as unknown as TeamData;
-
-    // Validate orgId
-    if (team.orgId !== orgId) {
-      throw new Error('Access denied: organization mismatch');
-    }
-
-    // Get Appwrite team (for side effects/logging only in legacy mode)
-    if (team.appwriteTeamId) {
-      try {
-        await appwriteTeams.get(team.appwriteTeamId);
-        return team;
-      } catch (error) {
-        console.warn('Appwrite team not found, using database only');
-        return team;
-      }
-    }
-
-    return team;
-  },
-
-  async _appwriteListTeams(userId: string, orgId: string): Promise<TeamData[]> {
-    // Get from Appwrite
-    const appwriteTeamsList = await appwriteTeams.list();
-
-    // Filter to only teams in this org
-    const teamsWithData: TeamData[] = [];
-
-    for (const appwriteTeam of appwriteTeamsList.teams) {
-      const dbTeams = await databaseService.listDocuments('teams', [
-        Query.equal('appwriteTeamId', appwriteTeam.$id),
-        Query.equal('orgId', orgId),
-      ]);
-
-      if (dbTeams.documents.length > 0) {
-        // Return DB team only (simplified for type safety)
-        teamsWithData.push(dbTeams.documents[0] as unknown as TeamData);
-      }
-    }
-
-    return teamsWithData;
-  },
-
-  async _appwriteUpdateTeam(
-    teamId: string,
-    orgId: string,
-    updates: Partial<TeamData>
-  ): Promise<TeamData> {
-    const team = await this._appwriteGetTeam(teamId, orgId);
-
-    // Update in Appwrite if name changed (legacy mode)
-    if (updates.teamName && team.appwriteTeamId) {
-      await appwriteTeams.updateName(team.appwriteTeamId, updates.teamName);
-    }
-
-    // Update in database
-    const allowedUpdates = ['teamName', 'description', 'email', 'website', 'address', 'phone', 'teamPhotoUrl'];
-    const filteredUpdates: any = {};
-    
-    for (const key of allowedUpdates) {
-      if (key in updates) {
-        filteredUpdates[key] = (updates as any)[key];
-      }
-    }
-
-    const updated = await databaseService.updateDocument('teams', teamId, filteredUpdates);
-    return updated as unknown as TeamData;
-  },
-
-  async _appwriteDeleteTeam(teamId: string, orgId: string): Promise<{ success: boolean }> {
-    const team = await this._appwriteGetTeam(teamId, orgId);
-
-    // Delete from Appwrite
-    if (team.appwriteTeamId) {
-      try {
-        await appwriteTeams.delete(team.appwriteTeamId);
-      } catch (error) {
-        console.warn('Could not delete from Appwrite:', error);
-      }
-    }
-
-    // Soft delete memberships
-    const memberships = await databaseService.listDocuments('memberships', [
-      Query.equal('teamId', teamId),
-    ]);
-
-    for (const membership of memberships.documents) {
-      await databaseService.updateDocument('memberships', membership.$id, {
-        isActive: false,
-      });
-    }
-
-    // Soft delete team
-    await databaseService.updateDocument('teams', teamId, {
-      isActive: false,
-    });
-
-    return { success: true };
-  },
-
-  async _appwriteInviteMember(
-    teamId: string,
-    orgId: string,
-    email: string,
-    roles: string[],
-    invitedBy: string
-  ): Promise<{ invitation: any; token: string }> {
-    const team = await this._appwriteGetTeam(teamId, orgId);
-
-    if (!team.appwriteTeamId) {
-      throw new Error('Appwrite team ID not found');
-    }
-
-    // Create Appwrite membership
-    const url = `${process.env.EXPO_PUBLIC_APP_URL}/accept-invite`;
-    const membership = await appwriteTeams.createMembership(
-      team.appwriteTeamId,
-      roles,
-      email,
-      undefined,
-      undefined,
-      url
-    );
-
-    // Store in our database
-    const membershipData = {
-      userId: membership.userId || '',
-      teamId,
-      role: roles[0] || 'member',
-      userEmail: email,
-      invitedBy,
-      joinedAt: new Date().toISOString(),
-      isActive: true,
-    };
-
-    const doc = await databaseService.createDocument('memberships', membershipData);
-
-    return { 
-      invitation: membership,
-      token: membership.$id  // Appwrite uses membership ID as token
-    };
-  },
-
-  async _appwriteRemoveMember(
-    teamId: string,
-    membershipId: string,
-    orgId: string
-  ): Promise<{ success: boolean }> {
-    const team = await this._appwriteGetTeam(teamId, orgId);
-
-    if (!team.appwriteTeamId) {
-      throw new Error('Appwrite team ID not found');
-    }
-
-    // Delete from Appwrite
-    await appwriteTeams.deleteMembership(team.appwriteTeamId, membershipId);
-
-    // Soft delete in database
-    const memberships = await databaseService.listDocuments('memberships', [
-      Query.equal('teamId', teamId),
-    ]);
-
-    for (const membership of memberships.documents) {
-      await databaseService.updateDocument('memberships', membership.$id, {
-        isActive: false,
-      });
-    }
-
-    return { success: true };
-  },
-
-  async _appwriteGetMembership(
-    teamId: string,
-    userId: string,
-    orgId: string
-  ): Promise<MembershipData | null> {
-    const team = await this._appwriteGetTeam(teamId, orgId);
-
-    if (!team.appwriteTeamId) {
-      return null;
-    }
-
-    // Get from Appwrite
-    const appwriteMemberships = await appwriteTeams.listMemberships(team.appwriteTeamId);
-    const appwriteMembership = appwriteMemberships.memberships.find(
-      (m: any) => m.userId === userId
-    );
-
-    if (!appwriteMembership) {
-      return null;
-    }
-
-    // Get from database
-    const memberships = await databaseService.listDocuments('memberships', [
-      Query.equal('teamId', teamId),
-      Query.equal('userId', userId),
-    ]);
-
-    if (memberships.documents.length === 0) {
-      return null;
-    }
-
-    // Return DB membership only (simplified for type safety)
-    return memberships.documents[0] as unknown as MembershipData;
-  },
-
-  async _appwriteListMembers(teamId: string, orgId: string): Promise<MembershipData[]> {
-    const team = await this._appwriteGetTeam(teamId, orgId);
-
-    if (!team.appwriteTeamId) {
-      return [];
-    }
-
-    // Get from database only (simplified for type safety)
-    const memberships = await databaseService.listDocuments('memberships', [
-      Query.equal('teamId', teamId),
-      Query.equal('isActive', true),
-    ]);
-
-    return memberships.documents as unknown as MembershipData[];
-  },
-
-  async _appwriteUpdateRole(
-    teamId: string,
-    membershipId: string,
-    roles: string[],
-    orgId: string
-  ): Promise<MembershipData> {
-    const team = await this._appwriteGetTeam(teamId, orgId);
-
-    if (!team.appwriteTeamId) {
-      throw new Error('Appwrite team ID not found');
-    }
-
-    // Update in Appwrite
-    const updated = await appwriteTeams.updateMembership(
-      team.appwriteTeamId,
-      membershipId,
-      roles
-    );
-
-    // Update in database
-    const memberships = await databaseService.listDocuments('memberships', [
-      Query.equal('teamId', teamId),
-    ]);
-
-    const dbMembership = memberships.documents.find((m: any) => m.userId === updated.userId);
-    if (dbMembership) {
-      await databaseService.updateDocument('memberships', dbMembership.$id, {
-        role: roles[0] || 'member',
-      });
-    }
-
-    // Return DB membership instead (simplified for type safety)
-    const dbResult = await databaseService.listDocuments('memberships', [
-      Query.equal('teamId', teamId),
-      Query.equal('isActive', true),
-    ]);
-    const result = dbResult.documents.find((m: any) => m.userId === updated.userId);
-    return result as unknown as MembershipData;
-  },
-
-  async _appwriteAcceptInvitation(
-    token: string,
-    userId: string,
-    orgId: string
-  ): Promise<{ success: boolean }> {
-    // Find which team this invitation is for
-    const teams = await databaseService.listDocuments('teams', [
-      Query.equal('orgId', orgId),
-    ]);
-
-    for (const team of teams.documents) {
-      if (!team.appwriteTeamId) continue;
-
-      try {
-        await appwriteTeams.updateMembershipStatus(
-          team.appwriteTeamId,
-          token,
-          userId,
-          token  // secret is same as membership ID in Appwrite
-        );
-
-        // Update membership in database
-        const memberships = await databaseService.listDocuments('memberships', [
-          Query.equal('teamId', team.$id),
-        ]);
-
-        const membership = memberships.documents.find((m: any) => m.userId === userId);
-        if (membership) {
-          await databaseService.updateDocument('memberships', membership.$id, {
-            isActive: true,
-          });
-        }
-
-        return { success: true };
-      } catch (error) {
-        // Try next team
-        continue;
-      }
-    }
-
-    throw new Error('Invitation not found');
   },
 
   // ==========================================

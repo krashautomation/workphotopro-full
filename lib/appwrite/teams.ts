@@ -1,7 +1,7 @@
-import { teams } from './client';
 import { ID, Query } from 'react-native-appwrite';
 import { databaseService } from './database';
-import { Organization, Team, TeamData, Membership, MembershipData, TeamRole } from '@/utils/types';
+import { teamService as customTeamService } from '@/services/teamService';
+import { Organization, TeamData, MembershipData } from '@/utils/types';
 
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID || '';
 
@@ -120,48 +120,26 @@ export const organizationService = {
 
 export const teamService = {
   /**
-   * Create a new team (both Appwrite Teams and our database)
+   * Create a new team (using custom database implementation)
+   * 
+   * @deprecated Use teamService.createTeam() from @/services/teamService instead
    */
   async createTeam(name: string, orgId: string, description?: string, roles?: string[], userId?: string) {
+    if (!userId) {
+      throw new Error('userId is required to create a team');
+    }
+    
     try {
-      // Create Appwrite Team
-      const appwriteTeam = await teams.create(ID.unique(), name, roles);
-      
-      // Create our custom team data
-      const teamData = {
-        teamName: name,
-        appwriteTeamId: appwriteTeam.$id, // Store Appwrite Team ID for linking
-        orgId: orgId,
-        description: description || '',
-        isActive: true,
-        settings: '{}' // Default empty settings
-      };
-
-      const teamDoc = await databaseService.createDocument('teams', teamData);
-      
-      // Create membership for the creator as owner
-      if (userId) {
-        try {
-          const membershipData = {
-            userId: userId,
-            teamId: appwriteTeam.$id,
-            role: 'owner',
-            invitedBy: userId,
-            joinedAt: new Date().toISOString(),
-            isActive: true
-          };
-
-          await databaseService.createDocument('memberships', membershipData);
-        } catch (membershipError) {
-          console.error('Could not create membership record:', membershipError);
-          // Don't fail team creation if membership creation fails
-        }
-      }
+      // Use custom team service
+      const team = await customTeamService.createTeam(name, orgId, userId, description);
       
       return {
-        ...appwriteTeam,
-        $permissions: [], // Appwrite Teams don't have $permissions, provide empty array
-        teamData: teamDoc as unknown as TeamData
+        $id: team.$id,
+        name: team.teamName,
+        $createdAt: team.$createdAt,
+        $updatedAt: team.$updatedAt,
+        $permissions: [],
+        teamData: team
       };
     } catch (error) {
       console.error('Create team error:', error);
@@ -170,143 +148,73 @@ export const teamService = {
   },
 
   /**
-   * Get a team by ID (both Appwrite and our database)
+   * Get a team by ID (using custom database implementation)
+   * 
+   * @deprecated Use teamService.getTeam() from @/services/teamService instead
    */
-  async getTeam(teamId: string, includeSoftDeleted: boolean = false) {
+  async getTeam(teamId: string, orgId?: string) {
     try {
-      // Try to get from Appwrite first
-      const appwriteTeam = await teams.get(teamId);
-      
-      // Get our custom team data (prefer lookup by Appwrite team ID)
-      const teamData = await databaseService.listDocuments('teams', [
-        Query.equal('appwriteTeamId', appwriteTeam.$id)
-      ]);
-
-      return {
-        ...appwriteTeam,
-        $permissions: [], // Appwrite Teams don't have $permissions, provide empty array
-        teamData: (teamData.documents[0] as unknown as TeamData) || null
-      };
-    } catch (error) {
-      // If Appwrite lookup fails, try to find team in our database only
-      console.warn('Could not fetch from Appwrite, trying database-only lookup...', error);
-      
-      // If Appwrite lookup fails, search our database for teams with this teamId
-      // This handles cases where teams exist in our database but not in Appwrite
-      const allTeamData = await databaseService.listDocuments('teams', []);
-      
-      // Look for any team that might be associated with this teamId
-      // Since we don't have a direct mapping, we'll search through all teams
-      for (const teamDoc of allTeamData.documents) {
-        // Check if this team has memberships with the given teamId
-        const teamMemberships = await databaseService.listDocuments('memberships', [
-          Query.equal('teamId', teamId)
-        ]);
-        
-        if (teamMemberships.documents && teamMemberships.documents.length > 0) {
-          // Found a team that has memberships with this teamId
-          // Create a mock Appwrite team object
-          const mockAppwriteTeam = {
-            $id: teamId,
-            name: teamDoc.teamName,
-            $createdAt: teamDoc.$createdAt,
-            $updatedAt: teamDoc.$updatedAt,
-            $permissions: []
-          };
-          
-          return {
-            ...mockAppwriteTeam,
-            teamData: teamDoc as unknown as TeamData
-          };
+      let effectiveOrgId = orgId;
+      if (!effectiveOrgId) {
+        // Fallback: get orgId from team directly
+        const teamDoc = await databaseService.getDocument('teams', teamId);
+        effectiveOrgId = teamDoc.orgId;
+        if (!effectiveOrgId) {
+          throw new Error('Team does not have an organization ID');
         }
       }
       
-      // If we still can't find it, return the first team as a fallback
-      // This handles edge cases where the team exists but we can't match it properly
-      if (allTeamData.documents.length > 0) {
-        const fallbackTeam = allTeamData.documents[0];
-        const mockAppwriteTeam = {
-          $id: teamId,
-          name: fallbackTeam.teamName,
-          $createdAt: fallbackTeam.$createdAt,
-          $updatedAt: fallbackTeam.$updatedAt,
-          $permissions: []
-        };
-        
-        return {
-          ...mockAppwriteTeam,
-          teamData: fallbackTeam as unknown as TeamData
-        };
-      }
+      const team = await customTeamService.getTeam(teamId, effectiveOrgId);
       
-      console.error('Get team error: Team not found in database or Appwrite', error);
+      return {
+        $id: team.$id,
+        name: team.teamName,
+        $createdAt: team.$createdAt,
+        $updatedAt: team.$updatedAt,
+        $permissions: [],
+        teamData: team
+      };
+    } catch (error) {
+      console.error('Get team error:', error);
       throw error;
     }
   },
 
   /**
    * List all teams the current user is a member of
+   * 
+   * @deprecated Use teamService.listTeams() from @/services/teamService instead
    */
-  async listTeams(userId?: string) {
+  async listTeams(userId: string, orgId: string) {
     try {
-      const appwriteTeams = await teams.list();
+      const teams = await customTeamService.listTeams(userId, orgId);
       
-      // Get our custom team data and membership info for each team
       const teamsWithData = await Promise.all(
-        appwriteTeams.teams.map(async (team) => {
+        teams.map(async (team: TeamData) => {
+          // Get membership info to check user's role
+          let membershipRole = null;
           try {
-            // Get team data from our database
-            let teamData = await databaseService.listDocuments('teams', [
-              Query.equal('appwriteTeamId', team.$id)
-            ]);
-            if (!teamData.documents || teamData.documents.length === 0) {
-              teamData = await databaseService.listDocuments('teams', [
-                Query.equal('teamName', team.name)
-              ]);
-            }
-            
-            // Only return teams that exist in our database
-            if (!teamData.documents || teamData.documents.length === 0) {
-              return null; // Skip teams not in our database
-            }
-            
-            // Get membership info to check user's role (from our database)
-            let membershipRole = null;
-            if (userId) {
-              try {
-                const memberships = await databaseService.listDocuments('memberships', [
-                  Query.equal('userId', userId),
-                  Query.equal('teamId', team.$id),
-                  Query.equal('isActive', true)
-                ]);
-                
-                if (memberships.documents && memberships.documents.length > 0) {
-                  membershipRole = memberships.documents[0].role || null;
-                }
-              } catch (error) {
-                console.warn('Could not fetch membership data for team:', team.name);
-              }
-            }
-            
-            return {
-              ...team,
-              $permissions: [], // Appwrite Teams don't have $permissions, provide empty array
-              teamData: (teamData.documents[0] as unknown as TeamData) || null,
-              membershipRole: membershipRole || null
-            };
+            const membership = await customTeamService.getMembership(team.$id, userId, orgId);
+            membershipRole = membership?.role || null;
           } catch (error) {
-            console.warn('Could not fetch team data for:', team.name);
-            return null; // Skip teams with errors
+            console.warn('Could not fetch membership data for team:', team.teamName);
           }
+          
+          return {
+            $id: team.$id,
+            name: team.teamName,
+            $createdAt: team.$createdAt,
+            $updatedAt: team.$updatedAt,
+            $permissions: [],
+            teamData: team,
+            membershipRole: membershipRole
+          };
         })
       );
 
-      // Filter out null values (teams not in our database or with errors)
-      const validTeams = teamsWithData.filter(team => team !== null);
-
       return {
-        teams: validTeams,
-        total: validTeams.length
+        teams: teamsWithData,
+        total: teamsWithData.length
       };
     } catch (error) {
       console.error('List teams error:', error);
@@ -316,6 +224,8 @@ export const teamService = {
 
   /**
    * List teams for a specific organization
+   * 
+   * @deprecated Use database query directly or teamService.listTeams() instead
    */
   async listOrganizationTeams(orgId: string) {
     try {
@@ -324,49 +234,18 @@ export const teamService = {
         Query.equal('isActive', true)
       ]);
 
-      // Get Appwrite team data for each team
-      const teamsWithAppwriteData = await Promise.all(
-        teamData.documents.map(async (team) => {
-          try {
-            // Try to find the team in Appwrite by searching through all teams
-            const allAppwriteTeams = await teams.list();
-            const appwriteTeam = allAppwriteTeams.teams.find(t => t.name === team.teamName);
-            
-            if (appwriteTeam) {
-              return {
-                ...appwriteTeam,
-                $permissions: [], // Appwrite Teams don't have $permissions, provide empty array
-                teamData: team as unknown as TeamData
-              };
-            } else {
-              // Team doesn't exist in Appwrite, return mock data
-              console.warn('Could not find Appwrite team for:', team.teamName);
-              return {
-                $id: team.$id,
-                name: team.teamName,
-                $createdAt: team.$createdAt,
-                $updatedAt: team.$updatedAt,
-                $permissions: [],
-                teamData: team as unknown as TeamData
-              };
-            }
-          } catch (error) {
-            console.warn('Could not fetch Appwrite team data for:', team.teamName);
-            return {
-              $id: team.$id,
-              name: team.teamName,
-              $createdAt: team.$createdAt,
-              $updatedAt: team.$updatedAt,
-              $permissions: [],
-              teamData: team as unknown as TeamData
-            };
-          }
-        })
-      );
+      const teamsWithData = teamData.documents.map((team: any) => ({
+        $id: team.$id,
+        name: team.teamName,
+        $createdAt: team.$createdAt,
+        $updatedAt: team.$updatedAt,
+        $permissions: [],
+        teamData: team as TeamData
+      }));
 
       return {
-        teams: teamsWithAppwriteData,
-        total: teamsWithAppwriteData.length
+        teams: teamsWithData,
+        total: teamsWithData.length
       };
     } catch (error) {
       console.error('List organization teams error:', error);
@@ -375,34 +254,35 @@ export const teamService = {
   },
 
   /**
-   * Update team name (both Appwrite and our database)
+   * Update team name
+   * 
+   * @deprecated Use teamService.updateTeam() from @/services/teamService instead
    */
-  async updateTeam(teamId: string, name: string, description?: string) {
+  async updateTeam(teamId: string, name: string, description?: string, orgId?: string) {
     try {
-      // Update Appwrite team
-      const appwriteTeam = await teams.updateName(teamId, name);
+      if (!orgId) {
+        const team = await databaseService.getDocument('teams', teamId);
+        orgId = team.orgId;
+      }
       
-      // Update our custom team data
-      let teamData = await databaseService.listDocuments('teams', [
-        Query.equal('appwriteTeamId', teamId)
-      ]);
-
-      if (!teamData.documents || teamData.documents.length === 0) {
-        teamData = await databaseService.listDocuments('teams', [
-          Query.equal('teamName', name)
-        ]);
+      if (!orgId) {
+        throw new Error('Organization ID is required');
       }
-
-      if (teamData.documents.length > 0) {
-        const updateData: any = { teamName: name };
-        if (description !== undefined) {
-          updateData.description = description;
-        }
-        
-        await databaseService.updateDocument('teams', teamData.documents[0].$id, updateData);
+      
+      const updates: any = { teamName: name };
+      if (description !== undefined) {
+        updates.description = description;
       }
-
-      return appwriteTeam;
+      
+      const updated = await customTeamService.updateTeam(teamId, orgId, updates);
+      
+      return {
+        $id: updated.$id,
+        name: updated.teamName,
+        $createdAt: updated.$createdAt,
+        $updatedAt: updated.$updatedAt,
+        $permissions: []
+      };
     } catch (error) {
       console.error('Update team error:', error);
       throw error;
@@ -411,82 +291,32 @@ export const teamService = {
 
   /**
    * Update team details (all fields)
+   * 
+   * @deprecated Use teamService.updateTeam() from @/services/teamService instead
    */
-  async updateTeamDetails(teamId: string, updates: {
-    name?: string;
-    email?: string;
-    phone?: string;
-    website?: string;
-    address?: string;
-    description?: string;
-    teamPhotoUrl?: string;
-  }) {
+  async updateTeamDetails(
+    teamId: string,
+    updates: {
+      name?: string;
+      email?: string;
+      phone?: string;
+      website?: string;
+      address?: string;
+      description?: string;
+      teamPhotoUrl?: string;
+    },
+    orgId?: string
+  ) {
     try {
-      console.log('🔄 updateTeamDetails - Called with:', {
-        teamId,
-        updates,
-        teamPhotoUrl: updates.teamPhotoUrl,
-        teamPhotoUrlType: typeof updates.teamPhotoUrl,
-        teamPhotoUrlLength: updates.teamPhotoUrl?.length,
-      });
-      
-      // First, get the Appwrite team to ensure it exists
-      const appwriteTeam = await teams.get(teamId);
-      console.log('🔄 updateTeamDetails - Appwrite team:', {
-        id: appwriteTeam.$id,
-        name: appwriteTeam.name,
-      });
-      
-      // Find the team in our database by matching the current Appwrite team name
-      // We need to find it by name before updating, because we need the database document ID
-      let teamDataQuery = await databaseService.listDocuments('teams', [
-        Query.equal('appwriteTeamId', teamId)
-      ]);
-      console.log('🔄 updateTeamDetails - Query by appwriteTeamId:', {
-        found: teamDataQuery.documents?.length || 0,
-        documents: teamDataQuery.documents?.map((d: any) => ({
-          id: d.$id,
-          teamName: d.teamName,
-          appwriteTeamId: d.appwriteTeamId,
-          teamPhotoUrl: d.teamPhotoUrl,
-        })),
-      });
-      
-      if (!teamDataQuery.documents || teamDataQuery.documents.length === 0) {
-        console.log('🔄 updateTeamDetails - Not found by appwriteTeamId, trying teamName...');
-        teamDataQuery = await databaseService.listDocuments('teams', [
-          Query.equal('teamName', appwriteTeam.name)
-        ]);
-        console.log('🔄 updateTeamDetails - Query by teamName:', {
-          found: teamDataQuery.documents?.length || 0,
-          documents: teamDataQuery.documents?.map((d: any) => ({
-            id: d.$id,
-            teamName: d.teamName,
-            appwriteTeamId: d.appwriteTeamId,
-            teamPhotoUrl: d.teamPhotoUrl,
-          })),
-        });
+      if (!orgId) {
+        const team = await databaseService.getDocument('teams', teamId);
+        orgId = team.orgId;
       }
-      
-      if (!teamDataQuery.documents || teamDataQuery.documents.length === 0) {
-        console.error('❌ updateTeamDetails - Team data not found in database');
-        throw new Error('Team data not found in database');
+
+      if (!orgId) {
+        throw new Error('Organization ID is required');
       }
-      
-      const teamDataDoc = teamDataQuery.documents[0];
-      console.log('🔄 updateTeamDetails - Found team document:', {
-        id: teamDataDoc.$id,
-        teamName: teamDataDoc.teamName,
-        currentTeamPhotoUrl: teamDataDoc.teamPhotoUrl,
-        allKeys: Object.keys(teamDataDoc),
-      });
-      
-      // Update Appwrite team name if provided and different
-      if (updates.name && updates.name !== appwriteTeam.name) {
-        console.log('🔄 updateTeamDetails - Updating Appwrite team name...');
-        await teams.updateName(teamId, updates.name);
-      }
-      
+
       // Prepare update data for database
       const updateData: any = {};
       if (updates.name) updateData.teamName = updates.name;
@@ -495,266 +325,75 @@ export const teamService = {
       if (updates.website !== undefined) updateData.website = updates.website;
       if (updates.address !== undefined) updateData.address = updates.address;
       if (updates.description !== undefined) updateData.description = updates.description;
-      
-      console.log('🔄 updateTeamDetails - Checking teamPhotoUrl:', {
-        provided: updates.teamPhotoUrl,
-        isUndefined: updates.teamPhotoUrl === undefined,
-        isString: typeof updates.teamPhotoUrl === 'string',
-        length: updates.teamPhotoUrl?.length,
-        value: updates.teamPhotoUrl,
-      });
-      
-      // ALWAYS include teamPhotoUrl if provided (even if empty string or null)
       if (updates.teamPhotoUrl !== undefined) {
-        // If it's a non-empty string, use it; if empty string, set to null to clear
-        updateData.teamPhotoUrl = updates.teamPhotoUrl && updates.teamPhotoUrl.trim().length > 0 
-          ? updates.teamPhotoUrl.trim() 
+        updateData.teamPhotoUrl = updates.teamPhotoUrl && updates.teamPhotoUrl.trim().length > 0
+          ? updates.teamPhotoUrl.trim()
           : null;
-        console.log('✅ updateTeamDetails - Adding teamPhotoUrl to updateData:', updateData.teamPhotoUrl);
-        console.log('✅ updateTeamDetails - teamPhotoUrl will be saved to database');
-      } else {
-        console.log('⚠️ updateTeamDetails - teamPhotoUrl is undefined, not updating');
-        console.log('⚠️ updateTeamDetails - This means teamPhotoUrl was not provided in updates');
       }
 
-      console.log('🔄 updateTeamDetails - Final updateData:', {
-        ...updateData,
-        teamPhotoUrl: updateData.teamPhotoUrl,
-        updateDataKeys: Object.keys(updateData),
-        hasTeamPhotoUrl: 'teamPhotoUrl' in updateData,
-      });
-      console.log('🔄 updateTeamDetails - Updating document:', {
-        collection: 'teams',
-        documentId: teamDataDoc.$id,
-        documentTeamName: teamDataDoc.teamName,
-        updateData,
-        updateDataStringified: JSON.stringify(updateData, null, 2),
-      });
-
-      // Update our custom team data in database using the document ID
-      console.log('🔄 updateTeamDetails - Calling databaseService.updateDocument...');
-      const updateResult = await databaseService.updateDocument('teams', teamDataDoc.$id, updateData);
-      console.log('✅ updateTeamDetails - Document updated:', {
-        id: updateResult.$id,
-        updatedAt: updateResult.$updatedAt,
-        resultKeys: Object.keys(updateResult),
-        resultTeamPhotoUrl: (updateResult as any).teamPhotoUrl,
-      });
-      
-      // Verify the update by fetching the document again
-      console.log('🔄 updateTeamDetails - Verifying update by fetching document...');
-      const verifyDoc = await databaseService.getDocument('teams', teamDataDoc.$id);
-      console.log('✅ updateTeamDetails - Verification - Retrieved document:', {
-        id: verifyDoc.$id,
-        teamName: (verifyDoc as any).teamName,
-        teamPhotoUrl: (verifyDoc as any).teamPhotoUrl,
-        teamPhotoUrlType: typeof (verifyDoc as any).teamPhotoUrl,
-        teamPhotoUrlLength: (verifyDoc as any).teamPhotoUrl?.length,
-        allKeys: Object.keys(verifyDoc),
-        hasTeamPhotoUrl: 'teamPhotoUrl' in verifyDoc,
-      });
-      
-      // Double-check: if we tried to save teamPhotoUrl but it's not in the result, log a warning
-      if ('teamPhotoUrl' in updateData && (verifyDoc as any).teamPhotoUrl !== updateData.teamPhotoUrl) {
-        console.error('❌ updateTeamDetails - WARNING: teamPhotoUrl mismatch!');
-        console.error('❌ updateTeamDetails - Expected:', updateData.teamPhotoUrl);
-        console.error('❌ updateTeamDetails - Got:', (verifyDoc as any).teamPhotoUrl);
-        console.error('❌ updateTeamDetails - This might indicate a database permissions issue or field name mismatch');
-      } else if ('teamPhotoUrl' in updateData) {
-        console.log('✅ updateTeamDetails - teamPhotoUrl verified successfully in database');
-      }
+      await customTeamService.updateTeam(teamId, orgId, updateData);
 
       return { success: true };
     } catch (error) {
-      console.error('❌ updateTeamDetails - Error:', error);
-      console.error('❌ updateTeamDetails - Error type:', typeof error);
-      console.error('❌ updateTeamDetails - Error message:', (error as any)?.message);
-      console.error('❌ updateTeamDetails - Error stack:', (error as any)?.stack);
+      console.error('Update team details error:', error);
       throw error;
     }
   },
 
   /**
    * Update team photo URL immediately after upload
-   * This is a dedicated function to save the photo URL right after upload
+   * 
+   * @deprecated Use teamService.updateTeam() from @/services/teamService instead
    */
-  async updateTeamPhotoUrl(teamId: string, photoUrl: string) {
+  async updateTeamPhotoUrl(teamId: string, photoUrl: string, orgId?: string) {
     try {
-      console.log('📸 updateTeamPhotoUrl - Called with:', {
-        teamId,
-        photoUrl,
-        photoUrlType: typeof photoUrl,
-        photoUrlLength: photoUrl?.length,
-      });
-      
       if (!photoUrl || typeof photoUrl !== 'string' || photoUrl.trim().length === 0) {
-        console.error('❌ updateTeamPhotoUrl - Invalid photoUrl provided:', photoUrl);
         throw new Error('Invalid photo URL provided');
       }
 
-      // First, get the Appwrite team to ensure it exists
-      const appwriteTeam = await teams.get(teamId);
-      console.log('📸 updateTeamPhotoUrl - Appwrite team:', {
-        id: appwriteTeam.$id,
-        name: appwriteTeam.name,
-      });
-      
-      // Find the team in our database
-      let teamDataQuery = await databaseService.listDocuments('teams', [
-        Query.equal('appwriteTeamId', teamId)
-      ]);
-      console.log('📸 updateTeamPhotoUrl - Query by appwriteTeamId:', {
-        found: teamDataQuery.documents?.length || 0,
-      });
-      
-      if (!teamDataQuery.documents || teamDataQuery.documents.length === 0) {
-        console.log('📸 updateTeamPhotoUrl - Not found by appwriteTeamId, trying teamName...');
-        teamDataQuery = await databaseService.listDocuments('teams', [
-          Query.equal('teamName', appwriteTeam.name)
-        ]);
-        console.log('📸 updateTeamPhotoUrl - Query by teamName:', {
-          found: teamDataQuery.documents?.length || 0,
-        });
+      if (!orgId) {
+        const team = await databaseService.getDocument('teams', teamId);
+        orgId = team.orgId;
       }
-      
-      if (!teamDataQuery.documents || teamDataQuery.documents.length === 0) {
-        console.error('❌ updateTeamPhotoUrl - Team data not found in database');
-        throw new Error('Team data not found in database');
+
+      if (!orgId) {
+        throw new Error('Organization ID is required');
       }
-      
-      const teamDataDoc = teamDataQuery.documents[0];
-      console.log('📸 updateTeamPhotoUrl - Found team document:', {
-        id: teamDataDoc.$id,
-        teamName: teamDataDoc.teamName,
-        currentTeamPhotoUrl: teamDataDoc.teamPhotoUrl,
-      });
-      
-      // Update only the teamPhotoUrl field
+
       const trimmedUrl = photoUrl.trim();
-      const updateData = {
-        teamPhotoUrl: trimmedUrl,
-      };
-      
-      console.log('📸 updateTeamPhotoUrl - Updating with data:', updateData);
-      console.log('📸 updateTeamPhotoUrl - Document ID:', teamDataDoc.$id);
-      
-      // Update the document
-      const updateResult = await databaseService.updateDocument('teams', teamDataDoc.$id, updateData);
-      console.log('✅ updateTeamPhotoUrl - Document updated:', {
-        id: updateResult.$id,
-        updatedAt: updateResult.$updatedAt,
-        resultTeamPhotoUrl: (updateResult as any).teamPhotoUrl,
-      });
-      
-      // Verify the update
-      const verifyDoc = await databaseService.getDocument('teams', teamDataDoc.$id);
-      console.log('✅ updateTeamPhotoUrl - Verification:', {
-        id: verifyDoc.$id,
-        teamPhotoUrl: (verifyDoc as any).teamPhotoUrl,
-        matches: (verifyDoc as any).teamPhotoUrl === trimmedUrl,
-      });
-      
-      if ((verifyDoc as any).teamPhotoUrl !== trimmedUrl) {
-        console.error('❌ updateTeamPhotoUrl - WARNING: teamPhotoUrl mismatch after update!');
-        console.error('❌ updateTeamPhotoUrl - Expected:', trimmedUrl);
-        console.error('❌ updateTeamPhotoUrl - Got:', (verifyDoc as any).teamPhotoUrl);
-        throw new Error('Team photo URL was not saved correctly');
-      }
-      
-      console.log('✅ updateTeamPhotoUrl - Successfully saved team photo URL to database');
+      await customTeamService.updateTeam(teamId, orgId, { teamPhotoUrl: trimmedUrl });
+
       return { success: true, teamPhotoUrl: trimmedUrl };
     } catch (error) {
-      console.error('❌ updateTeamPhotoUrl - Error:', error);
-      console.error('❌ updateTeamPhotoUrl - Error type:', typeof error);
-      console.error('❌ updateTeamPhotoUrl - Error message:', (error as any)?.message);
-      console.error('❌ updateTeamPhotoUrl - Error stack:', (error as any)?.stack);
+      console.error('Update team photo URL error:', error);
       throw error;
     }
   },
 
   /**
-   * Delete a team (both Appwrite and our database)
+   * Delete a team (soft delete via custom database implementation)
+   * 
+   * @deprecated Use teamService.deleteTeam() from @/services/teamService instead
    */
-  async deleteTeam(teamId: string) {
+  async deleteTeam(teamId: string, orgId?: string) {
     try {
-      let teamName = '';
-      
-      // First, try to get team from Appwrite
-      try {
-        const team = await teams.get(teamId);
-        teamName = team.name;
-        
-        // Delete Appwrite team
-        await teams.delete(teamId);
-      } catch (appwriteError) {
-        console.warn('Team not found in Appwrite, attempting database-only deletion:', appwriteError);
-        
-        // If team doesn't exist in Appwrite, try to find it in our database
-        // by searching through memberships to get the team name
-        const memberships = await databaseService.listDocuments('memberships', [
-          Query.equal('teamId', teamId)
-        ]);
-        
-        if (memberships.documents && memberships.documents.length > 0) {
-          // Try to find team name by searching all teams
-          const allTeams = await teams.list();
-          const matchingTeam = allTeams.teams.find(t => t.$id === teamId);
-          
-          if (matchingTeam) {
-            teamName = matchingTeam.name;
-          } else {
-            // If we can't find the team name, we'll handle it below
-            console.warn('Could not find team name for ID:', teamId);
-          }
-        }
-      }
-      
-      // Soft delete our custom team data
-      if (teamName) {
-        const teamData = await databaseService.listDocuments('teams', [
-          Query.equal('teamName', teamName)
-        ]);
-
-        if (teamData.documents.length > 0) {
-          await databaseService.updateDocument('teams', teamData.documents[0].$id, {
-            isActive: false
-          });
-        }
-      } else {
-        // If we couldn't find the team name, try to find team data by searching
-        // through all teams and matching by some other criteria
-        console.warn('Could not determine team name, attempting alternative deletion method');
-        
-        // Search for team data that might match this teamId
-        const allTeamData = await databaseService.listDocuments('teams', []);
-        const matchingTeamData = allTeamData.documents.find(team => {
-          // This is a fallback - we'll mark any team as inactive if we can't find exact match
-          return true; // For now, we'll skip this complex matching
-        });
-        
-        if (matchingTeamData) {
-          await databaseService.updateDocument('teams', matchingTeamData.$id, {
-            isActive: false
-          });
-        }
+      if (!orgId) {
+        const team = await databaseService.getDocument('teams', teamId);
+        orgId = team.orgId;
       }
 
-      // Also soft delete any memberships for this team
-      const memberships = await databaseService.listDocuments('memberships', [
-        Query.equal('teamId', teamId)
-      ]);
-      
-      for (const membership of memberships.documents) {
-        await databaseService.updateDocument('memberships', membership.$id, {
-          isActive: false
-        });
+      if (!orgId) {
+        throw new Error('Organization ID is required');
       }
+
+      // Use custom team service for soft delete
+      await customTeamService.deleteTeam(teamId, orgId);
 
       // Clean up any jobs that reference this team
       const jobs = await databaseService.listDocuments('jobchat', [
         Query.equal('teamId', teamId)
       ]);
-      
+
       for (const job of jobs.documents) {
         await databaseService.updateDocument('jobchat', job.$id, {
           status: 'archived',
@@ -772,34 +411,37 @@ export const teamService = {
 
   /**
    * Create team membership (invite user)
+   * 
+   * @deprecated Use teamService.inviteMember() from @/services/teamService instead
    */
   async createMembership(
     teamId: string,
     email: string,
     roles: string[],
     url: string,
-    invitedBy: string
+    invitedBy: string,
+    orgId?: string
   ) {
     try {
-      // Create Appwrite membership
-      const appwriteMembership = await teams.createMembership(teamId, roles, email, undefined, undefined, url);
-      
-      // Create our custom membership data
-      // Store email so we can use it later when Appwrite's membership object doesn't have it
-      const membershipData = {
-        userId: appwriteMembership.userId,
-        teamId: teamId,
-        role: roles[0] || 'member', // Use first role as primary role
-        userEmail: email, // Store the email for later use
-        invitedBy: invitedBy,
-        joinedAt: new Date().toISOString(),
-        isActive: true,
-        canShareJobReports: false // Default to false - owners can enable this later
-      };
+      if (!orgId) {
+        const team = await databaseService.getDocument('teams', teamId);
+        orgId = team.orgId;
+      }
 
-      await databaseService.createDocument('memberships', membershipData);
-      
-      return appwriteMembership;
+      if (!orgId) {
+        throw new Error('Organization ID is required');
+      }
+
+      // Use custom invitation system
+      const result = await customTeamService.inviteMember(
+        teamId,
+        orgId,
+        email,
+        roles,
+        invitedBy
+      );
+
+      return result.invitation;
     } catch (error) {
       console.error('Create membership error:', error);
       throw error;
@@ -962,30 +604,34 @@ export const teamService = {
   },
 
   /**
-   * Update membership roles (both Appwrite and our database)
+   * Update membership roles
+   * 
+   * @deprecated Use teamService.updateMemberRole() from @/services/teamService instead
    */
   async updateMembershipRoles(
     teamId: string,
     membershipId: string,
-    roles: string[]
+    roles: string[],
+    orgId?: string
   ) {
     try {
-      // Update Appwrite membership
-      const appwriteMembership = await teams.updateMembership(teamId, membershipId, roles);
-      
-      // Update our custom membership data
-      const membershipData = await databaseService.listDocuments('memberships', [
-        Query.equal('userId', appwriteMembership.userId),
-        Query.equal('teamId', teamId)
-      ]);
-
-      if (membershipData.documents.length > 0) {
-        await databaseService.updateDocument('memberships', membershipData.documents[0].$id, {
-          role: roles[0] || 'member' // Use first role as primary role
-        });
+      if (!orgId) {
+        const membership = await databaseService.getDocument('memberships', membershipId);
+        orgId = membership.orgId;
       }
 
-      return appwriteMembership;
+      if (!orgId) {
+        throw new Error('Organization ID is required');
+      }
+
+      const updated = await customTeamService.updateMemberRole(
+        teamId,
+        membershipId,
+        roles,
+        orgId
+      );
+
+      return updated;
     } catch (error) {
       console.error('Update membership roles error:', error);
       throw error;
@@ -994,6 +640,8 @@ export const teamService = {
 
   /**
    * Update membership permission for sharing job reports
+   * 
+   * @deprecated This will be moved to a separate permission service
    */
   async updateMembershipJobReportsPermission(
     teamId: string,
@@ -1001,12 +649,9 @@ export const teamService = {
     canShare: boolean
   ) {
     try {
-      // Get the membership to find userId
-      const membership = await teams.getMembership(teamId, membershipId);
-      
-      // Update our custom membership data
+      // Update our custom membership data directly
       const membershipData = await databaseService.listDocuments('memberships', [
-        Query.equal('userId', membership.userId),
+        Query.equal('$id', membershipId),
         Query.equal('teamId', teamId)
       ]);
 
@@ -1026,27 +671,22 @@ export const teamService = {
   },
 
   /**
-   * Delete team membership (both Appwrite and our database)
+   * Delete team membership (soft delete via custom database implementation)
+   * 
+   * @deprecated Use teamService.removeMember() from @/services/teamService instead
    */
-  async deleteMembership(teamId: string, membershipId: string) {
+  async deleteMembership(teamId: string, membershipId: string, orgId?: string) {
     try {
-      // Get membership info before deleting
-      const membership = await teams.getMembership(teamId, membershipId);
-      
-      // Delete Appwrite membership
-      await teams.deleteMembership(teamId, membershipId);
-      
-      // Soft delete our custom membership data
-      const membershipData = await databaseService.listDocuments('memberships', [
-        Query.equal('userId', membership.userId),
-        Query.equal('teamId', teamId)
-      ]);
-
-      if (membershipData.documents.length > 0) {
-        await databaseService.updateDocument('memberships', membershipData.documents[0].$id, {
-          isActive: false
-        });
+      if (!orgId) {
+        const membership = await databaseService.getDocument('memberships', membershipId);
+        orgId = membership.orgId;
       }
+
+      if (!orgId) {
+        throw new Error('Organization ID is required');
+      }
+
+      await customTeamService.removeMember(teamId, membershipId, orgId);
 
       return { success: true };
     } catch (error) {
@@ -1057,10 +697,23 @@ export const teamService = {
 
   /**
    * Get team membership by ID
+   * 
+   * @deprecated Use teamService.getMembership() from @/services/teamService instead
    */
-  async getMembership(teamId: string, membershipId: string) {
+  async getMembership(teamId: string, userId: string, orgId?: string) {
     try {
-      return await teams.getMembership(teamId, membershipId);
+      if (!orgId) {
+        // Try to get orgId from team
+        const team = await databaseService.getDocument('teams', teamId);
+        orgId = team.orgId;
+      }
+
+      if (!orgId) {
+        throw new Error('Organization ID is required');
+      }
+
+      const membership = await customTeamService.getMembership(teamId, userId, orgId);
+      return membership;
     } catch (error) {
       console.error('Get membership error:', error);
       throw error;
@@ -1069,15 +722,21 @@ export const teamService = {
 
   /**
    * Update team membership status (accept invitation)
+   * 
+   * @deprecated Use teamService.acceptInvitation() from @/services/teamService instead
    */
   async updateMembershipStatus(
-    teamId: string,
-    membershipId: string,
+    token: string,
     userId: string,
-    secret: string
+    orgId?: string
   ) {
     try {
-      return await teams.updateMembershipStatus(teamId, membershipId, userId, secret);
+      if (!orgId) {
+        throw new Error('Organization ID is required');
+      }
+
+      const result = await customTeamService.acceptInvitation(token, userId, orgId);
+      return result;
     } catch (error) {
       console.error('Update membership status error:', error);
       throw error;

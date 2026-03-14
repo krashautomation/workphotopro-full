@@ -8,7 +8,6 @@ import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, 
 import { useState, useEffect, useCallback } from 'react';
 import { IconSymbol } from '@/components/IconSymbol';
 import { TeamData } from '@/utils/types';
-import { teams as appwriteTeams } from '@/lib/appwrite/client';
 
 export default function ArchivedTeams() {
   const { user, isAuthenticated } = useAuth();
@@ -62,19 +61,11 @@ export default function ArchivedTeams() {
     }
   };
 
-  const restoreAssociatedJobchats = async (teamName: string) => {
+  const restoreAssociatedJobchats = async (teamId: string) => {
     try {
-      // Best-effort: find an Appwrite Team by matching name
-      const allAppwriteTeams = await appwriteTeams.list();
-      const match = allAppwriteTeams.teams.find(t => t.name === teamName);
-      if (!match) {
-        // If no Appwrite team exists (e.g., it was deleted), we cannot reliably map jobchats
-        return { restored: 0 };
-      }
-
       // Find jobchats for this team and reactivate them
       const jobs = await databaseService.listDocuments('jobchat', [
-        Query.equal('teamId', match.$id),
+        Query.equal('teamId', teamId),
         Query.limit(100),
       ]);
 
@@ -103,7 +94,7 @@ export default function ArchivedTeams() {
       await databaseService.updateDocument('teams', teamDoc.$id, { isActive: true });
 
       // Best-effort restoration of related jobchats
-      const { restored } = await restoreAssociatedJobchats(teamDoc.teamName);
+      const { restored } = await restoreAssociatedJobchats(teamDoc.$id);
 
       // Refresh user data so the team shows up in lists again
       await loadUserData();
