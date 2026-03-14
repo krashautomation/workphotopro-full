@@ -1,6 +1,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { globalStyles, colors } from '@/styles/globalStyles';
+import { usePermissions } from '@/utils/permissions';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Text, View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
@@ -11,6 +12,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 export default function EditTeam() {
   const { user, isAuthenticated } = useAuth();
   const { currentTeam, refreshCurrentTeam } = useOrganization();
+  const { isOwner, isAdmin, isMember, canEditTeamSettings } = usePermissions();
   const router = useRouter();
   
   // Refresh team data when screen comes into focus
@@ -47,21 +49,20 @@ export default function EditTeam() {
     );
   }
 
-  // Check if user is owner - only owners can access team settings
-  const membershipRole = (currentTeam as any)?.membershipRole || 'member';
-  const isOwner = membershipRole?.toLowerCase() === 'owner';
-  
   // Debug logging
   console.log('🔍 team-settings.tsx - Checking permissions:', {
     teamId: currentTeam?.$id,
     teamName: currentTeam?.teamName,
-    membershipRole: membershipRole,
-    isOwner: isOwner,
+    membershipRole: (currentTeam as any)?.membershipRole ?? 'unknown',
+    isOwner,
+    isAdmin,
+    isMember,
+    canEditTeamSettings,
     currentTeamKeys: Object.keys(currentTeam || {}),
     hasMembershipRole: 'membershipRole' in (currentTeam as any || {})
   });
   
-  if (!isOwner) {
+  if (!canEditTeamSettings) {
     return (
       <View style={globalStyles.centeredContainer}>
         <Text style={globalStyles.body}>You don't have permission to access team settings</Text>
@@ -69,7 +70,7 @@ export default function EditTeam() {
           Only team owners can manage team settings.
         </Text>
         <Text style={[globalStyles.body, { marginTop: 8, color: colors.textSecondary, fontSize: 12 }]}>
-          Your role: {membershipRole || 'unknown'}
+          Your role: {(currentTeam as any)?.membershipRole || 'unknown'}
         </Text>
         <TouchableOpacity 
           style={styles.backButton}

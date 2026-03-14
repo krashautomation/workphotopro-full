@@ -2,6 +2,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { globalStyles, colors } from '@/styles/globalStyles';
 import { webColors } from '@/styles/webDesignTokens';
+import { usePermissions } from '@/utils/permissions';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
@@ -19,6 +20,7 @@ import { TeamData } from '@/utils/types';
 export default function Teams() {
   const { user, isAuthenticated } = useAuth();
   const { userOrganizations, userTeams, loadUserData, switchTeam, currentTeam, currentOrganization } = useOrganization();
+  const { isOwner, canCreateTeam, canDeleteTeam, canEditTeamSettings } = usePermissions();
   const router = useRouter();
   
   const [activeTab, setActiveTab] = useState<'memberships' | 'myTeams'>('myTeams');
@@ -543,7 +545,7 @@ export default function Teams() {
 
       {/* Bottom Menu */}
       <View style={styles.bottomContainer}>
-        {activeTab === 'myTeams' && currentTeam && (
+        {activeTab === 'myTeams' && currentTeam && canDeleteTeam && (
           <TouchableOpacity style={styles.menuItem} onPress={handleDeleteTeam}>
             <View style={styles.menuItemLeft}>
               <IconSymbol
@@ -561,7 +563,7 @@ export default function Teams() {
           </TouchableOpacity>
         )}
         {/* Create Team button - only show if user owns the current organization */}
-        {currentOrganization?.ownerId === user?.$id && (
+        {canCreateTeam && (
           <TouchableOpacity style={styles.menuItem} onPress={handleCreateTeam}>
             <View style={styles.menuItemLeft}>
               <IconSymbol
@@ -621,7 +623,7 @@ export default function Teams() {
           />
         </TouchableOpacity>
         {currentTeam && (() => {
-          const isOwner = membershipRole === 'owner';
+          const currentTeamOwnerRole = membershipRole === 'owner';
           
           // Verbose logging for debugging
           console.log('🔍 teams.tsx - Team Settings visibility check:', {
@@ -631,22 +633,26 @@ export default function Teams() {
             membershipRole: membershipRole,
             membershipRoleType: typeof membershipRole,
             membershipRoleLowercase: membershipRole?.toLowerCase(),
-            isOwner: isOwner,
+            isOwner,
+            currentTeamOwnerRole,
+            canEditTeamSettings,
             isOwnerCheck: membershipRole === 'owner',
             currentTeamKeys: Object.keys(currentTeam || {}),
             currentTeamFull: JSON.stringify(currentTeam, null, 2).substring(0, 500) // First 500 chars
           });
           
-          if (!isOwner) {
-            console.log('❌ teams.tsx - Team Settings HIDDEN: User is not owner', {
+          if (!canEditTeamSettings) {
+            console.log('❌ teams.tsx - Team Settings HIDDEN: User has no permission', {
               membershipRole,
+              isOwner,
+              canEditTeamSettings,
               expectedRole: 'owner',
               comparison: membershipRole === 'owner'
             });
             return null;
           }
           
-          console.log('✅ teams.tsx - Team Settings VISIBLE: User is owner');
+          console.log('✅ teams.tsx - Team Settings VISIBLE: User has permission');
           
           return (
             <TouchableOpacity 

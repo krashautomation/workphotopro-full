@@ -97,3 +97,32 @@ Conclusion:
 - Role checks exist but are distributed across screens/services.
 - Plan checks are implemented for video/settings and subscription sync, also distributed.
 - There is currently no single centralized app permission helper covering role + plan + feature policy.
+
+## Screen Migration Progress
+
+### Priority 1 — Role/Permission Screens
+- [x] app/(jobs)/team-settings.tsx
+- [x] app/(jobs)/teams.tsx
+- [ ] app/(jobs)/delete-team.tsx
+- [ ] app/(jobs)/manage-member.tsx
+- [ ] app/(jobs)/invite.tsx
+
+### Priority 2 — Feature Gated Screens
+- [ ] app/(jobs)/video-camera.tsx
+- [ ] app/(jobs)/profile-settings.tsx
+- [ ] app/(jobs)/camera.tsx
+- [ ] app/(jobs)/index.tsx
+- [ ] app/(jobs)/[job].tsx
+
+### Priority 3 — Secondary Screens
+- [ ] app/(jobs)/edit-team.tsx
+- [ ] app/(jobs)/new-team.tsx
+- [ ] app/(jobs)/job-details.tsx
+- [ ] app/(jobs)/job-uploads.tsx
+- [ ] app/(jobs)/share-report-modal.tsx
+- [ ] app/(jobs)/trashed-jobs.tsx
+- [ ] app/(jobs)/notifications.tsx
+
+### Utility/Context
+- [x] utils/permissions.ts — created
+- [x] context/OrganizationContext.tsx — isCurrentOrgPremium fixed
