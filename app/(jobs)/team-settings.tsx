@@ -54,7 +54,7 @@ export default function EditTeam() {
   // Debug logging
   console.log('🔍 team-settings.tsx - Checking permissions:', {
     teamId: currentTeam?.$id,
-    teamName: currentTeam?.name,
+    teamName: currentTeam?.teamName,
     membershipRole: membershipRole,
     isOwner: isOwner,
     currentTeamKeys: Object.keys(currentTeam || {}),
@@ -81,13 +81,13 @@ export default function EditTeam() {
     );
   }
 
-  const teamName = currentTeam.name || 'Unnamed Team';
-  const teamDescription = currentTeam.teamData?.description || 'No description';
-  const teamEmail = currentTeam.teamData?.email || 'No email';
-  const teamPhone = currentTeam.teamData?.phone || 'No phone number';
-  const teamWebsite = currentTeam.teamData?.website || 'No website';
-  const teamAddress = currentTeam.teamData?.address || 'No address';
-  const teamPhotoUrl = currentTeam.teamData?.teamPhotoUrl;
+  const teamName = currentTeam.teamName || 'Unnamed Team';
+  const teamDescription = currentTeam.description || 'No description';
+  const teamEmail = currentTeam.email || 'No email';
+  const teamPhone = currentTeam.phone || 'No phone number';
+  const teamWebsite = currentTeam.website || 'No website';
+  const teamAddress = currentTeam.address || 'No address';
+  const teamPhotoUrl = currentTeam.teamPhotoUrl;
 
   const handleEditTeam = () => {
     router.push('/(jobs)/edit-team');
@@ -96,7 +96,7 @@ export default function EditTeam() {
   const handleDeleteTeam = () => {
     if (!currentTeam) return;
     
-    const teamName = currentTeam.name || 'Team';
+    const teamName = currentTeam.teamName || 'Team';
     
     router.push({
       pathname: '/(jobs)/delete-team',

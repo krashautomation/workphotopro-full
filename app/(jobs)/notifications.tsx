@@ -6,16 +6,23 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Notification } from '@/lib/appwrite/notifications';
 import { useAuth } from '@/context/AuthContext';
+import { useOrganization } from '@/context/OrganizationContext';
 import { sendNotification } from '@/lib/appwrite/notificationHelper';
 
 export default function Notifications() {
   const router = useRouter();
   const { user } = useAuth();
+  const { currentOrganization } = useOrganization();
   const { notifications, unreadCount, loading, error, markAsRead, markAllAsRead, clearRead, refresh } = useNotifications();
 
   const createTestNotification = async () => {
     if (!user) {
       Alert.alert('Error', 'You must be logged in to create test notifications');
+      return;
+    }
+
+    if (!currentOrganization?.$id) {
+      Alert.alert('Error', 'You must be in an organization to create test notifications');
       return;
     }
 
@@ -35,6 +42,7 @@ export default function Notifications() {
         type: randomTest.type,
         title: randomTest.title,
         message: randomTest.message,
+        orgId: currentOrganization.$id,
       });
 
       const result = await sendNotification(
@@ -42,6 +50,7 @@ export default function Notifications() {
         randomTest.type as any,
         randomTest.title,
         randomTest.message,
+        currentOrganization.$id,
         { jobId: 'test-123', test: true }
       );
 

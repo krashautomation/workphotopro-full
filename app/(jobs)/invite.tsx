@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert, Share, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, Share, ActivityIndicator, ScrollView, TextInput } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/utils/colors';
@@ -7,7 +7,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import QRCode from 'react-native-qrcode-svg';
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
-import { teamService } from '@/lib/appwrite/teams';
+import { teamService } from '@/services/teamService';
 import { generateInviteLink } from '@/utils/inviteLink';
 
 export default function InviteScreen() {
@@ -17,6 +17,10 @@ export default function InviteScreen() {
   const [inviteLink, setInviteLink] = useState<string>('');
   const [memberCount, setMemberCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  
+  // Email invitation state
+  const [email, setEmail] = useState('');
+  const [sendingInvitation, setSendingInvitation] = useState(false);
 
   useEffect(() => {
     loadTeamData();
@@ -50,8 +54,12 @@ export default function InviteScreen() {
 
       // Fetch member count - wrap in try/catch to handle Appwrite errors gracefully
       try {
-        const memberships = await teamService.listMemberships(currentTeam.$id);
-        setMemberCount(memberships.memberships.length);
+        if (currentOrganization?.$id) {
+          const memberships = await teamService.listMembers(currentTeam.$id, currentOrganization.$id);
+          setMemberCount(memberships.length);
+        } else {
+          setMemberCount(1);
+        }
       } catch (membershipError) {
         console.warn('Could not fetch memberships, using default count:', membershipError);
         // If we can't fetch memberships, default to 1 (just the owner)
@@ -74,13 +82,70 @@ export default function InviteScreen() {
 
     try {
       await Share.share({
-        message: `Join my team "${currentTeam?.name || 'team'}" on WorkPhotoPro: ${inviteLink}`,
+        message: `Join my team "${currentTeam?.teamName || 'team'}" on WorkPhotoPro: ${inviteLink}`,
         url: inviteLink,
-        title: `Join ${currentTeam?.name || 'team'} on WorkPhotoPro`,
+        title: `Join ${currentTeam?.teamName || 'team'} on WorkPhotoPro`,
       });
     } catch (error) {
       console.error('Error sharing link:', error);
       Alert.alert('Error', 'Failed to share link');
+    }
+  };
+
+  const handleSendInvitation = async () => {
+    // Validate inputs
+    if (!email || !email.includes('@')) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address');
+      return;
+    }
+
+    if (!currentTeam?.$id || !currentOrganization?.$id || !user?.$id) {
+      Alert.alert('Error', 'Missing required information. Please try again.');
+      return;
+    }
+
+    setSendingInvitation(true);
+
+    try {
+      // Send invitation using the new custom team service
+      await teamService.inviteMember(
+        currentTeam.$id,
+        currentOrganization.$id,
+        email,
+        ['member'], // Default role
+        user.$id
+      );
+
+      // Success!
+      Alert.alert(
+        'Invitation Sent',
+        `An invitation has been sent to ${email}. They will receive an email with instructions to join the team.`,
+        [{ text: 'OK', onPress: () => setEmail('') }]
+      );
+      
+      // Refresh member count
+      loadTeamData();
+    } catch (error: any) {
+      console.error('Error sending invitation:', error);
+      
+      // Handle specific errors
+      const errorMessage = error?.message || '';
+      
+      if (errorMessage.includes('Pending invitation already exists')) {
+        Alert.alert(
+          'Duplicate Invitation',
+          'An invitation has already been sent to this email address. They can use the existing invitation link to join.'
+        );
+      } else if (errorMessage.includes('Access denied')) {
+        Alert.alert('Permission Denied', 'You do not have permission to invite members to this team.');
+      } else {
+        Alert.alert(
+          'Failed to Send',
+          errorMessage || 'Failed to send invitation. Please try again.'
+        );
+      }
+    } finally {
+      setSendingInvitation(false);
     }
   };
 
@@ -145,7 +210,7 @@ export default function InviteScreen() {
           </View>
           
           <View style={styles.teamDetails}>
-            <Text style={styles.teamName}>{currentTeam.name}</Text>
+            <Text style={styles.teamName}>{currentTeam.teamName}</Text>
             <View style={styles.capacityBar}>
               <Text style={styles.capacityText}>
                 Team members: <Text style={styles.capacityNumbers}>{memberCount}</Text>
@@ -157,17 +222,65 @@ export default function InviteScreen() {
           </View>
         </View>
 
+        {/* Email Invitation Section */}
+        <View style={styles.emailSection}>
+          <Text style={styles.sectionTitle}>Invite by Email</Text>
+          <Text style={styles.sectionDescription}>
+            Send a direct invitation to someone's email address
+          </Text>
+          
+          <TextInput
+            style={styles.emailInput}
+            placeholder="Enter email address"
+            placeholderTextColor={Colors.Gray}
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            editable={!sendingInvitation}
+            autoComplete="email"
+          />
+          
+          <Pressable 
+            style={[styles.sendButton, sendingInvitation && styles.buttonDisabled]} 
+            onPress={handleSendInvitation}
+            disabled={sendingInvitation || !email}
+          >
+            {sendingInvitation ? (
+              <ActivityIndicator color={Colors.White} size="small" />
+            ) : (
+              <>
+                <IconSymbol name="envelope" color={Colors.White} size={18} />
+                <Text style={styles.sendButtonText}>Send Invitation</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+
+        {/* Divider */}
+        <View style={styles.divider}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>OR</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
         {/* Invitation Link and QR Code Section */}
         <View style={styles.inviteSection}>
           <Text style={styles.inviteLink}>{inviteLink}</Text>
           
           <View style={styles.qrCodeContainer}>
-            <QRCode
-              value={inviteLink}
-              size={200}
-              color={Colors.Black}
-              backgroundColor={Colors.White}
-            />
+            {inviteLink ? (
+              <QRCode
+                value={inviteLink}
+                size={200}
+                color={Colors.Black}
+                backgroundColor={Colors.White}
+              />
+            ) : (
+              <View style={{ width: 200, height: 200, backgroundColor: Colors.LightGray, justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ color: Colors.Gray }}>Loading QR Code...</Text>
+              </View>
+            )}
           </View>
           
           <Text style={styles.qrInstructions}>
@@ -379,5 +492,69 @@ const styles = StyleSheet.create({
     color: Colors.Gray,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  // Email invitation styles
+  emailSection: {
+    marginBottom: 30,
+    paddingHorizontal: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.Text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  sectionDescription: {
+    fontSize: 14,
+    color: Colors.Gray,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  emailInput: {
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: Colors.Gray,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: Colors.Text,
+    marginBottom: 16,
+  },
+  sendButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.Primary,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    gap: 8,
+  },
+  sendButtonText: {
+    color: Colors.White,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 30,
+    paddingHorizontal: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.Gray,
+    opacity: 0.3,
+  },
+  dividerText: {
+    fontSize: 14,
+    color: Colors.Gray,
+    marginHorizontal: 12,
   },
 });

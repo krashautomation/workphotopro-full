@@ -69,7 +69,7 @@ export default function ProfileScreen() {
   const profileTeam = React.useMemo(() => {
     if (!profileOrganization) return null;
     return (
-      ownedTeams.find(team => team.teamData?.orgId === profileOrganization.$id) ||
+      ownedTeams.find(team => team.orgId === profileOrganization.$id) ||
       ownedTeams[0] ||
       null
     );

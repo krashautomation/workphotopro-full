@@ -1,7 +1,9 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
-import { organizationService, teamService } from '@/lib/appwrite/teams';
-import { Organization, Team, OrganizationContextType } from '@/utils/types';
+import { organizationService } from '@/lib/appwrite/teams';
+import { teamService } from '@/services/teamService';
+import { databaseService } from '@/lib/appwrite/database';
+import { Organization, Team, OrganizationContextType, TeamData } from '@/utils/types';
 
 const OrganizationContext = createContext<OrganizationContextType | undefined>(undefined);
 
@@ -20,19 +22,19 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   
   // State
   const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
-  const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
+  const [currentTeam, setCurrentTeam] = useState<TeamData | null>(null);
   const [userOrganizations, setUserOrganizations] = useState<Organization[]>([]);
-  const [userTeams, setUserTeams] = useState<Team[]>([]);
+  const [userTeams, setUserTeams] = useState<TeamData[]>([]);
   const [loading, setLoading] = useState(true);
 
   /**
    * Refresh the current team data
    */
   const refreshCurrentTeam = async () => {
-    if (!currentTeam?.$id) return;
+    if (!currentTeam?.$id || !currentOrganization?.$id) return;
     
     try {
-      const updatedTeam = await teamService.getTeam(currentTeam.$id);
+      const updatedTeam = await teamService.getTeam(currentTeam.$id, currentOrganization.$id);
       
       // Preserve membershipRole from current team if it exists
       const preservedMembershipRole = (currentTeam as any)?.membershipRole;
@@ -61,7 +63,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       const teamWithRole = {
         ...updatedTeam,
         membershipRole: membershipRole || preservedMembershipRole || null
-      } as unknown as Team;
+      } as unknown as TeamData;
       
       setCurrentTeam(teamWithRole);
     } catch (error) {
@@ -87,21 +89,98 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       try {
         const orgsResponse = await organizationService.listUserOrganizations(user.$id);
         orgs = orgsResponse.documents.map(applyOrgDefaults);
-        setUserOrganizations(orgs);
       } catch (orgsError: any) {
         // Permission error when trying to list organizations
         console.warn('⚠️ Cannot load organizations (permission error):', orgsError.message);
         console.warn('⚠️ This indicates the "organizations" collection may need "read" permission for authenticated users');
-        setUserOrganizations([]);
       }
 
-      // Load user's teams (where they are member)
-      // This may also fail if user doesn't have read permissions
-      let teams: Team[] = [];
+      // Also load organizations where user is a team member (via memberships)
       try {
-        const teamsResponse = await teamService.listTeams(user.$id);
-        teams = teamsResponse.teams;
-        setUserTeams(teams);
+        const { Query } = await import('react-native-appwrite');
+        const memberships = await databaseService.listDocuments('memberships', [
+          Query.equal('userId', user.$id),
+          Query.equal('isActive', true)
+        ]);
+        
+        // Get unique orgIds from memberships
+        const orgIdsFromMemberships = [...new Set(memberships.documents?.map((m: any) => m.orgId) || [])];
+        
+        // Fetch organizations for those orgIds
+        const orgsFromMemberships = await Promise.all(
+          orgIdsFromMemberships.map(async (orgId: string) => {
+            try {
+              const org = await organizationService.getOrganization(orgId);
+              return applyOrgDefaults(org);
+            } catch (error) {
+              console.warn(`⚠️ Could not load organization ${orgId}:`, error);
+              return null;
+            }
+          })
+        );
+        
+        // Combine owned orgs with orgs from memberships, removing duplicates
+        const allOrgs = [...orgs];
+        orgsFromMemberships.forEach(org => {
+          if (org && !allOrgs.some(o => o.$id === org.$id)) {
+            allOrgs.push(org);
+          }
+        });
+        
+        orgs = allOrgs;
+        setUserOrganizations(orgs);
+        
+        console.log('✅ Loaded organizations:', orgs.map(o => ({ id: o.$id, name: o.orgName })));
+      } catch (error) {
+        console.warn('⚠️ Could not load organizations from memberships:', error);
+        setUserOrganizations(orgs);
+      }
+
+      // Load user's teams (where they are member) for all organizations
+      // This may also fail if user doesn't have read permissions
+      let teams: TeamData[] = [];
+      try {
+        // Load teams for each organization the user belongs to
+        const allTeamsPromises = orgs.map(org => 
+          teamService.listTeams(user.$id, org.$id).catch(err => {
+            console.warn(`⚠️ Cannot load teams for org ${org.$id}:`, err.message);
+            return [];
+          })
+        );
+        const teamsArrays = await Promise.all(allTeamsPromises);
+        teams = teamsArrays.flat();
+        
+        // Fetch user's memberships to get roles
+        try {
+          const { Query } = await import('react-native-appwrite');
+          const memberships = await databaseService.listDocuments('memberships', [
+            Query.equal('userId', user.$id),
+            Query.equal('isActive', true)
+          ]);
+          
+          // Create a map of teamId -> role
+          const membershipRoles: Record<string, string> = {};
+          memberships.documents?.forEach((m: any) => {
+            membershipRoles[m.teamId] = m.role;
+          });
+          
+          // Attach membershipRole to each team
+          teams = teams.map(team => ({
+            ...team,
+            membershipRole: membershipRoles[team.$id] || 'member'
+          })) as any;
+          
+          console.log('✅ Attached membership roles to teams:', teams.map((t: any) => ({ 
+            teamId: t.$id, 
+            teamName: t.teamName, 
+            role: t.membershipRole 
+          })));
+        } catch (membershipError) {
+          console.warn('⚠️ Could not fetch membership roles:', membershipError);
+          // Continue without roles - teams will default to member
+        }
+        
+        setUserTeams(teams as any);
       } catch (teamsError: any) {
         // Permission error when trying to list teams
         console.warn('⚠️ Cannot load teams (permission error):', teamsError.message);
@@ -172,16 +251,42 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
    */
   const switchOrganization = async (orgId: string) => {
     try {
+      if (!user?.$id) {
+        throw new Error('User not authenticated');
+      }
+      
       const org = applyOrgDefaults(await organizationService.getOrganization(orgId));
       setCurrentOrganization(org);
       
       // Load teams for this organization
-      const teamsResponse = await teamService.listOrganizationTeams(orgId);
-      setUserTeams(teamsResponse.teams);
+      let teams = await teamService.listTeams(user.$id, orgId);
+      
+      // Fetch user's memberships to get roles
+      try {
+        const { Query } = await import('react-native-appwrite');
+        const memberships = await databaseService.listDocuments('memberships', [
+          Query.equal('userId', user.$id),
+          Query.equal('isActive', true)
+        ]);
+        
+        const membershipRoles: Record<string, string> = {};
+        memberships.documents?.forEach((m: any) => {
+          membershipRoles[m.teamId] = m.role;
+        });
+        
+        teams = teams.map(team => ({
+          ...team,
+          membershipRole: membershipRoles[team.$id] || 'member'
+        })) as any;
+      } catch (membershipError) {
+        console.warn('⚠️ Could not fetch membership roles:', membershipError);
+      }
+      
+      setUserTeams(teams);
       
       // Set first team as current if available
-      if (teamsResponse.teams.length > 0) {
-        setCurrentTeam(teamsResponse.teams[0]);
+      if (teams.length > 0) {
+        setCurrentTeam(teams[0]);
       } else {
         setCurrentTeam(null);
       }
@@ -196,42 +301,39 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
    */
   const switchTeam = async (teamId: string) => {
     try {
-      // Find the team in the current userTeams list by Appwrite ID
-      let team = userTeams.find(t => t.$id === teamId);
+      if (!user?.$id) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Find the team in the current userTeams list
+      let team = userTeams.find((t: TeamData) => t.$id === teamId);
       
       if (!team) {
-        // Reload data and get fresh teams
-        if (!user?.$id) {
-          throw new Error('User not authenticated');
-        }
-        const teamsResponse = await teamService.listTeams(user.$id);
-        const teams = teamsResponse.teams;
+        // Reload data and get fresh teams for all organizations
+        const allTeamsPromises = userOrganizations.map(org => 
+          teamService.listTeams(user.$id, org.$id).catch(err => {
+            console.warn(`⚠️ Cannot load teams for org ${org.$id}:`, err.message);
+            return [];
+          })
+        );
+        const teamsArrays = await Promise.all(allTeamsPromises);
+        const teams = teamsArrays.flat();
         setUserTeams(teams);
         
         // Try to find the team in the fresh data
-        team = teams.find(t => t.$id === teamId);
+        team = teams.find((t: TeamData) => t.$id === teamId);
         if (!team) {
           throw new Error('Team not found');
         }
       }
       
-      // Fetch detailed team info (ensures teamData with orgId)
-      const detailedTeam = await teamService.getTeam(team.$id);
-      const mergedTeam = {
-        ...detailedTeam,
-        membershipRole: (team as any).membershipRole ?? (detailedTeam as any).membershipRole ?? null,
-      } as unknown as Team;
-      setCurrentTeam(mergedTeam);
+      // Fetch detailed team info with org validation
+      const detailedTeam = await teamService.getTeam(team.$id, team.orgId);
+      setCurrentTeam(detailedTeam);
 
-      let orgId = detailedTeam.teamData?.orgId;
-
-      if (!orgId) {
-        console.warn('Unable to determine organization for team:', detailedTeam.$id);
-        return;
-      }
-
+      // Update current organization to match the team's organization
       try {
-        const org = applyOrgDefaults(await organizationService.getOrganization(orgId));
+        const org = applyOrgDefaults(await organizationService.getOrganization(team.orgId));
         setCurrentOrganization(org);
       } catch (error) {
         console.error('Error loading organization for team:', error);
@@ -282,20 +384,12 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         throw new Error('User not authenticated');
       }
 
-      // Create the team
-      await teamService.createTeam(name, currentOrganization.$id, description, ['owner'], user.$id);
+      // Create the team (new API: name, orgId, userId, description?)
+      const newTeam = await teamService.createTeam(name, currentOrganization.$id, user.$id, description);
       
       // Reload user data to get the complete team info with membership role
       await loadUserData();
       
-      // Get the newly created team from the updated userTeams
-      const updatedTeams = await teamService.listTeams(user.$id);
-      const newTeam = updatedTeams.teams.find(t => t.name === name);
-      
-      if (!newTeam) {
-        throw new Error('Failed to create team');
-      }
-
       setCurrentTeam(newTeam);
       return newTeam;
     } catch (error) {
@@ -312,11 +406,11 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       if (!user?.$id) {
         throw new Error('User not authenticated');
       }
+      if (!currentOrganization?.$id) {
+        throw new Error('No organization selected');
+      }
 
-      // Use a placeholder URL for now - in production, this should be your app's deep link
-      const inviteUrl = `workphotopro://team-invite?teamId=${teamId}`;
-      
-      await teamService.createMembership(teamId, email, roles, inviteUrl, user.$id);
+      await teamService.inviteMember(teamId, currentOrganization.$id, email, roles, user.$id);
     } catch (error) {
       console.error('Error inviting user to team:', error);
       throw error;
@@ -328,10 +422,14 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
    */
   const updateMembershipRole = async (teamId: string, membershipId: string, roles: string[]) => {
     try {
-      await teamService.updateMembershipRoles(teamId, membershipId, roles);
+      if (!currentOrganization?.$id) {
+        throw new Error('No organization selected');
+      }
+
+      await teamService.updateMemberRole(teamId, membershipId, roles, currentOrganization.$id);
       
       // Refresh team data
-      const team = await teamService.getTeam(teamId);
+      const team = await teamService.getTeam(teamId, currentOrganization.$id);
       setCurrentTeam(team);
     } catch (error) {
       console.error('Error updating membership role:', error);
@@ -344,10 +442,14 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
    */
   const removeFromTeam = async (teamId: string, membershipId: string) => {
     try {
-      await teamService.deleteMembership(teamId, membershipId);
+      if (!currentOrganization?.$id) {
+        throw new Error('No organization selected');
+      }
+
+      await teamService.removeMember(teamId, membershipId, currentOrganization.$id);
       
       // Refresh team data
-      const team = await teamService.getTeam(teamId);
+      const team = await teamService.getTeam(teamId, currentOrganization.$id);
       setCurrentTeam(team);
     } catch (error) {
       console.error('Error removing user from team:', error);
@@ -409,9 +511,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         team = await teamService.createTeam(
           teamName,
           organization.$id,
-          teamDescription,
-          ['owner'], // User is the owner of their default team
-          userId // Pass userId to create membership
+          userId,
+          teamDescription
         );
         console.log('✅ Created team:', team.$id);
       } catch (createTeamError: any) {
@@ -451,12 +552,12 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   /**
    * Switch to a different team (accepts team object or teamId)
    */
-  const switchTeamDirect = async (teamOrId: Team | string) => {
-    let team: Team | null = null;
+  const switchTeamDirect = async (teamOrId: TeamData | string) => {
+    let team: TeamData | null = null;
     
     if (typeof teamOrId === 'string') {
-      // If it's a string, use the existing switchTeam logic
-      team = userTeams.find(t => t.$id === teamOrId) || null;
+      // If it's a string, find the team in userTeams
+      team = userTeams.find((t: TeamData) => t.$id === teamOrId) || null;
       if (!team) {
         throw new Error('Team not found');
       }
@@ -494,9 +595,8 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     
     console.log('🔍 switchTeamDirect: Switching to team:', {
       teamId: team.$id,
-      teamName: team.name,
-      hasTeamData: !!team.teamData,
-      orgId: team.teamData?.orgId,
+      teamName: team.teamName,
+      orgId: team.orgId,
       membershipRole: (team as any).membershipRole
     });
     
@@ -504,11 +604,11 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     setCurrentTeam(team);
     
     // Update currentOrganization to match the team's organization
-    if (team?.teamData?.orgId) {
+    if (team?.orgId) {
       try {
-        console.log('🔍 switchTeamDirect: Fetching organization:', team.teamData.orgId);
+        console.log('🔍 switchTeamDirect: Fetching organization:', team.orgId);
         const org = applyOrgDefaults(
-          await organizationService.getOrganization(team.teamData.orgId)
+          await organizationService.getOrganization(team.orgId)
         );
         console.log('🔍 switchTeamDirect: Fetched organization:', org.orgName);
         setCurrentOrganization(org);
@@ -517,7 +617,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         // Continue even if organization fetch fails
       }
     } else {
-      console.warn('🔍 switchTeamDirect: No orgId found in team.teamData');
+      console.warn('🔍 switchTeamDirect: No orgId found in team');
     }
   };
 

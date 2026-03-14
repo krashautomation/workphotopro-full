@@ -165,6 +165,7 @@ export const notificationService = {
     type: NotificationType,
     title: string,
     message: string,
+    orgId: string,
     data?: NotificationData
   ) {
     try {
@@ -173,6 +174,7 @@ export const notificationService = {
         type,
         title,
         message,
+        orgId,
         data,
       });
 
@@ -181,6 +183,7 @@ export const notificationService = {
         type,
         title,
         message,
+        orgId,
         data: data ? JSON.stringify(data) : undefined,
         isRead: false,
       });

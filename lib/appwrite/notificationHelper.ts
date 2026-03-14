@@ -60,6 +60,7 @@ export async function sendNotification(
   type: NotificationType,
   title: string,
   body: string,
+  orgId: string,
   data?: Record<string, any>
 ) {
   try {
@@ -84,6 +85,7 @@ export async function sendNotification(
         type,
         title,
         body,
+        orgId,
         data
       );
     } catch (error) {
@@ -117,12 +119,13 @@ export async function sendNotificationsToTeam(
   type: NotificationType,
   title: string,
   body: string,
+  orgId: string,
   data?: Record<string, any>
 ) {
   const results = [];
   
   for (const userId of userIds) {
-    const result = await sendNotification(userId, type, title, body, data);
+    const result = await sendNotification(userId, type, title, body, orgId, data);
     results.push({ userId, ...result });
   }
 

@@ -189,7 +189,7 @@ export default function TrashedJobs() {
 
       {/* Team Info */}
       <View style={styles.teamInfo}>
-        <Text style={styles.teamName}>{currentTeam.name}</Text>
+        <Text style={styles.teamName}>{currentTeam.teamName}</Text>
         <Text style={styles.teamSubtext}>
           {trashedJobs.length} deleted job{trashedJobs.length !== 1 ? 's' : ''}
         </Text>

@@ -46,7 +46,7 @@ export default function TeamSelector({ onTeamChange }: TeamSelectorProps) {
           <IconSymbol name="person.3" size={20} color={colors.primary} />
           <View style={styles.textContainer}>
             <Text style={styles.teamName}>
-              {currentTeam?.name || 'Select Team'}
+              {currentTeam?.teamName || 'Select Team'}
             </Text>
             <Text style={styles.teamSubtext}>
               {userTeams.length} team{userTeams.length !== 1 ? 's' : ''}
@@ -95,11 +95,11 @@ export default function TeamSelector({ onTeamChange }: TeamSelectorProps) {
                       styles.teamItemName,
                       currentTeam?.$id === item.$id && styles.selectedText
                     ]}>
-                      {item.name}
+                      {item.teamName}
                     </Text>
-                    {item.teamData?.description && (
+                    {item.description && (
                       <Text style={styles.teamItemDescription}>
-                        {item.teamData.description}
+                        {item.description}
                       </Text>
                     )}
                   </View>

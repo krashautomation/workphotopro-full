@@ -410,10 +410,10 @@ export default function Jobs() {
         <View style={styles.headerCardContent}>
           <View style={styles.headerRowContainer}>
             {/* Team Photo */}
-            {currentTeam?.teamData?.teamPhotoUrl ? (
+            {currentTeam?.teamPhotoUrl ? (
               <View style={styles.headerTeamPhotoContainer}>
                 <Image 
-                  source={{ uri: currentTeam.teamData.teamPhotoUrl }} 
+                  source={{ uri: currentTeam.teamPhotoUrl }} 
                   style={styles.headerTeamPhoto}
                   contentFit="cover"
                   transition={200}
@@ -431,7 +431,7 @@ export default function Jobs() {
             
             <View style={styles.headerLeftContainer}>
               <Text style={styles.subtitle}>{currentOrganization?.orgName || 'No Organization'}</Text>
-              <Text style={styles.subtitle}>{currentTeam?.name || 'No Team'}</Text>
+              <Text style={styles.subtitle}>{currentTeam?.teamName || 'No Team'}</Text>
             </View>
             <View style={styles.headerRightContainer}>
               {roleDisplay && (

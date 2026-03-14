@@ -18,12 +18,13 @@ import {
 import { IconSymbol } from '@/components/IconSymbol';
 import { Linking } from 'react-native';
 import Avatar from '@/components/Avatar';
-import { teamService, organizationService } from '@/lib/appwrite/teams';
+import { organizationService } from '@/lib/appwrite/teams';
+import { teamService } from '@/services/teamService';
 
 export default function AcceptInvite() {
   const { signIn } = useAuth();
   const router = useRouter();
-  const { teamId, token } = useLocalSearchParams<{ teamId?: string; token?: string }>();
+  const { teamId, token, orgId } = useLocalSearchParams<{ teamId?: string; token?: string; orgId?: string }>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,13 +35,14 @@ export default function AcceptInvite() {
   const [inviterProfilePicture, setInviterProfilePicture] = useState<string | undefined>(undefined);
   const [organizationName, setOrganizationName] = useState('');
   const [loadingInviteData, setLoadingInviteData] = useState(true);
+  const [acceptingInvitation, setAcceptingInvitation] = useState(false);
 
   useEffect(() => {
     fetchInviteData();
   }, [teamId, token]);
 
   const fetchInviteData = async () => {
-    if (!teamId) {
+    if (!teamId || !orgId) {
       setLoadingInviteData(false);
       return;
     }
@@ -48,40 +50,33 @@ export default function AcceptInvite() {
     try {
       setLoadingInviteData(true);
       
-      // Fetch team information
-      const team = await teamService.getTeam(teamId);
-      if (team?.teamData?.teamName) {
-        setTeamName(team.teamData.teamName);
+      // Fetch team information (requires orgId for security)
+      const team = await teamService.getTeam(teamId, orgId);
+      if (team?.teamName) {
+        setTeamName(team.teamName);
       }
 
-      // Fetch team memberships to find the owner/inviter
-      const membershipsResult = await teamService.listMemberships(teamId);
-      const memberships = membershipsResult.memberships || [];
+      // Fetch team members to find the owner/inviter
+      const memberships = await teamService.listMembers(teamId, orgId);
       
       // Find the owner or first member as inviter
-      let inviter = memberships.find((m: any) => 
-        m.membershipData?.role === 'owner' || m.roles?.includes('owner')
-      ) || memberships[0];
+      let inviter = memberships.find((m: any) => m.role === 'owner') || memberships[0];
 
       if (inviter) {
-        // Get inviter name
-        const name = inviter.userInfo?.name || 
-                    inviter.membershipData?.name || 
-                    inviter.userName || 
-                    'Team Member';
+        // Get inviter name (use cached fields from membership)
+        const name = inviter.userName || 'Team Member';
         setInviterName(name);
 
-        // Get inviter profile picture
-        const profilePic = inviter.userInfo?.profilePicture || 
-                          inviter.membershipData?.profilePicture;
+        // Get inviter profile picture (use cached field)
+        const profilePic = inviter.profilePicture;
         if (profilePic) {
           setInviterProfilePicture(profilePic);
         }
 
         // Get organization name
-        if (team?.teamData?.orgId) {
+        if (team?.orgId) {
           try {
-            const org = await organizationService.getOrganization(team.teamData.orgId);
+            const org = await organizationService.getOrganization(team.orgId);
             if (org?.orgName) {
               setOrganizationName(org.orgName);
             }
@@ -166,20 +161,73 @@ export default function AcceptInvite() {
   };
 
   const joinTeamAfterAuth = async () => {
-    // TODO: Call API to join team using token
-    // After successful join, navigate to jobs
-    router.replace({
-      pathname: '/(jobs)',
-      params: { joinedTeamId: teamId }
-    });
+    if (!token) {
+      setError('Invalid invitation token');
+      return;
+    }
+
+    if (!orgId) {
+      setError('Invalid invitation link - missing organization');
+      return;
+    }
+
+    setAcceptingInvitation(true);
+    setError('');
+
+    try {
+      // Get current user
+      const { account } = await import('@/lib/appwrite/client');
+      const user = await account.get();
+      
+      if (!user?.$id) {
+        setError('You must be signed in to accept an invitation');
+        setAcceptingInvitation(false);
+        return;
+      }
+
+      // Accept the invitation using the new custom system
+      await teamService.acceptInvitation(token, user.$id, orgId);
+      
+      // Success! Navigate to jobs screen
+      router.replace({
+        pathname: '/(jobs)',
+        params: { joinedTeamId: teamId }
+      });
+    } catch (err: any) {
+      console.error('Error accepting invitation:', err);
+      
+      // Handle specific error messages from teamService
+      const errorMessage = err.message || '';
+      
+      if (errorMessage.includes('Invalid or expired')) {
+        setError('This invitation is invalid or has expired. Please ask the team owner to send a new invitation.');
+      } else if (errorMessage.includes('Organization mismatch')) {
+        setError('This invitation is for a different organization. Please check the invitation link and try again.');
+      } else if (errorMessage.includes('Email mismatch')) {
+        setError('This invitation was sent to a different email address. Please sign in with the email address that received the invitation, or ask the team owner to invite your current email address.');
+      } else if (errorMessage.includes('Already a member')) {
+        setError('You are already a member of this team.');
+        // Still redirect to jobs since they're already a member
+        setTimeout(() => {
+          router.replace({
+            pathname: '/(jobs)',
+            params: { joinedTeamId: teamId }
+          });
+        }, 2000);
+      } else {
+        setError(getUserFriendlyError(err) || 'Failed to accept invitation. Please try again or contact support.');
+      }
+    } finally {
+      setAcceptingInvitation(false);
+    }
   };
 
-  if (!teamId) {
+  if (!teamId || !orgId) {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Invalid Invite</Text>
         <Text style={styles.errorText}>
-          This invitation link is invalid.
+          This invitation link is invalid or incomplete.
         </Text>
         <TouchableOpacity
           style={styles.button}
@@ -187,6 +235,23 @@ export default function AcceptInvite() {
         >
           <Text style={styles.buttonText}>Go to Sign In</Text>
         </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Show loading screen while accepting invitation
+  if (acceptingInvitation) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.inviterCard}>
+          <ActivityIndicator size="large" color="#4263eb" />
+          <Text style={[styles.inviterName, { marginTop: 16 }]}>
+            Accepting invitation...
+          </Text>
+          <Text style={styles.organizationName}>
+            Please wait while we add you to the team
+          </Text>
+        </View>
       </View>
     );
   }

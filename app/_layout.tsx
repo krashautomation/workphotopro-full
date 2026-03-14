@@ -139,31 +139,7 @@ function RootLayoutNav() {
       }
     };
     
-    // Check Katya status on app startup
-    const checkKatyaStatus = async () => {
-      try {
-        const { katyaService } = await import('@/lib/appwrite/katya');
-        const status = await katyaService.checkKatyaStatus();
-        
-        console.log('[App] 🤖 Katya Status Check:', {
-          active: status.active ? '✅ ACTIVE' : '⚠️ INACTIVE',
-          userExists: status.userExists ? '✅' : '❌',
-          functionDeployed: status.functionDeployed ? '✅' : '❌',
-          userId: status.userId,
-          errors: status.errors.length > 0 ? status.errors : 'None'
-        });
-        
-        if (!status.active && status.errors.length > 0) {
-          console.warn('[App] 🤖 Katya setup issues:', status.errors);
-        }
-      } catch (error) {
-        console.warn('[App] 🤖 ⚠️ Katya status check failed (non-critical):', error);
-        // Non-critical - app can continue without Katya
-      }
-    };
-    
     initializeCache();
-    checkKatyaStatus();
     
     // Complete any pending OAuth sessions
     WebBrowser.maybeCompleteAuthSession();

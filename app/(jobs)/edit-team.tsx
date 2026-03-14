@@ -79,22 +79,20 @@ export default function EditTeamScreen() {
     console.log('🔄 EditTeamScreen - useEffect triggered');
     console.log('🔄 EditTeamScreen - currentTeam:', currentTeam ? {
       id: currentTeam.$id,
-      name: currentTeam.name,
-      hasTeamData: !!currentTeam.teamData,
-      teamDataKeys: currentTeam.teamData ? Object.keys(currentTeam.teamData) : [],
-      teamPhotoUrl: currentTeam.teamData?.teamPhotoUrl,
+      teamName: currentTeam.teamName,
+      teamPhotoUrl: currentTeam.teamPhotoUrl,
     } : 'null');
     console.log('🔄 EditTeamScreen - Current teamPhotoUrl state:', teamPhotoUrl);
     
     if (currentTeam) {
       const teamData = {
-        name: currentTeam.name || '',
-        email: currentTeam.teamData?.email || '',
-        website: currentTeam.teamData?.website || '',
-        address: currentTeam.teamData?.address || '',
-        phone: currentTeam.teamData?.phone || '',
-        description: currentTeam.teamData?.description || '',
-        teamPhotoUrl: currentTeam.teamData?.teamPhotoUrl || '',
+        teamName: currentTeam.teamName || '',
+        email: currentTeam.email || '',
+        website: currentTeam.website || '',
+        address: currentTeam.address || '',
+        phone: currentTeam.phone || '',
+        description: currentTeam.description || '',
+        teamPhotoUrl: currentTeam.teamPhotoUrl || '',
       };
       
       console.log('🔄 EditTeamScreen - Loading team data:', teamData);
@@ -105,7 +103,7 @@ export default function EditTeamScreen() {
       const hasUnsavedPhoto = unsavedPhotoUrlRef.current && unsavedPhotoUrlRef.current.length > 0;
       const shouldUpdatePhotoUrl = !hasUnsavedPhoto && (!teamPhotoUrl || teamPhotoUrl === teamData.teamPhotoUrl);
       
-      setTeamName(teamData.name);
+      setTeamName(teamData.teamName);
       setEmail(teamData.email);
       setWebsite(teamData.website);
       setAddress(teamData.address);

@@ -130,6 +130,8 @@ export interface TeamData {
   teamPhotoUrl?: string;
   isActive: boolean;
   settings?: string; // JSON string for team settings
+  createdBy?: string; // User ID who created the team
+  membershipRole?: string; // User's role in this team (attached at runtime)
   $createdAt: string;
   $updatedAt: string;
   $permissions: string[];
@@ -300,9 +302,9 @@ export interface Report {
 // Multi-tenant context types
 export interface OrganizationContextType {
   currentOrganization: Organization | null;
-  currentTeam: Team | null;
+  currentTeam: TeamData | null;
   userOrganizations: Organization[];
-  userTeams: Team[];
+  userTeams: TeamData[];
   loading: boolean;
   currentOrgPremiumTier: string;
   isCurrentOrgPremium: boolean;
@@ -310,9 +312,9 @@ export interface OrganizationContextType {
   loadUserData: () => Promise<void>;
   refreshCurrentTeam: () => Promise<void>;
   switchOrganization: (orgId: string) => Promise<void>;
-  switchTeam: (teamId: string) => Promise<void>;
+  switchTeam: (teamOrId: TeamData | string) => Promise<void>;
   createOrganization: (name: string, description?: string) => Promise<Organization>;
-  createTeam: (name: string, description?: string) => Promise<Team>;
+  createTeam: (name: string, description?: string) => Promise<TeamData>;
   inviteToTeam: (teamId: string, email: string, roles: string[]) => Promise<void>;
   updateMembershipRole: (teamId: string, membershipId: string, roles: string[]) => Promise<void>;
   removeFromTeam: (teamId: string, membershipId: string) => Promise<void>;

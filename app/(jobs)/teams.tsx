@@ -9,57 +9,82 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
-import { teamService, organizationService } from '@/lib/appwrite/teams';
-import { teams } from '@/lib/appwrite/client';
+import { teamService } from '@/services/teamService';
 import { databaseService } from '@/lib/appwrite/database';
 import { Query } from 'react-native-appwrite';
-import { Team } from '@/utils/types';
+import { TeamData } from '@/utils/types';
 
 
 
 export default function Teams() {
   const { user, isAuthenticated } = useAuth();
-  const { userOrganizations, userTeams, loadUserData, switchTeam, currentTeam } = useOrganization();
+  const { userOrganizations, userTeams, loadUserData, switchTeam, currentTeam, currentOrganization } = useOrganization();
   const router = useRouter();
   
   const [activeTab, setActiveTab] = useState<'memberships' | 'myTeams'>('myTeams');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [myOwnedTeams, setMyOwnedTeams] = useState<any[]>([]);
+  const [allMembershipsTeams, setAllMembershipsTeams] = useState<any[]>([]);
+  const [membershipRole, setMembershipRole] = useState<string>('member');
   const flatListRef = useRef<FlatList>(null);
   const hasInitializedRef = useRef(false);
 
   /**
-   * Load teams from organizations owned by the user
+   * Fetch user's membership role for current team
+   */
+  useEffect(() => {
+    const fetchMembershipRole = async () => {
+      if (!user?.$id || !currentTeam?.$id) {
+        setMembershipRole('member');
+        return;
+      }
+
+      try {
+        const memberships = await databaseService.listDocuments('memberships', [
+          Query.equal('userId', user.$id),
+          Query.equal('teamId', currentTeam.$id),
+          Query.equal('isActive', true)
+        ]);
+
+        if (memberships.documents && memberships.documents.length > 0) {
+          setMembershipRole(memberships.documents[0].role || 'member');
+        } else {
+          // Check if user is the team creator (owner)
+          if (currentTeam.createdBy === user.$id) {
+            setMembershipRole('owner');
+          } else {
+            setMembershipRole('member');
+          }
+        }
+      } catch (error) {
+        console.warn('Could not fetch membership role:', error);
+        // Default to member on error
+        setMembershipRole('member');
+      }
+    };
+
+    fetchMembershipRole();
+  }, [user?.$id, currentTeam?.$id, currentTeam?.createdBy]);
+
+  /**
+   * Load teams from current organization
    */
   const loadMyTeams = useCallback(async () => {
-    if (!user?.$id || userOrganizations.length === 0) {
+    if (!user?.$id || !currentOrganization?.$id) {
       setMyOwnedTeams([]);
       return;
     }
 
     try {
       setLoading(true);
-      const ownedOrgIds = userOrganizations.map(org => org.$id);
       
-      // Fetch teams for each owned organization
-      const teamsPromises = ownedOrgIds.map(async (orgId) => {
-        try {
-          const response = await teamService.listOrganizationTeams(orgId);
-          // Filter only teams from organizations owned by the user
-          return response.teams || [];
-        } catch (error) {
-          console.error('Error loading teams for org:', orgId, error);
-          return [];
-        }
-      });
-
-      const teamsArrays = await Promise.all(teamsPromises);
-      const allTeams = teamsArrays.flat();
+      // Fetch teams for current organization only
+      const teams = await teamService.listTeams(user.$id, currentOrganization.$id);
       
       // Add membershipRole property to each team for consistency
       const teamsWithRoles = await Promise.all(
-        allTeams.map(async (team) => {
+        (teams || []).map(async (team) => {
           try {
             // Fetch membership from our database (not Appwrite)
             const memberships = await databaseService.listDocuments('memberships', [
@@ -81,22 +106,84 @@ export default function Teams() {
         })
       );
       
-      // Filter to only show teams from owned organizations
-      // This prevents teams created in non-owned orgs from showing
       setMyOwnedTeams(teamsWithRoles);
     } catch (error) {
       console.error('Error loading my teams:', error);
     } finally {
       setLoading(false);
     }
-  }, [user?.$id, userOrganizations]);
+  }, [user?.$id, currentOrganization?.$id]);
+
+  /**
+   * Load all memberships across ALL orgs (for My Memberships tab)
+   */
+  const loadAllMemberships = useCallback(async () => {
+    if (!user?.$id) {
+      setAllMembershipsTeams([]);
+      return;
+    }
+
+    try {
+      // Fetch all memberships for this user across all orgs
+      const memberships = await databaseService.listDocuments('memberships', [
+        Query.equal('userId', user.$id),
+        Query.equal('isActive', true)
+      ]);
+
+      if (!memberships.documents || memberships.documents.length === 0) {
+        setAllMembershipsTeams([]);
+        return;
+      }
+
+      // Get unique teamIds where user is a member (not owner)
+      const memberTeamIds = memberships.documents
+        .filter((m: any) => m.role === 'member')
+        .map((m: any) => m.teamId);
+
+      if (memberTeamIds.length === 0) {
+        setAllMembershipsTeams([]);
+        return;
+      }
+
+      // Fetch team details for each membership
+      const teamsPromises = memberTeamIds.map(async (teamId: string) => {
+        try {
+          // Get team details - need to find which org it belongs to first
+          const membership = memberships.documents.find((m: any) => m.teamId === teamId);
+          if (!membership) return null;
+
+          const team = await teamService.getTeam(teamId, membership.orgId);
+          return {
+            ...team,
+            membershipRole: 'member'
+          };
+        } catch (error) {
+          console.warn(`Could not fetch team ${teamId}:`, error);
+          return null;
+        }
+      });
+
+      const teams = (await Promise.all(teamsPromises)).filter(Boolean);
+      setAllMembershipsTeams(teams);
+      
+      console.log('✅ Loaded all membership teams:', teams.map((t: any) => ({
+        id: t.$id,
+        name: t.teamName,
+        role: t.membershipRole
+      })));
+    } catch (error) {
+      console.error('Error loading all memberships:', error);
+      setAllMembershipsTeams([]);
+    }
+  }, [user?.$id]);
 
   /**
    * Load data when component mounts or user organizations change
    */
   useEffect(() => {
     loadMyTeams();
-  }, [loadMyTeams]);
+    loadAllMemberships();
+  }, [loadMyTeams, loadAllMemberships]);
 
   /**
    * Get display name with proper fallback logic
@@ -108,11 +195,11 @@ export default function Teams() {
   /**
    * Handle team selection
    */
-  const handleTeamSelect = async (team: any) => {
+  const handleTeamSelect = async (team: TeamData) => {
     try {
       console.log('🔍 teams.tsx - handleTeamSelect called:', {
         teamId: team?.$id,
-        teamName: team?.name,
+        teamName: team?.teamName,
         teamMembershipRole: (team as any)?.membershipRole,
         teamKeys: Object.keys(team || {}),
         teamFull: JSON.stringify(team, null, 2).substring(0, 500)
@@ -144,7 +231,7 @@ export default function Teams() {
   const handleDeleteTeam = () => {
     if (!currentTeam) return;
     
-    const teamName = currentTeam.name || 'Team';
+    const teamName = currentTeam.teamName || 'Team';
     
     router.push({
       pathname: '/(jobs)/delete-team',
@@ -162,6 +249,8 @@ export default function Teams() {
       await loadUserData();
       // Reload owned teams
       await loadMyTeams();
+      // Reload all memberships
+      await loadAllMemberships();
     } catch (error) {
       console.error('Error refreshing teams:', error);
     } finally {
@@ -186,17 +275,8 @@ export default function Teams() {
     );
   }
 
-  // Filter userTeams to only show teams where user is a MEMBER but NOT an OWNER
-  const membershipsOnly = userTeams.filter((team) => {
-    // Check if user's role is "owner" in this team
-    const isOwnerRole = (team as any).membershipRole === 'owner';
-    
-    // Check if this team belongs to an organization owned by the user
-    const isFromOwnedOrg = myOwnedTeams.some(ownedTeam => ownedTeam.$id === team.$id);
-    
-    // Exclude if user is owner OR if team is from owned org
-    return !isOwnerRole && !isFromOwnedOrg;
-  });
+  // Use allMembershipsTeams for My Memberships tab (teams from ALL orgs where user is member)
+  const membershipsOnly = allMembershipsTeams;
 
   const currentData = activeTab === 'memberships' ? membershipsOnly : myOwnedTeams;
   
@@ -205,12 +285,11 @@ export default function Teams() {
     if (currentTeam) {
       console.log('🔍 teams.tsx - Current team updated:', {
         teamId: currentTeam.$id,
-        teamName: currentTeam.name,
+        teamName: currentTeam.teamName,
         membershipRole: (currentTeam as any)?.membershipRole,
         membershipRoleType: typeof (currentTeam as any)?.membershipRole,
         hasMembershipRole: 'membershipRole' in (currentTeam as any),
         currentTeamKeys: Object.keys(currentTeam),
-        teamDataKeys: currentTeam.teamData ? Object.keys(currentTeam.teamData) : null,
         fullCurrentTeam: JSON.stringify(currentTeam, null, 2).substring(0, 1000)
       });
     } else {
@@ -318,7 +397,7 @@ export default function Teams() {
             styles.tabText,
             activeTab === 'memberships' && styles.activeTabText
           ]}>
-            My Memberships
+            Member Of
           </Text>
         </TouchableOpacity>
       </View>
@@ -332,7 +411,7 @@ export default function Teams() {
         <FlatList
           ref={flatListRef}
           data={currentData}
-          keyExtractor={(item) => item.$id || item.id}
+          keyExtractor={(item) => item.$id}
           onScrollToIndexFailed={(info) => {
             // Handle scroll failure gracefully
             const wait = new Promise(resolve => setTimeout(resolve, 500));
@@ -361,14 +440,19 @@ export default function Teams() {
               </Text>
             </View>
           )}
-          renderItem={({ item }) => {
-            const teamName = item.name || item.teamData?.teamName || 'Unnamed Team';
-            const description = item.teamData?.description || item.description || '';
-            const teamPhotoUrl = item.teamData?.teamPhotoUrl;
-            const isActive = item.teamData?.isActive !== false;
+          renderItem={({ item }: { item: TeamData }) => {
+            const teamName = item.teamName || 'Unnamed Team';
+            const description = item.description || '';
+            const teamPhotoUrl = item.teamPhotoUrl;
+            const isActive = item.isActive !== false;
             const isCurrentTeam = currentTeam?.$id === item.$id;
             const membershipRole = (item as any).membershipRole || 'member';
             const isOwner = membershipRole === 'owner';
+            
+            // Look up organization name
+            const orgName = userOrganizations.find(
+              o => o.$id === item.orgId
+            )?.orgName || '';
             
             return (
               <TouchableOpacity 
@@ -424,6 +508,9 @@ export default function Teams() {
                   {description ? (
                     <Text style={styles.description}>{description}</Text>
                   ) : null}
+                  {orgName ? (
+                    <Text style={styles.orgName}>{orgName}</Text>
+                  ) : null}
                 </View>
                 <View style={styles.chevron}>
                   <IconSymbol
@@ -460,21 +547,24 @@ export default function Teams() {
             />
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={styles.menuItem} onPress={handleCreateTeam}>
-          <View style={styles.menuItemLeft}>
+        {/* Create Team button - only show if user owns the current organization */}
+        {currentOrganization?.ownerId === user?.$id && (
+          <TouchableOpacity style={styles.menuItem} onPress={handleCreateTeam}>
+            <View style={styles.menuItemLeft}>
+              <IconSymbol
+                name="plus"
+                size={20}
+                color={colors.textSecondary}
+              />
+              <Text style={styles.menuItemText}>Create Team</Text>
+            </View>
             <IconSymbol
-              name="plus"
-              size={20}
+              name="chevron.right"
+              size={16}
               color={colors.textSecondary}
             />
-            <Text style={styles.menuItemText}>Create Team</Text>
-          </View>
-          <IconSymbol
-            name="chevron.right"
-            size={16}
-            color={colors.textSecondary}
-          />
-        </TouchableOpacity>
+          </TouchableOpacity>
+        )}
         {currentTeam && (
           <TouchableOpacity 
             style={styles.menuItem}
@@ -518,21 +608,19 @@ export default function Teams() {
           />
         </TouchableOpacity>
         {currentTeam && (() => {
-          const membershipRole = (currentTeam as any)?.membershipRole || 'member';
           const isOwner = membershipRole === 'owner';
           
           // Verbose logging for debugging
           console.log('🔍 teams.tsx - Team Settings visibility check:', {
             hasCurrentTeam: !!currentTeam,
             currentTeamId: currentTeam?.$id,
-            currentTeamName: currentTeam?.name,
+            currentTeamName: currentTeam?.teamName,
             membershipRole: membershipRole,
             membershipRoleType: typeof membershipRole,
             membershipRoleLowercase: membershipRole?.toLowerCase(),
             isOwner: isOwner,
             isOwnerCheck: membershipRole === 'owner',
             currentTeamKeys: Object.keys(currentTeam || {}),
-            hasMembershipRole: 'membershipRole' in (currentTeam as any || {}),
             currentTeamFull: JSON.stringify(currentTeam, null, 2).substring(0, 500) // First 500 chars
           });
           
@@ -783,5 +871,10 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     paddingBottom: 30,
+  },
+  orgName: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
   },
 });

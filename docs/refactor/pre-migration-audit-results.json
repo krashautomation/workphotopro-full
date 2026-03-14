@@ -1,0 +1,11 @@
+{
+  "appwriteTeamCount": 2,
+  "dbTeamCount": 3,
+  "orphanedDbTeams": [],
+  "orphanedAppwriteTeams": [],
+  "membershipsWithoutOrgId": [],
+  "membershipsWithoutTeam": [],
+  "jobsWithoutTeam": [],
+  "jobsWithoutOrg": [],
+  "teamsWithoutCreatedBy": []
+}
