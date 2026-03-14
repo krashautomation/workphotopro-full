@@ -12,6 +12,33 @@ This checklist provides a step-by-step guide for migrating from the hybrid Appwr
 
 ---
 
+## Current Status (March 14, 2026)
+
+### Quick Summary
+- ✅ **Phase 1 complete** — Schema migrated, data cleaned
+- ✅ **Phase 2 complete** — Custom invitations working with dual-mode flag
+- ✅ **Phase 3 mostly done** — Appwrite Teams calls replaced in UI and context
+- ⏳ **Phase 5 pending** — Remove legacy teams.ts code (21 SDK calls remain)
+- ⏳ **Email sending** — Needs Appwrite Cloud Function implementation
+- ⏳ **EXPO_PUBLIC_APP_URL** — Needs setting in .env for invite links
+
+### What's Working
+- Custom team service (`services/teamService.ts`) with all 11 methods
+- Feature flag `EXPO_PUBLIC_USE_CUSTOM_TEAMS=true` in dev
+- Team creation, deletion, member management via custom DB
+- Invite flow with secure tokens (acceptance working)
+- UI shows org names on team cards
+- "My Teams" vs "Member Of" tab filtering
+
+### Remaining Work
+1. Remove 21 remaining Appwrite Teams SDK calls from `lib/appwrite/teams.ts`
+2. Implement Appwrite Cloud Function for invitation emails
+3. Set `EXPO_PUBLIC_APP_URL` in production .env
+4. Comprehensive production testing
+5. Remove legacy Appwrite Teams collections after verified
+
+---
+
 ## Pagination Helper (Use in ALL Migration Scripts)
 
 ```typescript
