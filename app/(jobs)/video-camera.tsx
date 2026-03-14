@@ -11,6 +11,7 @@ import * as SecureStore from 'expo-secure-store'
 import { useAuth } from '@/context/AuthContext'
 import { organizationService } from '@/lib/appwrite/teams'
 import { useOrganization } from '@/context/OrganizationContext'
+import { usePermissions } from '@/utils/permissions'
 import { JobChat, Organization } from '@/utils/types'
 import { appwriteConfig, db } from '@/utils/appwrite'
 
@@ -20,6 +21,7 @@ export default function VideoCameraPage() {
     const { jobId, photoFlow } = useLocalSearchParams()
     const { user } = useAuth()
     const { currentOrganization, isCurrentOrgPremium, loadUserData } = useOrganization()
+    const { canRecordVideo: canRecordByPolicy } = usePermissions()
     const [facing, setFacing] = React.useState<CameraType>('back')
     const [permission, requestPermission] = useCameraPermissions()
     const [isRecording, setIsRecording] = React.useState(false)
@@ -166,17 +168,19 @@ export default function VideoCameraPage() {
                 console.log('🎥 [VideoCamera] - Video enabled:', org?.videoRecordingEnabled)
                 console.log('🎥 [VideoCamera] - HD Video enabled:', org?.hdVideoEnabled)
                 
-                const hasPremium = isCurrentOrgPremium || (org?.premiumTier && org.premiumTier !== 'free')
+                const hasPremiumByOrg = !!(isCurrentOrgPremium || (org?.premiumTier && org.premiumTier !== 'free'))
                 const videoEnabled = org?.videoRecordingEnabled ?? false
                 const hdVideoEnabled = org?.hdVideoEnabled ?? false
+                const hasVideoAccess = (canRecordByPolicy || hasPremiumByOrg) && videoEnabled
                 
                 console.log('🎥 [VideoCamera] Step 8: Access check results')
-                console.log('🎥 [VideoCamera] - Has premium:', hasPremium)
+                console.log('🎥 [VideoCamera] - Can record by policy:', canRecordByPolicy)
+                console.log('🎥 [VideoCamera] - Has premium by org:', hasPremiumByOrg)
                 console.log('🎥 [VideoCamera] - Video enabled:', videoEnabled)
                 console.log('🎥 [VideoCamera] - HD Video enabled:', hdVideoEnabled)
                 console.log('🎥 [VideoCamera] - Will record at:', hdVideoEnabled ? '1080p' : '720p')
 
-                if (!hasPremium || !videoEnabled) {
+                if (!hasVideoAccess) {
                     console.log('🎥 [VideoCamera] ⛔ Access denied - showing alert')
                     if (isMounted) {
                         Alert.alert(
@@ -231,7 +235,7 @@ export default function VideoCameraPage() {
                 clearTimeout(timeoutId)
             }
         }
-    }, [jobId, currentOrganization?.$id, isCurrentOrgPremium, router])
+    }, [jobId, currentOrganization?.$id, isCurrentOrgPremium, canRecordByPolicy, router])
 
     // Cleanup timers on unmount
     React.useEffect(() => {
@@ -254,10 +258,11 @@ export default function VideoCameraPage() {
             try {
                 // Check premium access again before recording
                 const org = activeOrganization || currentOrganization
-                const hasPremium = isCurrentOrgPremium || (org?.premiumTier && org.premiumTier !== 'free')
+                const hasPremiumByOrg = !!(isCurrentOrgPremium || (org?.premiumTier && org.premiumTier !== 'free'))
                 const videoEnabled = org?.videoRecordingEnabled ?? false
+                const hasVideoAccess = (canRecordByPolicy || hasPremiumByOrg) && videoEnabled
 
-                if (!hasPremium || !videoEnabled) {
+                if (!hasVideoAccess) {
                     Alert.alert(
                         'Premium Feature',
                         'Video recording is not available for this organization.'
@@ -488,10 +493,11 @@ export default function VideoCameraPage() {
 
     // Check if user has premium access
     const org = activeOrganization || currentOrganization
-    const hasPremium = isCurrentOrgPremium || (org?.premiumTier && org.premiumTier !== 'free')
+    const hasPremiumByOrg = !!(isCurrentOrgPremium || (org?.premiumTier && org.premiumTier !== 'free'))
     const videoEnabled = org?.videoRecordingEnabled ?? false
+    const hasVideoAccess = (canRecordByPolicy || hasPremiumByOrg) && videoEnabled
 
-    if (!hasPremium || !videoEnabled) {
+    if (!hasVideoAccess) {
         return (
             <View style={styles.container}>
                 <IconSymbol name="video.slash" color={Colors.Gray} size={64} />

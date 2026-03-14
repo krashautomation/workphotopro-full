@@ -16,7 +16,7 @@ import { useJobFilters } from '@/context/JobFilterContext';
 
 export default function Jobs() {
   const { user, isAuthenticated, getUserProfilePicture, getGoogleUserData } = useAuth();
-  const { currentOrganization, currentTeam, loading: orgLoading } = useOrganization();
+  const { currentOrganization, currentTeam, userOrganizations, loading: orgLoading } = useOrganization();
   const router = useRouter();
   const pathname = usePathname();
   const segments = useSegments();
@@ -37,6 +37,11 @@ export default function Jobs() {
   const [userProfilePicture, setUserProfilePicture] = useState<string | null>(null);
   const [googleData, setGoogleData] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const activeTeamOrganizationName = currentTeam?.orgId
+    ? userOrganizations.find((org) => org.$id === currentTeam.orgId)?.orgName ||
+      currentOrganization?.orgName ||
+      'No Organization'
+    : currentOrganization?.orgName || 'No Organization';
   const userRole = (currentTeam as any)?.membershipRole || (currentTeam as any)?.teamData?.role || null;
   const roleDisplay = userRole
     ? `${userRole.charAt(0).toUpperCase()}${userRole.slice(1)}`
@@ -160,7 +165,7 @@ export default function Jobs() {
         teamId: currentTeam.$id,
         teamName: currentTeam.teamName,
         orgId: currentTeam.orgId,
-        orgName: currentOrganization?.orgName,
+        orgName: activeTeamOrganizationName,
         userId: user?.$id,
         userName: user?.name
       });
@@ -440,7 +445,7 @@ export default function Jobs() {
             )}
             
             <View style={styles.headerLeftContainer}>
-              <Text style={styles.subtitle}>{currentOrganization?.orgName || 'No Organization'}</Text>
+              <Text style={styles.subtitle}>{activeTeamOrganizationName}</Text>
               <Text style={styles.subtitle}>{currentTeam?.teamName || 'No Team'}</Text>
             </View>
             <View style={styles.headerRightContainer}>
@@ -792,7 +797,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   rolePillOwner: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)', // green (same as old Member color)
+    backgroundColor: 'rgba(239, 68, 68, 0.15)', // red
   },
   rolePillText: {
     color: webColors.accent, // cyan
@@ -802,7 +807,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   rolePillTextOwner: {
-    color: '#22c55e', // green
+    color: '#ef4444', // red
   },
   profileButton: {
     width: 36,

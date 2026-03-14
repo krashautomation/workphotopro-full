@@ -9,10 +9,12 @@ import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { teamService } from '@/services/teamService';
 import { generateInviteLink } from '@/utils/inviteLink';
+import { usePermissions } from '@/utils/permissions';
 
 export default function InviteScreen() {
   const { user } = useAuth();
   const { currentTeam, currentOrganization } = useOrganization();
+  const { canInviteMember } = usePermissions();
   
   const [inviteLink, setInviteLink] = useState<string>('');
   const [memberCount, setMemberCount] = useState(0);
@@ -75,6 +77,11 @@ export default function InviteScreen() {
   };
 
   const handleShareLink = async () => {
+    if (!canInviteMember) {
+      Alert.alert('Permission Denied', 'You do not have permission to invite members to this team.');
+      return;
+    }
+
     if (!inviteLink) {
       Alert.alert('Error', 'Invite link not available');
       return;
@@ -93,6 +100,11 @@ export default function InviteScreen() {
   };
 
   const handleSendInvitation = async () => {
+    if (!canInviteMember) {
+      Alert.alert('Permission Denied', 'You do not have permission to invite members to this team.');
+      return;
+    }
+
     // Validate inputs
     if (!email || !email.includes('@')) {
       Alert.alert('Invalid Email', 'Please enter a valid email address');
@@ -244,7 +256,7 @@ export default function InviteScreen() {
           <Pressable 
             style={[styles.sendButton, sendingInvitation && styles.buttonDisabled]} 
             onPress={handleSendInvitation}
-            disabled={sendingInvitation || !email}
+            disabled={sendingInvitation || !email || !canInviteMember}
           >
             {sendingInvitation ? (
               <ActivityIndicator color={Colors.White} size="small" />
@@ -299,7 +311,11 @@ export default function InviteScreen() {
         <View style={styles.shareSection}>
           <Text style={styles.orText}>or</Text>
           
-          <Pressable style={styles.shareButton} onPress={handleShareLink}>
+          <Pressable
+            style={[styles.shareButton, !canInviteMember && styles.buttonDisabled]}
+            onPress={handleShareLink}
+            disabled={!canInviteMember}
+          >
             <IconSymbol name="paperplane" color={Colors.White} size={20} />
             <Text style={styles.shareButtonText}>Share link</Text>
           </Pressable>
@@ -310,6 +326,11 @@ export default function InviteScreen() {
           <Text style={styles.permissionsText}>
             New members will be able to view, create and update jobs in this workspace. Only owners can delete jobs or manage team members.
           </Text>
+          {!canInviteMember && (
+            <Text style={styles.permissionsText}>
+              You do not have permission to send invites for this team.
+            </Text>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

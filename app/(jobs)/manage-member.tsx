@@ -9,6 +9,7 @@ import { Switch } from 'react-native';
 import { useOrganization } from '@/context/OrganizationContext';
 import { useAuth } from '@/context/AuthContext';
 import { teamService } from '@/lib/appwrite/teams';
+import { usePermissions } from '@/utils/permissions';
 
 export default function ManageMemberScreen() {
   const { memberId, memberName, teamId } = useLocalSearchParams<{ 
@@ -18,13 +19,15 @@ export default function ManageMemberScreen() {
   }>();
   const { currentTeam } = useOrganization();
   const { user } = useAuth();
+  const { canRemoveMember: canManageMembersByPolicy } = usePermissions();
   const [sendJobReports, setSendJobReports] = useState(false);
   const [loading, setLoading] = useState(true);
   const [member, setMember] = useState<any>(null);
-  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [canManageMembersByLocal, setCanManageMembersByLocal] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string>('member');
   const [updatingRole, setUpdatingRole] = useState(false);
   const [savingPermission, setSavingPermission] = useState(false);
+  const canManageMembers = canManageMembersByPolicy && canManageMembersByLocal;
   
   // Get the actual teamId (prefer param, fallback to currentTeam)
   const actualTeamId = teamId || currentTeam?.$id || '';
@@ -89,7 +92,7 @@ export default function ManageMemberScreen() {
 
   const loadCurrentUserRole = async () => {
     if (!actualTeamId || !user?.$id) {
-      setCurrentUserRole(null);
+      setCanManageMembersByLocal(false);
       return;
     }
 
@@ -99,13 +102,14 @@ export default function ManageMemberScreen() {
       
       if (currentUserMembership) {
         const role = currentUserMembership.membershipData?.role || currentUserMembership.roles?.[0] || 'member';
-        setCurrentUserRole(role.toLowerCase());
+        const normalizedRole = role.toLowerCase();
+        setCanManageMembersByLocal(normalizedRole === 'owner' || normalizedRole === 'owners');
       } else {
-        setCurrentUserRole(null);
+        setCanManageMembersByLocal(false);
       }
     } catch (error) {
       console.error('Error loading current user role:', error);
-      setCurrentUserRole(null);
+      setCanManageMembersByLocal(false);
     }
   };
 
@@ -133,6 +137,10 @@ export default function ManageMemberScreen() {
   const handleToggleJobReports = async (value: boolean) => {
     if (!member || !actualTeamId || !member.$id) {
       Alert.alert('Error', 'Cannot update permission. Member information is missing.');
+      return;
+    }
+    if (!canManageMembers) {
+      Alert.alert('Error', 'You do not have permission to update member permissions.');
       return;
     }
 
@@ -204,6 +212,11 @@ export default function ManageMemberScreen() {
   };
 
   const handleRemoveMember = () => {
+    if (!canManageMembers) {
+      Alert.alert('Error', 'You do not have permission to remove members.');
+      return;
+    }
+
     // Prevent removing owners
     if (isOwner()) {
       Alert.alert(
@@ -256,16 +269,14 @@ export default function ManageMemberScreen() {
     router.back();
   };
 
-  // Check if current user is owner
-  const isCurrentUserOwner = (): boolean => {
-    if (!currentUserRole) return false;
-    return currentUserRole === 'owner' || currentUserRole === 'owners';
-  };
-
   // Handle role change
   const handleRoleChange = async (newRole: string) => {
     if (!member || !actualTeamId || !member.$id) {
       Alert.alert('Error', 'Cannot change role. Member information is missing.');
+      return;
+    }
+    if (!canManageMembers) {
+      Alert.alert('Error', 'You do not have permission to change roles.');
       return;
     }
 
@@ -349,7 +360,7 @@ export default function ManageMemberScreen() {
         </View>
 
         {/* Permissions Section - Only show if current user is owner */}
-        {isCurrentUserOwner() && (
+        {canManageMembers && (
           <View style={styles.permissionsSection}>
             <Text style={styles.permissionsTitle}>PERMISSIONS</Text>
             
@@ -378,7 +389,7 @@ export default function ManageMemberScreen() {
         )}
 
         {/* Role Change Section - Only show if current user is owner and member is not owner */}
-        {isCurrentUserOwner() && !isOwner() && (
+        {canManageMembers && !isOwner() && (
           <View style={styles.roleSection}>
             <Text style={styles.roleSectionTitle}>ROLE</Text>
             <View style={styles.roleSelector}>
@@ -429,7 +440,7 @@ export default function ManageMemberScreen() {
         )}
 
         {/* Remove Button - Only show for non-owners */}
-        {!isOwner() && (
+        {!isOwner() && canManageMembers && (
           <View style={styles.removeSection}>
             <Pressable style={styles.removeButton} onPress={handleRemoveMember}>
               <Text style={styles.removeButtonText}>Remove</Text>

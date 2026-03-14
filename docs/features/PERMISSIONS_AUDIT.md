@@ -103,13 +103,13 @@ Conclusion:
 ### Priority 1 — Role/Permission Screens
 - [x] app/(jobs)/team-settings.tsx
 - [x] app/(jobs)/teams.tsx
-- [ ] app/(jobs)/delete-team.tsx
-- [ ] app/(jobs)/manage-member.tsx
-- [ ] app/(jobs)/invite.tsx
+- [x] app/(jobs)/delete-team.tsx
+- [x] app/(jobs)/manage-member.tsx
+- [x] app/(jobs)/invite.tsx
 
 ### Priority 2 — Feature Gated Screens
-- [ ] app/(jobs)/video-camera.tsx
-- [ ] app/(jobs)/profile-settings.tsx
+- [x] app/(jobs)/video-camera.tsx
+- [x] app/(jobs)/profile-settings.tsx
 - [ ] app/(jobs)/camera.tsx
 - [ ] app/(jobs)/index.tsx
 - [ ] app/(jobs)/[job].tsx

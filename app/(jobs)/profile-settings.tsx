@@ -14,9 +14,16 @@ import { ResolutionPreference, TimestampPreference } from '@/utils/types';
 import { organizationService } from '@/lib/appwrite/teams';
 import { UserPlus, Building2 } from 'lucide-react-native';
 import { Image } from 'expo-image';
+import { usePermissions } from '@/utils/permissions';
 
 export default function ProfileScreen() {
   const { user, getGoogleUserData, signOut } = useAuth();
+  const {
+    isPremium: isPremiumByPolicy,
+    canToggleHD,
+    canToggleWatermark,
+    canRecordVideo,
+  } = usePermissions();
   const {
     currentOrganization,
     userOrganizations,
@@ -76,7 +83,8 @@ export default function ProfileScreen() {
   }, [ownedTeams, profileOrganization]);
 
   const premiumTier = profileOrganization?.premiumTier || 'free';
-  const hasPremium = premiumTier !== 'free';
+  const hasPremiumByOrg = premiumTier !== 'free';
+  const hasPremium = isPremiumByPolicy || hasPremiumByOrg;
   const canManageOrgHd = !!profileOrganization && profileOrganization.ownerId === user?.$id;
   const orgHdEnabled = profileOrganization?.hdCaptureEnabled ?? false;
   const orgWatermarkEnabled = profileOrganization?.watermarkEnabled ?? true;
@@ -88,7 +96,7 @@ export default function ProfileScreen() {
     loadingPreferences ||
     savingHdPreference ||
     updatingOrgHd ||
-    !hasPremium ||
+    !(hasPremium && canToggleHD) ||
     (!canManageOrgHd && !orgHdEnabled);
   const watermarkSwitchDisabled =
     !profileOrganization ||
@@ -96,7 +104,8 @@ export default function ProfileScreen() {
     loadingPreferences ||
     updatingOrgWatermark ||
     !hasPremium ||
-    !canManageOrgHd;
+    !canManageOrgHd ||
+    !canToggleWatermark;
   const orgTimestampEnabled = profileOrganization?.timestampEnabled ?? true;
   const timestampSwitchDisabled =
     !profileOrganization ||
@@ -104,7 +113,7 @@ export default function ProfileScreen() {
     loadingPreferences ||
     savingTimestampPreference ||
     updatingOrgTimestamp ||
-    !hasPremium ||
+    !(hasPremium && canToggleHD) ||
     (!canManageOrgHd && !orgTimestampEnabled);
   const videoRecordingSwitchDisabled =
     !profileOrganization ||
@@ -112,13 +121,14 @@ export default function ProfileScreen() {
     loadingPreferences ||
     updatingOrgVideoRecording ||
     !hasPremium ||
-    !canManageOrgHd;
+    !canManageOrgHd ||
+    !canRecordVideo;
   const hdVideoSwitchDisabled =
     !profileOrganization ||
     !profileTeam ||
     loadingPreferences ||
     updatingOrgHdVideo ||
-    !hasPremium ||
+    !(hasPremium && canToggleHD) ||
     !canManageOrgHd ||
     !orgVideoRecordingEnabled;
   
@@ -286,7 +296,7 @@ useEffect(() => {
       }));
     };
 
-    if (value && !hasPremium) {
+    if (value && (!hasPremium || !canToggleHD)) {
       Alert.alert('Premium Required', 'Upgrade to enable Full HD images for this organization.');
       revertState();
       return;
@@ -367,7 +377,7 @@ useEffect(() => {
       });
     };
 
-    if (!hasPremium) {
+    if (!hasPremium || !canToggleHD) {
       Alert.alert('Premium Required', 'Upgrade to enable timestamp overlays for this organization.');
       revertState();
       return;
@@ -437,7 +447,7 @@ useEffect(() => {
       return;
     }
 
-    if (!hasPremium) {
+    if (!hasPremium || !canToggleWatermark) {
       Alert.alert('Premium Required', 'Upgrade to enable watermarks for this organization.');
       return;
     }
@@ -472,7 +482,7 @@ useEffect(() => {
       return;
     }
 
-    if (!hasPremium) {
+    if (!hasPremium || !canRecordVideo) {
       Alert.alert('Premium Required', 'Upgrade to enable video recording for this organization.');
       return;
     }
@@ -515,7 +525,7 @@ useEffect(() => {
       return;
     }
 
-    if (!hasPremium) {
+    if (!hasPremium || !canToggleHD) {
       Alert.alert('Premium Required', 'Upgrade to enable HD video for this organization.');
       return;
     }

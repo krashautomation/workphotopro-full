@@ -6,7 +6,7 @@ import { usePermissions } from '@/utils/permissions';
 import { Link, useRouter, useFocusEffect } from 'expo-router';
 import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -812,7 +812,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   roleBadgeOwner: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)', // green (same as old Member color)
+    backgroundColor: 'rgba(239, 68, 68, 0.15)', // red
   },
   roleBadgeText: {
     color: webColors.accent, // cyan
@@ -822,7 +822,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   roleBadgeTextOwner: {
-    color: '#22c55e', // green
+    color: '#ef4444', // red
   },
   currentTeamBadge: {
     backgroundColor: webColors.accent,

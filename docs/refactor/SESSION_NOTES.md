@@ -1,3 +1,41 @@
+## Session 6 - March 14, 2026 (Permissions Migration Checkpoint)
+
+### Completed This Session
+- Continued centralized permissions migration using `utils/permissions.ts` across Priority 1 and Priority 2 screens.
+- Completed and verified migrations for:
+  - `app/(jobs)/delete-team.tsx`
+  - `app/(jobs)/manage-member.tsx`
+  - `app/(jobs)/invite.tsx`
+  - `app/(jobs)/video-camera.tsx`
+  - `app/(jobs)/profile-settings.tsx`
+- Updated `docs/features/PERMISSIONS_AUDIT.md` to mark all Priority 1 items complete and mark:
+  - `app/(jobs)/video-camera.tsx` complete
+  - `app/(jobs)/profile-settings.tsx` complete
+
+### Verification Results
+- Ran `npx tsc --noEmit` after each approved migration step.
+- Net new TypeScript errors introduced by this session's edits: **0**.
+- Existing project-wide TypeScript errors remain (pre-existing baseline).
+
+### In Progress / Next Resume Point
+- Next file queued: `app/(jobs)/camera.tsx` (Priority 2).
+- File has been analyzed for manual permission logic; **no diff applied yet**.
+- Last proposed (pending approval/application) plan for `camera.tsx`:
+  - Add `usePermissions` import and hook usage.
+  - Use `canUploadPhoto` to gate photo capture/action and fallback UI.
+  - Use `canToggleHD` to constrain effective HD capture mode when deriving org/user capture preference.
+  - Preserve device camera permission flow (`useCameraPermissions`) as-is.
+
+### Modified Files This Session
+- `app/(jobs)/delete-team.tsx`
+- `app/(jobs)/manage-member.tsx`
+- `app/(jobs)/invite.tsx`
+- `app/(jobs)/video-camera.tsx`
+- `app/(jobs)/profile-settings.tsx`
+- `docs/features/PERMISSIONS_AUDIT.md`
+
+---
+
 ## Session 5 - March 14, 2026 (Migration Completion)
 
 ### Completed This Session

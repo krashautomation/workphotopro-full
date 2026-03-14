@@ -6,17 +6,20 @@ import { useAuth } from '@/context/AuthContext';
 import { teamService } from '@/lib/appwrite/teams';
 import { databaseService } from '@/lib/appwrite/database';
 import { Query } from 'react-native-appwrite';
+import { usePermissions } from '@/utils/permissions';
 
 export default function DeleteTeam() {
   const router = useRouter();
   const { teamId, teamName } = useLocalSearchParams<{ teamId: string; teamName: string }>();
   const { loadUserData, currentOrganization } = useOrganization();
   const { user } = useAuth();
+  const { canDeleteTeam: canDeleteByPolicy } = usePermissions();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
   const [teamExists, setTeamExists] = useState(false);
-  const [canDeleteTeam, setCanDeleteTeam] = useState(false);
+  const [canDeleteByLocal, setCanDeleteByLocal] = useState(false);
   const [organizationTeamCount, setOrganizationTeamCount] = useState(0);
+  const canDeleteThisTeam = canDeleteByPolicy && canDeleteByLocal;
 
   // Validate team exists and check if user can delete it
   useEffect(() => {
@@ -46,11 +49,11 @@ export default function DeleteTeam() {
         setOrganizationTeamCount(ownedTeamCount);
 
         // User can only delete if they own more than one team
-        setCanDeleteTeam(ownedTeamCount > 1);
+        setCanDeleteByLocal(ownedTeamCount > 1);
       } catch (error) {
         console.warn('Team validation failed:', error);
         setTeamExists(false);
-        setCanDeleteTeam(false);
+        setCanDeleteByLocal(false);
       } finally {
         setIsValidating(false);
       }
@@ -71,7 +74,7 @@ export default function DeleteTeam() {
     }
 
     // Check if user can delete this team (must own more than one team)
-    if (!canDeleteTeam) {
+    if (!canDeleteThisTeam) {
       Alert.alert(
         'Cannot Delete Team',
         'Cannot delete your only team. Create another team first before deleting this one.',
@@ -171,7 +174,7 @@ export default function DeleteTeam() {
                 <Text style={styles.backButtonText}>Go Back</Text>
               </TouchableOpacity>
             </View>
-          ) : !canDeleteTeam ? (
+          ) : !canDeleteThisTeam ? (
             <View style={styles.warningContainer}>
               <Text style={styles.warningText}>
                 Cannot delete your only team.
