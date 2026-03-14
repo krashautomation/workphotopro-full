@@ -125,3 +125,99 @@
 - /docs/refactor/MIGRATION_CHECKLIST.md
 - /docs/refactor/DATABASE_ERD.md
 - services/teamService.ts
+
+---
+
+## Session 4 - March 14, 2026
+
+### Completed This Session
+
+**Phase 1 & 2: Migration from Appwrite Teams to Custom DB System**
+
+**Files Changed (47 total):**
+- **Added (21):**
+  - AGENTS.md - Agent coding guidelines
+  - archive/katya-bot/ARCHIVE_MANIFEST.md - Katya bot cleanup
+  - docs/DATABASE_SCHEMA_AUDIT.md - Schema audit documentation
+  - docs/refactor/* - Migration docs (CLOSING_SESSION_PROMPT.md, DATABASE_ERD.md, MIGRATION_CHECKLIST.md, SESSION_NOTES.md, START_NEW_SESSION_PROMPT.md, pre-migration-audit-results.json, teams-migration-plan.md)
+  - docs/teams-migration-plan.md
+  - scripts/* - Migration scripts (check-katya-status.ts, check-user-details.ts, check-user-memberships.ts, cleanup-katya-bot.ts, cleanup-orphaned-memberships.ts, cleanup-orphaned-team.ts, debug-team-memberships.ts, migrate-orgId-memberships.ts, migrate-team-creators.ts, pre-migration-audit.ts, sync-appwrite-memberships.ts, test-team-service.ts, verify-phase1.ts)
+  - services/teamService.ts - Complete custom team service
+  - utils/crypto.ts - React Native crypto compatibility
+  - utils/paginatedList.ts - Pagination utility
+
+- **Modified (26):**
+  - .gitignore - Added nul and dev-server.log
+  - app/(auth)/accept-invite.tsx - Use teamService.acceptInvitation()
+  - app/(jobs)/edit-team.tsx - TeamData property fixes (teamName, teamData removal)
+  - app/(jobs)/index.tsx - TeamData property fixes
+  - app/(jobs)/invite.tsx - Use teamService.inviteMember(), QR code fix
+  - app/(jobs)/notifications.tsx - Use useOrganization for orgId
+  - app/(jobs)/profile-settings.tsx - TeamData fixes
+  - app/(jobs)/team-settings.tsx - TeamData property fixes
+  - app/(jobs)/team.tsx - TeamData property fixes
+  - app/(jobs)/teams.tsx - Major refactor: org selector, tab filtering, membership loading
+  - app/(jobs)/trashed-jobs.tsx - TeamData property fixes
+  - app/_layout.tsx - Import fixes
+  - components/TeamSelector.tsx - TeamData property fixes
+  - context/OrganizationContext.tsx - Load orgs from memberships, attach membershipRole
+  - lib/appwrite/notificationHelper.ts - Add orgId parameter
+  - lib/appwrite/notifications.ts - Add orgId parameter
+  - lib/appwrite/teams.ts - Simplified listMemberships to use DB only
+  - package-lock.json & package.json - Dependencies
+  - utils/types.ts - Added TeamData.createdBy and membershipRole
+
+**Key Changes:**
+1. **Custom Team Service Complete** - services/teamService.ts with all 11 custom methods
+2. **TeamData Migration** - Fixed all references from team.name to team.teamName, removed teamData wrapper
+3. **Organization Context** - Now loads organizations from both owned orgs AND membership orgs
+4. **Teams Screen** - Added OrganizationSelector, fixed tab filtering (My Teams vs Member Of)
+5. **Crypto Fix** - Replaced Web Crypto API with expo-crypto for React Native
+6. **Notifications** - Fixed missing orgId on createDocument calls
+7. **Team Cards** - Now display organization name for clarity
+8. **Create Team** - Only visible when user owns current org
+9. **Test Data Cleanup** - Soft deleted "New Team" test team
+10. **Feature Flag** - EXPO_PUBLIC_USE_CUSTOM_TEAMS=true in dev
+
+### Current State
+- **Teams**: 3 (Banana Team, Don Team, New Team[soft deleted])
+- **Memberships**: 5 (all with orgId)
+- **Orphaned records**: 0
+- **Pre-migration audit**: All zeros ✅
+- **Feature flag**: ENABLED
+- **TypeScript errors**: ~58 (all pre-existing React UMD noise, not migration-related)
+
+### What Still Needs Doing Next Session
+1. **Phase 3**: Remove remaining Appwrite Teams SDK calls from:
+   - lib/appwrite/teams.ts (has 18 direct SDK calls still)
+   - Context and UI files if any remain
+2. **Phase 5**: Complete removal of Appwrite Teams after all calls replaced
+3. **Testing**: Comprehensive testing of invite flow with real emails
+4. **Production**: Set EXPO_PUBLIC_USE_CUSTOM_TEAMS=true in production env
+5. **Cleanup**: Remove legacy Appwrite Teams collections after migration verified
+
+### Known Remaining Issues
+1. **Appwrite Teams SDK still present** in lib/appwrite/teams.ts (expected during transition)
+2. **TypeScript React UMD warnings** - Pre-existing, not migration-related
+3. **Invite email** - Currently stubbed, needs Appwrite Cloud Function implementation
+4. **QR Code** - Fixed empty link crash, now shows placeholder while loading
+
+### Pre-Migration Audit Results (March 14, 2026)
+```
+Appwrite Teams: 2
+DB Teams: 3
+Orphaned DB teams: 0
+Orphaned Appwrite teams: 0
+Memberships missing orgId: 0
+Memberships with invalid teamId: 0
+Jobs missing teamId: 0
+Jobs missing orgId: 0
+Teams missing createdBy: 0
+✅ Data looks consistent. Safe to proceed with migration.
+```
+
+### Reference Docs
+- /docs/refactor/teams-migration-plan.md
+- /docs/refactor/MIGRATION_CHECKLIST.md
+- /docs/refactor/DATABASE_ERD.md
+- services/teamService.ts
