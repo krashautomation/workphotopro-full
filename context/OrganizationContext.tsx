@@ -611,8 +611,17 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
 
   const currentOrgPremiumTier = currentOrganization?.premiumTier || 'free';
   const isHDCaptureEnabled = currentOrganization?.hdCaptureEnabled ?? false;
+  const trialExpiryTime = currentOrganization?.subscriptionExpiryDate
+    ? new Date(currentOrganization.subscriptionExpiryDate).getTime()
+    : 0;
+  const isActiveTrial =
+    currentOrgPremiumTier === 'trial' &&
+    Number.isFinite(trialExpiryTime) &&
+    trialExpiryTime > Date.now();
+  const isPaidPremium =
+    currentOrgPremiumTier !== 'free' && currentOrgPremiumTier !== 'trial';
   const isCurrentOrgPremium =
-    currentOrgPremiumTier !== 'free' || isHDCaptureEnabled;
+    isPaidPremium || isActiveTrial || isHDCaptureEnabled;
 
   const value: OrganizationContextType = {
     currentOrganization,
