@@ -1,5 +1,9 @@
 # Known Issues
 
+## Security & Permissions
+
+- **Document security disabled on all collections** - Tenant isolation relies on query-level orgId/teamId filtering only. Enable document-level permissions before scaling to multiple organizations.
+
 ## Migration Follow-Up Items
 
 - Real-time subscriptions are currently disabled due to WebSocket errors and need a dedicated fix.
