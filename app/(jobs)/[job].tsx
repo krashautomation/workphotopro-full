@@ -39,6 +39,27 @@ import EmojiPicker, { EmojiPickerView } from '@/components/EmojiPicker'
 import { ClipboardList, CalendarCheck, LayoutList } from 'lucide-react-native'
 import { usePermissions } from '@/utils/permissions'
 
+// Color palette for sender names (6 distinct colors for dark background)
+const SENDER_COLORS = [
+    '#22c55e', // Green (current user)
+    '#3b82f6', // Blue
+    '#ef4444', // Red
+    '#f59e0b', // Amber/Orange
+    '#8b5cf6', // Purple
+    '#06b6d4', // Cyan
+];
+
+// Generate consistent color for a sender based on userId
+const getSenderColor = (senderId: string, isCurrentUser: boolean): string => {
+    if (isCurrentUser) return SENDER_COLORS[0]; // Green for current user
+    // Hash the senderId to pick a consistent color
+    let hash = 0;
+    for (let i = 0; i < senderId.length; i++) {
+        hash = senderId.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % (SENDER_COLORS.length - 1) + 1; // Skip index 0 (green)
+    return SENDER_COLORS[index];
+};
 
 export default function Job() {
     const { job: jobId } = useLocalSearchParams()
@@ -2370,12 +2391,14 @@ const loadOlderMessages = async () => {
                                     isTask: item.isTask,
                                     taskStatus: item.taskStatus
                                 });
-                                const isSender = item.senderId === user?.$id;
+                                
+                                const isCurrentUser = item.senderId === user?.$id;
+                                const senderColor = getSenderColor(item.senderId || '', isCurrentUser);
                                 const isPressed = pressedMessageId === item.$id;
                                 const isDeleted = item.content === 'Message deleted by user';
                                 const originalMessage = item.replyToMessageId ? messages.find(m => m.$id === item.replyToMessageId) : null;
                                 
-                                // Render deleted messages differently
+                                // Render deleted messages
                                 if (isDeleted) {
                                     return (
                                         <View style={{ 
@@ -2401,33 +2424,55 @@ const loadOlderMessages = async () => {
                                         delayLongPress={500}
                                         style={{ 
                                             padding: 10,
-                                            borderRadius: 10,
                                             flexDirection: 'row',
-                                            justifyContent: isSender ? 'flex-end' : 'flex-start',
+                                            alignItems: 'flex-start',
                                         }}
                                     >
-                                        {!isSender && (
-                                        <Avatar 
-                                            name={item.senderName || 'Unknown User'}
-                                            imageUrl={item.senderPhoto}
-                                            size={30}
-                                            style={{ marginRight: 10 }}
-                                        />
-                                        )}
+                                        {/* Left vertical accent bar */}
+                                        <View style={{
+                                            width: 3,
+                                            backgroundColor: senderColor,
+                                            borderRadius: 2,
+                                            marginRight: 10,
+                                            alignSelf: 'stretch',
+                                            minHeight: 40,
+                                        }} />
+                                        
+                                        {/* Message content */}
                                         <Pressable
                                             onLongPress={() => handleLongPress(item)}
                                             delayLongPress={500}
                                             style={{ 
-                                                backgroundColor: isSender ? '#1d1d24' : Colors.Secondary, // Slightly bluish gray for sender messages
-                                                padding: 10,
-                                                borderRadius: 10,
-                                                minWidth: '70%',
-                                                maxWidth: '70%',
+                                                flex: 1,
                                                 opacity: isPressed ? 0.7 : 1,
-                                                borderWidth: isPressed ? 2 : (item.isTask || item.isDuty ? 2 : 0),
-                                                borderColor: isPressed ? Colors.Primary : (item.isTask ? (item.taskStatus === 'completed' ? Colors.Gray : taskBlue) : (item.isDuty ? (item.dutyStatus === 'completed' ? Colors.Gray : dutyRed) : 'transparent')),
                                             }}
                                         >
+                                            {/* Sender Name - colored and uppercase */}
+                                            <Pressable
+                                                onPress={() => {
+                                                    router.push({
+                                                        pathname: '/(jobs)/user-profile',
+                                                        params: {
+                                                            name: item.senderName || 'Unknown User',
+                                                            imageUrl: item.senderPhoto || '',
+                                                            senderId: item.senderId || '',
+                                                            orgId: item.orgId || '',
+                                                        }
+                                                    });
+                                                }}
+                                            >
+                                                <Text style={{ 
+                                                    color: senderColor, 
+                                                    fontWeight: '700', 
+                                                    fontSize: 12,
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: 0.5,
+                                                    marginBottom: 4,
+                                                }}>
+                                                    {item.senderName || 'Unknown User'}
+                                                </Text>
+                                            </Pressable>
+                                            
                                             {/* Task Badge and Status */}
                                             {item.isTask && (
                                                 <View style={{
@@ -2452,7 +2497,6 @@ const loadOlderMessages = async () => {
                                                     }}>
                                                         Task {item.taskStatus === 'completed' ? '• Completed' : '• Active'}
                                                     </Text>
-                                                    {/* Complete Task Button (only show for creator and if active) */}
                                                     {item.taskStatus === 'active' && item.senderId === user?.$id && (
                                                         <TouchableOpacity
                                                             onPress={() => handleCompleteTask(item.$id)}
@@ -2500,7 +2544,6 @@ const loadOlderMessages = async () => {
                                                     }}>
                                                         Duties {item.dutyStatus === 'completed' ? '• Completed' : '• Active'}
                                                     </Text>
-                                                    {/* Complete Duty Button (only show for creator and if active) */}
                                                     {item.dutyStatus === 'active' && item.senderId === user?.$id && (
                                                         <TouchableOpacity
                                                             onPress={() => handleCompleteDuty(item.$id)}
@@ -2524,29 +2567,43 @@ const loadOlderMessages = async () => {
                                                 </View>
                                             )}
                                             
-                                            <Pressable
-                                                onPress={() => {
-                                                    router.push({
-                                                        pathname: '/(jobs)/user-profile',
-                                                        params: {
-                                                            name: item.senderName || 'Unknown User',
-                                                            imageUrl: item.senderPhoto || '',
-                                                            senderId: item.senderId || '',
-                                                            orgId: item.orgId || '',
+                                            {/* Reply Context */}
+                                            {originalMessage && (
+                                                <Pressable
+                                                    onPress={() => {
+                                                        const index = messages.findIndex(m => m.$id === originalMessage.$id);
+                                                        if (index !== -1 && listRef.current) {
+                                                            listRef.current.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
                                                         }
-                                                    });
-                                                }}
-                                            >
-                                                <Text style={{ 
-                                                    color: Colors.Text, 
-                                                    fontWeight: 'bold', 
-                                                    marginBottom: 5,
-                                                    textDecorationLine: (item.isTask && item.taskStatus === 'completed') || (item.isDuty && item.dutyStatus === 'completed') ? 'line-through' : 'none',
-                                                    opacity: (item.isTask && item.taskStatus === 'completed') || (item.isDuty && item.dutyStatus === 'completed') ? 0.6 : 1,
-                                                }}>
-                                                    {item.senderName}
-                                                </Text>
-                                            </Pressable>
+                                                    }}
+                                                    style={{
+                                                        backgroundColor: Colors.Secondary,
+                                                        borderRadius: 6,
+                                                        padding: 8,
+                                                        marginBottom: 8,
+                                                        borderLeftWidth: 2,
+                                                        borderLeftColor: Colors.Primary,
+                                                    }}
+                                                >
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                                        <IconSymbol name="arrowshape.turn.up.left.fill" color={Colors.Primary} size={12} />
+                                                        <Text style={{ color: Colors.Primary, fontSize: 11, fontWeight: '600' }}>
+                                                            {originalMessage.senderName || 'Unknown User'}
+                                                        </Text>
+                                                    </View>
+                                                    <Text 
+                                                        style={{ 
+                                                            color: Colors.Text, 
+                                                            fontSize: 12, 
+                                                            opacity: 0.7,
+                                                            lineHeight: 16,
+                                                        }} 
+                                                        numberOfLines={1}
+                                                    >
+                                                        {originalMessage.content || (originalMessage.imageUrl ? '📷 Image' : originalMessage.videoFileId ? '🎥 Video' : originalMessage.audioFileId ? '🎵 Audio' : originalMessage.fileFileId ? '📄 File' : 'Message')}
+                                                    </Text>
+                                                </Pressable>
+                                            )}
                                             
                                             {/* Multiple Images Display */}
                                             {(item.imageUrls && item.imageUrls.length > 0) && item.content !== 'Message deleted by user' && (
@@ -2603,6 +2660,7 @@ const loadOlderMessages = async () => {
                                                     ))}
                                                 </View>
                                             )}
+                                            
                                             {/* Backward Compatibility: Single Image Display */}
                                             {(!item.imageUrls || item.imageUrls.length === 0) && item.imageUrl && item.content !== 'Message deleted by user' && (
                                                 <TouchableOpacity 
@@ -2670,7 +2728,6 @@ const loadOlderMessages = async () => {
                                             {item.messageType === 'location' && item.locationData && (
                                                 <TouchableOpacity 
                                                     onPress={() => {
-                                                        // Open location in maps app
                                                         const mapUrl = `https://www.google.com/maps/search/?api=1&query=${item.locationData?.latitude},${item.locationData?.longitude}`;
                                                         Linking.openURL(mapUrl);
                                                     }}
@@ -2705,7 +2762,6 @@ const loadOlderMessages = async () => {
                                             {item.fileFileId && item.content !== 'Message deleted by user' && (
                                                 <TouchableOpacity 
                                                     onPress={() => {
-                                                        // Open file URL
                                                         const fileUrl = item.fileUrl || `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.bucket}/files/${item.fileFileId}/view?project=${appwriteConfig.projectId}`;
                                                         Linking.openURL(fileUrl);
                                                     }}
@@ -2744,58 +2800,17 @@ const loadOlderMessages = async () => {
                                                     autoCache={true}
                                                     senderName={item.senderName}
                                                     senderPhoto={item.senderPhoto}
-                                                    showAvatar={true}
+                                                    showAvatar={false}
                                                 />
                                             )}
-
-                                            {/* Reply Context */}
-                                            {originalMessage && (
-                                                <Pressable
-                                                    onPress={() => {
-                                                        // Scroll to original message
-                                                        const index = messages.findIndex(m => m.$id === originalMessage.$id);
-                                                        if (index !== -1 && listRef.current) {
-                                                            listRef.current.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
-                                                        }
-                                                    }}
-                                                    style={{
-                                                        backgroundColor: Colors.Secondary,
-                                                        borderRadius: 6,
-                                                        padding: 8,
-                                                        marginBottom: 8,
-                                                        borderLeftWidth: 2,
-                                                        borderLeftColor: Colors.Primary,
-                                                    }}
-                                                >
-                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                                                        <IconSymbol name="arrowshape.turn.up.left.fill" color={Colors.Primary} size={12} />
-                                                        <Text style={{ color: Colors.Primary, fontSize: 11, fontWeight: '600' }}>
-                                                            {originalMessage.senderName || 'Unknown User'}
-                                                        </Text>
-                                                    </View>
-                                                    <Text 
-                                                        style={{ 
-                                                            color: Colors.Text, 
-                                                            fontSize: 12, 
-                                                            opacity: 0.7,
-                                                            lineHeight: 16,
-                                                        }} 
-                                                        numberOfLines={1}
-                                                    >
-                                                        {originalMessage.content || (originalMessage.imageUrl ? '📷 Image' : originalMessage.videoFileId ? '🎥 Video' : originalMessage.audioFileId ? '🎵 Audio' : originalMessage.fileFileId ? '📄 File' : 'Message')}
-                                                    </Text>
-                                                </Pressable>
-                                            )}
                                             
+                                            {/* Message Text */}
                                             {item.content && (
                                                 <Text style={{ 
-                                                    color: Colors.Text,
-                                                    fontStyle: item.content === 'Message deleted by user' ? 'italic' : 'normal',
-                                                    opacity: item.content === 'Message deleted by user' ? 0.6 : ((item.isTask && item.taskStatus === 'completed') || (item.isDuty && item.dutyStatus === 'completed') ? 0.6 : 1),
-                                                    fontSize: isEmojiMessage(item.content) ? 48 : 14,
+                                                    color: Colors.White,
+                                                    fontSize: isEmojiMessage(item.content) ? 48 : 16,
+                                                    lineHeight: isEmojiMessage(item.content) ? 56 : 24,
                                                     textAlign: isEmojiMessage(item.content) ? 'center' : 'left',
-                                                    lineHeight: isEmojiMessage(item.content) ? 56 : 22,
-                                                    textDecorationLine: (item.isTask && item.taskStatus === 'completed') || (item.isDuty && item.dutyStatus === 'completed') ? 'line-through' : 'none',
                                                 }}>
                                                     {item.content}
                                                 </Text>
@@ -2820,17 +2835,18 @@ const loadOlderMessages = async () => {
                                                 </View>
                                             )}
 
+                                            {/* Timestamp */}
                                             <Text
-                                            style={{
-                                                fontSize: 10,
-                                                textAlign: "right",
-                                                color: Colors.White,
-                                            }}
+                                                style={{
+                                                    fontSize: 10,
+                                                    color: Colors.Gray,
+                                                    marginTop: 4,
+                                                }}
                                             >
-                                            {new Date(item.$createdAt!).toLocaleTimeString([], {
-                                                hour: "2-digit",
-                                                minute: "2-digit",
-                                            })}
+                                                {new Date(item.$createdAt!).toLocaleTimeString([], {
+                                                    hour: "2-digit",
+                                                    minute: "2-digit",
+                                                })}
                                             </Text>
                                         </Pressable>
                                     </Pressable>
