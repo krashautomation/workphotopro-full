@@ -3671,6 +3671,35 @@ const loadOlderMessages = async () => {
                                         size={28}
                                     />
                                 </Pressable>
+                                <Pressable
+                                    onPress={() => {
+                                        if (!canShareJobReports) {
+                                            Alert.alert(
+                                                'Permission Denied',
+                                                'You do not have permission to share job reports. Ask owner for permission.',
+                                            );
+                                            return;
+                                        }
+                                        setShowShareReportModal(true);
+                                    }}
+                                    disabled={isUploading}
+                                    style={{
+                                        width: 48,
+                                        height: 48,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        backgroundColor: '#FFD700' + '20',
+                                        borderRadius: 24,
+                                        borderWidth: 2,
+                                        borderColor: isUploading ? Colors.Gray : '#FFD700',
+                                    }}
+                                >
+                                    <IconSymbol 
+                                        name="doc.text" 
+                                        color={isUploading ? Colors.Gray : '#FFD700'}
+                                        size={28}
+                                    />
+                                </Pressable>
                             </View>
                         </View>
                     </KeyboardAvoidingView>
