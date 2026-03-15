@@ -11,6 +11,7 @@ export type PermissionFeature =
   | 'canEditTeamSettings'
   | 'canCreateJob'
   | 'canDeleteJob'
+  | 'canEditJob'
   | 'canUploadPhoto'
   | 'canRecordVideo'
   | 'canToggleWatermark'
@@ -19,7 +20,8 @@ export type PermissionFeature =
   | 'canExportReport'
   | 'canShareReport'
   | 'canManageTags'
-  | 'canManageBilling';
+  | 'canManageBilling'
+  | 'canEditOrganization';
 
 export interface PermissionsResult {
   isOwner: boolean;
@@ -35,6 +37,7 @@ export interface PermissionsResult {
   canEditTeamSettings: boolean;
   canCreateJob: boolean;
   canDeleteJob: boolean;
+  canEditJob: boolean;
   canUploadPhoto: boolean;
   canRecordVideo: boolean;
   canToggleWatermark: boolean;
@@ -44,6 +47,7 @@ export interface PermissionsResult {
   canShareReport: boolean;
   canManageTags: boolean;
   canManageBilling: boolean;
+  canEditOrganization: boolean;
 }
 
 type NormalizedRole = 'owner' | 'admin' | 'member' | 'unknown';
@@ -91,6 +95,9 @@ export function hasFeatureAccess(feature: string, role: string, plan: string): b
     case 'canDeleteJob':
       // Creator-based exception requires job + user context outside this pure helper.
       return isOwner;
+    case 'canEditJob':
+      // Same logic as canDeleteJob - owner or creator
+      return isOwner;
     case 'canUploadPhoto':
       return hasRole;
     case 'canRecordVideo':
@@ -109,6 +116,8 @@ export function hasFeatureAccess(feature: string, role: string, plan: string): b
     case 'canManageTags':
       return isOwner || isAdmin;
     case 'canManageBilling':
+      return isOwner;
+    case 'canEditOrganization':
       return isOwner;
     default:
       return false;
@@ -176,6 +185,7 @@ export function usePermissions(jobCreatedBy?: string) {
       canEditTeamSettings: isOwner,
       canCreateJob: hasRole,
       canDeleteJob: isOwner || isCurrentUserJobCreator,
+      canEditJob: isOwner || isCurrentUserJobCreator,
       canUploadPhoto: hasRole,
       canRecordVideo: isPaid,
       canToggleWatermark: isOwner && isPaid,
@@ -185,6 +195,7 @@ export function usePermissions(jobCreatedBy?: string) {
       canShareReport: isPaid && canShareJobReports,
       canManageTags: isOwner || isAdmin,
       canManageBilling: isOwner,
+      canEditOrganization: currentOrganization?.ownerId === user?.$id,
     };
   }, [
     currentOrganization,
