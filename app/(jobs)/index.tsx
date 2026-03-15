@@ -13,6 +13,7 @@ import Avatar from '@/components/Avatar';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Mountain, TableProperties, MessageCircle, Plus, Camera, Video, SquareCheck, SquareChevronRight, ChevronRight } from 'lucide-react-native';
 import { useJobFilters } from '@/context/JobFilterContext';
+import { usePermissions } from '@/utils/permissions';
 
 export default function Jobs() {
   const { user, isAuthenticated, getUserProfilePicture, getGoogleUserData } = useAuth();
@@ -20,6 +21,7 @@ export default function Jobs() {
   const router = useRouter();
   const pathname = usePathname();
   const segments = useSegments();
+  const { canCreateJob, canUploadPhoto, canRecordVideo } = usePermissions();
   const insets = useSafeAreaInsets();
   
   // Check if we're on the index page (Job Chats)
@@ -626,41 +628,44 @@ export default function Jobs() {
         
         <TouchableOpacity 
           style={styles.menuButton}
-          onPress={() => router.push('/(jobs)/new-job')}
+          onPress={() => canCreateJob && router.push('/(jobs)/new-job')}
+          disabled={!canCreateJob}
         >
           <Plus
             size={24}
             color={pathname === '/(jobs)/new-job' ? webColors.primary : colors.textSecondary}
           />
-          <Text style={[styles.menuButtonText, pathname === '/(jobs)/new-job' && styles.menuButtonTextActive]}>New Job</Text>
+          <Text style={[styles.menuButtonText, !canCreateJob && { opacity: 0.4 }, pathname === '/(jobs)/new-job' && styles.menuButtonTextActive]}>New Job</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
           style={styles.menuButton}
-          onPress={() => router.push({
+          onPress={() => canUploadPhoto && router.push({
             pathname: '/(jobs)/choose-job-for-photo',
             params: { mediaType: 'photo' }
           })}
+          disabled={!canUploadPhoto}
         >
           <Camera
             size={24}
             color={colors.textSecondary}
           />
-          <Text style={styles.menuButtonText}>Camera</Text>
+          <Text style={[styles.menuButtonText, !canUploadPhoto && { opacity: 0.4 }]}>Camera</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
           style={styles.menuButton}
-          onPress={() => router.push({
+          onPress={() => canRecordVideo && router.push({
             pathname: '/(jobs)/choose-job-for-photo',
             params: { mediaType: 'video' }
           })}
+          disabled={!canRecordVideo}
         >
           <Video
             size={24}
             color={colors.textSecondary}
           />
-          <Text style={styles.menuButtonText}>Video</Text>
+          <Text style={[styles.menuButtonText, !canRecordVideo && { opacity: 0.4 }]}>Video</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 

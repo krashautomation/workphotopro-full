@@ -110,9 +110,9 @@ Conclusion:
 ### Priority 2 — Feature Gated Screens
 - [x] app/(jobs)/video-camera.tsx
 - [x] app/(jobs)/profile-settings.tsx
-- [ ] app/(jobs)/camera.tsx
-- [ ] app/(jobs)/index.tsx
-- [ ] app/(jobs)/[job].tsx
+- [x] app/(jobs)/camera.tsx
+- [x] app/(jobs)/index.tsx
+- [x] app/(jobs)/[job].tsx
 
 ### Priority 3 — Secondary Screens
 - [ ] app/(jobs)/edit-team.tsx

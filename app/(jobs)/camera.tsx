@@ -16,11 +16,13 @@ import { useOrganization } from '@/context/OrganizationContext'
 import { ResolutionPreference, TimestampPreference, JobChat, Organization } from '@/utils/types'
 import * as ImageManipulator from 'expo-image-manipulator'
 import { appwriteConfig, db } from '@/utils/appwrite'
+import { usePermissions } from '@/utils/permissions'
 
 export default function CameraPage() {
     const { jobId, photoFlow } = useLocalSearchParams()
     const { user } = useAuth()
     const { currentOrganization, isHDCaptureEnabled, loadUserData } = useOrganization()
+    const { canUploadPhoto, canToggleHD } = usePermissions()
     const [facing, setFacing] = React.useState<CameraType>('back')
     const [permission, requestPermission] = useCameraPermissions()
     const [isCapturing, setIsCapturing] = React.useState(false)
@@ -398,6 +400,21 @@ export default function CameraPage() {
     }, [activeOrganization?.$id, activeOrganization?.watermarkEnabled])
 
     const takePicture = async () => {
+        // Check photo upload permission first
+        if (!canUploadPhoto) {
+            Alert.alert(
+                'Permission Denied',
+                'You must be a team member to capture photos.',
+                [
+                    {
+                        text: 'OK',
+                        onPress: () => router.back(),
+                    },
+                ]
+            )
+            return
+        }
+
         if (cameraRef.current && !isCapturing) {
             try {
                 setIsCapturing(true)
@@ -435,9 +452,15 @@ export default function CameraPage() {
                 const effectiveTimestampPreferences =
                     refreshedPrefs?.timestampPreferences || timestampPreferences
 
-                let captureMode: ResolutionPreference =
-                    refreshedPrefs?.capturePreference ??
-                    (organizationHdEnabled ? 'hd' : 'standard')
+                // Constrain HD mode based on permission - non-premium users always get standard
+                const effectiveHdEnabled = canToggleHD && organizationHdEnabled
+                
+                let captureMode: ResolutionPreference = effectiveHdEnabled ? 'hd' : 'standard'
+                // Override with user preference only if they have HD permission
+                if (canToggleHD) {
+                    captureMode = refreshedPrefs?.capturePreference ??
+                        (organizationHdEnabled ? 'hd' : 'standard')
+                }
                 let effectiveTimestampEnabled =
                     refreshedPrefs?.timestampEnabled ?? organizationTimestampEnabled
                 let effectiveWatermarkEnabled =
@@ -446,9 +469,9 @@ export default function CameraPage() {
                     activeOrganization?.watermarkEnabled ??
                     true
 
-                if (orgId) {
+                if (orgId && canToggleHD) {
                     const latestPreference = effectiveHdPreferences[orgId]
-                    if (latestPreference) {
+                    if (latestPreference && canToggleHD) {
                         captureMode = latestPreference
                     }
                     const latestTimestampPref = effectiveTimestampPreferences[orgId]
@@ -567,6 +590,25 @@ export default function CameraPage() {
         )
     }
 
+    // Check photo upload permission before showing camera
+    if (!canUploadPhoto) {
+        return (
+            <View style={styles.container}>
+                <IconSymbol name="photo" color={Colors.Gray} size={64} />
+                <Text style={styles.message}>Photo capture not available</Text>
+                <Text style={styles.subMessage}>
+                    You must be a team member to capture photos.
+                </Text>
+                <Pressable 
+                    onPress={() => router.back()} 
+                    style={[styles.button, styles.closeButton]}
+                >
+                    <Text style={styles.buttonText}>Go Back</Text>
+                </Pressable>
+            </View>
+        )
+    }
+
     return (
         <>
             <StatusBar style="light" backgroundColor="#000" translucent={true} />
@@ -663,6 +705,13 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginBottom: 20,
         fontSize: 16,
+    },
+    subMessage: {
+        color: Colors.Gray,
+        textAlign: 'center',
+        marginBottom: 20,
+        fontSize: 14,
+        paddingHorizontal: 40,
     },
     button: {
         backgroundColor: Colors.Primary,

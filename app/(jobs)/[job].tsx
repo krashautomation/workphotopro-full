@@ -37,6 +37,7 @@ import AudioRecorder from '@/components/AudioRecorder'
 import AudioPlayer from '@/components/AudioPlayer'
 import EmojiPicker, { EmojiPickerView } from '@/components/EmojiPicker'
 import { ClipboardList, CalendarCheck, LayoutList } from 'lucide-react-native'
+import { usePermissions } from '@/utils/permissions'
 
 
 export default function Job() {
@@ -45,6 +46,7 @@ export default function Job() {
     const { currentTeam, currentOrganization } = useOrganization();
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const { canUploadPhoto, canRecordVideo } = usePermissions();
 
     console.log('🔍 Job Component: Component mounted/rendered');
     console.log('🔍 Job Component: jobId from params:', jobId);
@@ -1002,11 +1004,15 @@ const loadOlderMessages = async () => {
     };
 
     const pickCamera = () => {
-        router.push(`/(jobs)/camera?jobId=${jobId}`);
+        if (canUploadPhoto) {
+            router.push(`/(jobs)/camera?jobId=${jobId}`);
+        }
     };
 
     const pickVideoCamera = () => {
-        router.push(`/(jobs)/video-camera?jobId=${jobId}`);
+        if (canRecordVideo) {
+            router.push(`/(jobs)/video-camera?jobId=${jobId}`);
+        }
     };
 
     const handleRecordAudio = () => {
@@ -3378,13 +3384,15 @@ const loadOlderMessages = async () => {
                                             }}
                                         >
                                             <Pressable
-                                                onPress={handleUploadImage}
+                                                onPress={() => canUploadPhoto && handleUploadImage()}
+                                                disabled={!canUploadPhoto}
                                                 style={{
                                                     flexDirection: 'row',
                                                     alignItems: 'center',
                                                     paddingHorizontal: 12,
                                                     paddingVertical: 10,
                                                     gap: 12,
+                                                    opacity: canUploadPhoto ? 1 : 0.4,
                                                 }}
                                             >
                                                 <IconSymbol 
@@ -3569,41 +3577,41 @@ const loadOlderMessages = async () => {
                             >
                                 <Pressable
                                     onPress={pickCamera}
-                                    disabled={isUploading}
+                                    disabled={isUploading || !canUploadPhoto}
                                     style={{
                                         width: 48,
                                         height: 48,
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        backgroundColor: '#4A9EFF' + '20',
+                                        backgroundColor: !canUploadPhoto ? Colors.Gray + '20' : '#4A9EFF' + '20',
                                         borderRadius: 24,
                                         borderWidth: 2,
-                                        borderColor: isUploading ? Colors.Gray : '#4A9EFF',
+                                        borderColor: isUploading || !canUploadPhoto ? Colors.Gray : '#4A9EFF',
                                     }}
                                 >
                                     <IconSymbol 
                                         name="camera" 
-                                        color={isUploading ? Colors.Gray : '#4A9EFF'}
+                                        color={isUploading || !canUploadPhoto ? Colors.Gray : '#4A9EFF'}
                                         size={28}
                                     />
                                 </Pressable>
                                 <Pressable
                                     onPress={pickVideoCamera}
-                                    disabled={isUploading}
+                                    disabled={isUploading || !canRecordVideo}
                                     style={{
                                         width: 48,
                                         height: 48,
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        backgroundColor: '#FF6B6B' + '20',
+                                        backgroundColor: !canRecordVideo ? Colors.Gray + '20' : '#FF6B6B' + '20',
                                         borderRadius: 24,
                                         borderWidth: 2,
-                                        borderColor: isUploading ? Colors.Gray : '#FF6B6B',
+                                        borderColor: isUploading || !canRecordVideo ? Colors.Gray : '#FF6B6B',
                                     }}
                                 >
                                     <IconSymbol 
                                         name="video" 
-                                        color={isUploading ? Colors.Gray : '#FF6B6B'}
+                                        color={isUploading || !canRecordVideo ? Colors.Gray : '#FF6B6B'}
                                         size={28}
                                     />
                                 </Pressable>
