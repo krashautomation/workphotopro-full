@@ -3747,6 +3747,7 @@ const loadOlderMessages = async () => {
                         onRefresh={async () => {
                             await getMessages(false);
                         }}
+                        jobId={jobId as string}
                     />
                 )}
             </View>

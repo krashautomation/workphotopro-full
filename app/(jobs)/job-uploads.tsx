@@ -12,11 +12,16 @@ import * as MediaLibrary from 'expo-media-library'
 import * as Sharing from 'expo-sharing'
 import { usePermissions } from '@/utils/permissions'
 
+const NUM_COLUMNS = 3
+const SPACING = 8
+const ALBUM_NAME = 'All WorkPhotoPro'
+
 type JobUploadsProps = {
     messages: Message[]
     onImagePress: (uri: string) => void
     onRefresh?: () => Promise<void>
     jobCreatedBy?: string
+    jobId?: string
 }
 
 type PhotoItem = {
@@ -50,16 +55,60 @@ type AudioItem = {
     createdAt?: string
 }
 
-const NUM_COLUMNS = 3
-const SPACING = 8
-const ALBUM_NAME = 'All WorkPhotoPro'
+type ReportItem = {
+    id: string
+    reportId: string
+    reportUrl: string
+    createdAt?: string
+}
 
-type SubTab = 'photos' | 'videos' | 'files' | 'audios'
+type SubTab = 'photos' | 'videos' | 'files' | 'audios' | 'reports'
 
-export default function JobUploads({ messages, onImagePress, onRefresh, jobCreatedBy }: JobUploadsProps) {
+export default function JobUploads({ messages, onImagePress, onRefresh, jobCreatedBy, jobId }: JobUploadsProps) {
     const { canDeleteJob } = usePermissions(jobCreatedBy);
     const [activeSubTab, setActiveSubTab] = React.useState<SubTab>('photos')
     const [selectedItems, setSelectedItems] = React.useState<Set<string>>(new Set())
+    const [reports, setReports] = React.useState<ReportItem[]>([])
+    const [isLoadingReports, setIsLoadingReports] = React.useState(false)
+
+    // Fetch reports when jobId changes or reports tab is active
+    React.useEffect(() => {
+        const fetchReports = async () => {
+            if (!jobId) return
+            
+            setIsLoadingReports(true)
+            try {
+                const { Query } = await import('react-native-appwrite')
+                const reportsResponse = await db.listDocuments(
+                    appwriteConfig.db,
+                    appwriteConfig.col.reports,
+                    [
+                        Query.equal('jobId', jobId),
+                        Query.orderDesc('$createdAt'),
+                        Query.limit(100)
+                    ]
+                )
+                
+                const reportItems: ReportItem[] = reportsResponse.documents.map((doc: any) => ({
+                    id: doc.$id,
+                    reportId: doc.$id,
+                    reportUrl: `https://web.workphotopro.com/reports/${doc.$id}`,
+                    createdAt: doc.$createdAt,
+                }))
+                
+                setReports(reportItems)
+            } catch (error) {
+                console.error('Error fetching reports:', error)
+                setReports([])
+            } finally {
+                setIsLoadingReports(false)
+            }
+        }
+        
+        if (jobId && activeSubTab === 'reports') {
+            fetchReports()
+        }
+    }, [jobId, activeSubTab])
 
     // Clear selection when switching tabs
     React.useEffect(() => {
@@ -279,6 +328,9 @@ export default function JobUploads({ messages, onImagePress, onRefresh, jobCreat
             case 'audios':
                 allIds = audios.map(a => a.id)
                 break
+            case 'reports':
+                allIds = reports.map(r => r.id)
+                break
         }
         setSelectedItems(new Set(allIds))
     }
@@ -297,6 +349,10 @@ export default function JobUploads({ messages, onImagePress, onRefresh, jobCreat
                 return files
             case 'audios':
                 return audios
+            case 'reports':
+                return reports
+            default:
+                return []
         }
     }
 
@@ -554,6 +610,72 @@ export default function JobUploads({ messages, onImagePress, onRefresh, jobCreat
                                     {formatDuration(item.audioDuration)}
                                 </Text>
                             )}
+                            {isSelected && (
+                                <View style={styles.checkmarkOverlay}>
+                                    <View style={styles.checkmarkContainer}>
+                                        <IconSymbol name="checkmark.circle.fill" color={Colors.White} size={20} />
+                                    </View>
+                                </View>
+                            )}
+                        </Pressable>
+                    )
+                }}
+            />
+        )
+    }
+
+    const renderReportsGrid = () => {
+        if (isLoadingReports) {
+            return renderEmptyState('Loading...', 'Fetching reports for this job.')
+        }
+
+        if (reports.length === 0) {
+            return renderEmptyState(
+                'No reports yet',
+                'Reports generated for this job will show up here.'
+            )
+        }
+
+        return (
+            <FlatList
+                data={reports}
+                extraData={selectedItems}
+                keyExtractor={item => item.id}
+                contentContainerStyle={styles.listContainer}
+                ItemSeparatorComponent={() => <View style={{ height: SPACING }} />}
+                renderItem={({ item }) => {
+                    const isSelected = selectedItems.has(item.id)
+                    return (
+                        <Pressable
+                            key={`${item.id}-${isSelected}`}
+                            style={({ pressed }) => [
+                                styles.reportWrapper,
+                                isSelected && styles.itemSelected,
+                                pressed && !isSelected && { opacity: 0.8 },
+                            ]}
+                            onPress={() => {
+                                if (selectedItems.size > 0) {
+                                    toggleItemSelection(item.id)
+                                } else {
+                                    Linking.openURL(item.reportUrl)
+                                }
+                            }}
+                            onLongPress={() => toggleItemSelection(item.id)}
+                        >
+                            <View style={styles.reportIconContainer}>
+                                <IconSymbol name="doc.text" color={Colors.Primary} size={40} />
+                            </View>
+                            <View style={styles.reportInfo}>
+                                <Text style={styles.reportTitle} numberOfLines={1}>
+                                    Report
+                                </Text>
+                                {item.createdAt && (
+                                    <Text style={styles.reportDate}>
+                                        {new Date(item.createdAt).toLocaleDateString()}
+                                    </Text>
+                                )}
+                            </View>
+                            <IconSymbol name="arrow.up.right" color={Colors.Gray} size={20} />
                             {isSelected && (
                                 <View style={styles.checkmarkOverlay}>
                                     <View style={styles.checkmarkContainer}>
@@ -939,6 +1061,22 @@ export default function JobUploads({ messages, onImagePress, onRefresh, jobCreat
                         Files
                     </Text>
                 </Pressable>
+                <Pressable
+                    style={[
+                        styles.subTab,
+                        activeSubTab === 'reports' && styles.subTabActive,
+                    ]}
+                    onPress={() => setActiveSubTab('reports')}
+                >
+                    <Text
+                        style={[
+                            styles.subTabText,
+                            activeSubTab === 'reports' && styles.subTabTextActive,
+                        ]}
+                    >
+                        Reports
+                    </Text>
+                </Pressable>
             </View>
 
             {/* Action buttons */}
@@ -1002,6 +1140,7 @@ export default function JobUploads({ messages, onImagePress, onRefresh, jobCreat
                 {activeSubTab === 'videos' && renderVideosGrid()}
                 {activeSubTab === 'files' && renderFilesGrid()}
                 {activeSubTab === 'audios' && renderAudiosGrid()}
+                {activeSubTab === 'reports' && renderReportsGrid()}
             </View>
         </View>
     )
@@ -1239,6 +1378,32 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginTop: 4,
+    },
+    reportWrapper: {
+        borderRadius: 8,
+        backgroundColor: Colors.Secondary,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: Colors.Gray,
+        marginHorizontal: SPACING,
+    },
+    reportIconContainer: {
+        marginRight: 16,
+    },
+    reportInfo: {
+        flex: 1,
+    },
+    reportTitle: {
+        color: Colors.Text,
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    reportDate: {
+        color: Colors.Gray,
+        fontSize: 12,
     },
     audioDuration: {
         color: Colors.Text,
