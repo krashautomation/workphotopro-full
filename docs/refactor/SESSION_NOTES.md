@@ -1,3 +1,76 @@
+## Session 10 - March 15, 2026 (Chat UI Redesign & Reports Integration)
+
+### Completed This Session
+- **Fixed expo-file-system override conflict**
+  - Updated package.json override from `~19.0.19` to `~19.0.21` to match dependency
+  - Resolved version mismatch causing npm install issues
+
+- **Enhanced real-time subscription reliability**
+  - Added connection status indicators (✅ connected, ❌ failed)
+  - Added automatic retry logic (3-second delay, 1 retry attempt)
+  - Added AppState listener to resubscribe when app returns to foreground
+  - Prevents WebSocket drops when app goes to background
+
+- **Fixed real-time scroll position bug**
+  - Eliminated competing scroll triggers causing "jump back" behavior
+  - Real-time messages now append directly to state without full refresh
+  - Removed redundant getMessages() calls after send/edit/delete/completed actions
+  - useFocusEffect no longer overwrites messages when returning to screen
+  - Smooth scrolling to new messages without position loss
+
+- **Redesigned chat to Snapchat-style layout**
+  - Removed message bubbles - transparent background for all messages
+  - Added colored vertical accent bar (3px) per sender
+  - Sender names displayed above messages in unique colors per user
+  - Current user gets green color (#22c55e)
+  - 5 other distinct colors for team members (blue, red, amber, purple, cyan)
+  - Consistent color assignment based on userId hash
+  - Removed avatar component, replaced with colored names
+  - Left-aligned all messages regardless of sender
+  - Increased message text size from 14px to 16px
+  - White message text on dark background
+  - Gray timestamp bottom-left
+  - Preserved all existing functionality: tasks, duties, replies, attachments
+
+- **Added Reports button to chat input bar**
+  - Fourth circular button (yellow/gold #FFD700) next to Camera, Video, Audio
+  - Opens full ShareJob modal with create/view/share/delete functionality
+  - Respects job reports permission system
+  - Integrated with existing reports infrastructure
+
+- **Fixed job reports permission for owners**
+  - Updated useJobReportsPermission hook to check `role` field directly
+  - Fixed job-details.tsx to properly display owner role
+  - Owners now correctly identified and granted reports permissions
+
+- **Renamed Uploads tab to Media**
+  - Updated main navigation tab label
+  - Better reflects content (photos, videos, audios, files, reports)
+
+- **Added Reports sub-tab under Media**
+  - Fifth sub-tab alongside Photos, Videos, Audios, Files
+  - Fetches reports from Reports collection for current job
+  - Displays report icon, creation date, and link to web view
+  - Supports selection and batch operations like other media types
+  - Shows loading state and empty state appropriately
+
+### Commits
+- `8428d47` - feat: Add Reports sub-tab under Media to display job reports
+- `4d10974` - fix: Bottom Reports button now opens full ShareJob modal with create/edit functionality  
+- `b270f1b` - fix: Check role field directly in membership object for job reports permission
+- `7b73ea4` - feat: Add yellow Reports button to chat input bar
+- `58ec1b0` - refactor: Rename Uploads tab to Media
+- `970d35a` - feat: Redesign chat to Snapchat-style layout - colored sender names, vertical accent bar, no bubbles
+- Previous scroll bug fixes and real-time enhancements
+
+### Files Modified
+- `app/(jobs)/[job].tsx` - Chat UI redesign, real-time fixes, Reports button
+- `app/(jobs)/job-uploads.tsx` - Media tab with Reports sub-tab
+- `hooks/useJobReportsPermission.ts` - Permission fix for owner role
+- `package.json` - Fixed expo-file-system override
+
+---
+
 ## Session 9 - March 15, 2026 (Real-time Subscriptions Re-enabled)
 
 ### Completed This Session
