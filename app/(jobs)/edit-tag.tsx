@@ -6,9 +6,11 @@ import { Colors } from '@/utils/colors';
 import { TagTemplate } from '@/utils/types';
 import { tagService } from '@/lib/appwrite/database';
 import { useAuth } from '@/context/AuthContext';
+import { usePermissions } from '@/utils/permissions';
 
 export default function EditTag() {
   const { user } = useAuth();
+  const { canManageTags } = usePermissions();
   const router = useRouter();
   const params = useLocalSearchParams();
   
@@ -48,6 +50,11 @@ export default function EditTag() {
 
 
   const handleSave = async () => {
+    if (!canManageTags) {
+      Alert.alert('Permission Denied', 'Only team owners or admins can manage tags.');
+      return;
+    }
+
     if (!user?.$id) {
       Alert.alert('Error', 'User not authenticated');
       return;
@@ -244,7 +251,7 @@ export default function EditTag() {
           <Pressable
             style={{
               flex: 1,
-              backgroundColor: Colors.Primary,
+              backgroundColor: canManageTags ? Colors.Primary : Colors.Gray,
               paddingVertical: 14,
               paddingHorizontal: 20,
               borderRadius: 8,
@@ -252,7 +259,7 @@ export default function EditTag() {
               opacity: isSaving ? 0.7 : 1,
             }}
             onPress={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || !canManageTags}
           >
             {isSaving ? (
               <ActivityIndicator size="small" color={Colors.White} />

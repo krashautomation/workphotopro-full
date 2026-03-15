@@ -10,11 +10,13 @@ import * as FileSystem from 'expo-file-system'
 import * as FileSystemLegacy from 'expo-file-system/legacy'
 import * as MediaLibrary from 'expo-media-library'
 import * as Sharing from 'expo-sharing'
+import { usePermissions } from '@/utils/permissions'
 
 type JobUploadsProps = {
     messages: Message[]
     onImagePress: (uri: string) => void
     onRefresh?: () => Promise<void>
+    jobCreatedBy?: string
 }
 
 type PhotoItem = {
@@ -54,7 +56,8 @@ const ALBUM_NAME = 'All WorkPhotoPro'
 
 type SubTab = 'photos' | 'videos' | 'files' | 'audios'
 
-export default function JobUploads({ messages, onImagePress, onRefresh }: JobUploadsProps) {
+export default function JobUploads({ messages, onImagePress, onRefresh, jobCreatedBy }: JobUploadsProps) {
+    const { canDeleteJob } = usePermissions(jobCreatedBy);
     const [activeSubTab, setActiveSubTab] = React.useState<SubTab>('photos')
     const [selectedItems, setSelectedItems] = React.useState<Set<string>>(new Set())
 
@@ -729,6 +732,16 @@ export default function JobUploads({ messages, onImagePress, onRefresh }: JobUpl
     const handleDeleteAll = async () => {
         if (selectedItems.size === 0) return
 
+        // Check permission before allowing deletion
+        if (!canDeleteJob) {
+            Alert.alert(
+                'Permission Denied',
+                'Only team owners or the job creator can delete messages.',
+                [{ text: 'OK' }]
+            );
+            return;
+        }
+
         const selectedMessages = messages.filter(msg => selectedItems.has(msg.$id))
         const count = selectedMessages.length
 
@@ -966,15 +979,15 @@ export default function JobUploads({ messages, onImagePress, onRefresh }: JobUpl
                         style={[
                             styles.deleteButton,
                             { width: buttonWidth },
-                            !hasSelectedItems && styles.deleteButtonDisabled,
+                            (!hasSelectedItems || !canDeleteJob) && styles.deleteButtonDisabled,
                         ]}
                         onPress={handleDeleteAll}
-                        disabled={!hasSelectedItems}
+                        disabled={!hasSelectedItems || !canDeleteJob}
                     >
                         <Text
                             style={[
                                 styles.deleteButtonText,
-                                !hasSelectedItems && styles.deleteButtonTextDisabled,
+                                (!hasSelectedItems || !canDeleteJob) && styles.deleteButtonTextDisabled,
                             ]}
                         >
                             {getDeleteButtonText()}

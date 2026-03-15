@@ -8,10 +8,12 @@ import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, 
 import { useState, useEffect, useCallback } from 'react';
 import { IconSymbol } from '@/components/IconSymbol';
 import { TeamData } from '@/utils/types';
+import { usePermissions } from '@/utils/permissions';
 
 export default function ArchivedTeams() {
   const { user, isAuthenticated } = useAuth();
   const { currentOrganization, loading: orgLoading, loadUserData } = useOrganization();
+  const { canEditTeamSettings } = usePermissions();
   const router = useRouter();
 
   const [archivedTeams, setArchivedTeams] = useState<TeamData[]>([]);
@@ -87,6 +89,11 @@ export default function ArchivedTeams() {
   };
 
   const handleRestoreTeam = async (teamDoc: TeamData) => {
+    if (!canEditTeamSettings) {
+      Alert.alert('Permission Denied', 'Only team owners can restore archived teams.');
+      return;
+    }
+
     try {
       setRestoringTeamId(teamDoc.$id);
 

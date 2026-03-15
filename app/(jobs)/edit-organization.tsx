@@ -15,10 +15,12 @@ import { useFocusEffect } from 'expo-router';
 import { storage } from '@/lib/appwrite/client';
 import { ID } from 'react-native-appwrite';
 import { appwriteConfig } from '@/utils/appwrite';
+import { usePermissions } from '@/utils/permissions';
 
 export default function EditOrganizationScreen() {
   const { user } = useAuth();
   const { currentOrganization, userOrganizations, createOrganization, loadUserData } = useOrganization();
+  const { canEditOrganization, canCreateTeam } = usePermissions();
   
   // Get the user's owned organization (same logic as profile-settings.tsx)
   const profileOrganization = React.useMemo(() => {
@@ -93,7 +95,20 @@ export default function EditOrganizationScreen() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      
+
+      // Check permissions based on whether creating or editing
+      if (isCreating) {
+        if (!canCreateTeam) {
+          Alert.alert('Permission Denied', 'Only organization owners can create new organizations.');
+          return;
+        }
+      } else {
+        if (!canEditOrganization) {
+          Alert.alert('Permission Denied', 'Only the organization owner can edit organization details.');
+          return;
+        }
+      }
+
       if (!orgName.trim()) {
         Alert.alert('Error', 'Organization name is required');
         return;
@@ -103,7 +118,7 @@ export default function EditOrganizationScreen() {
         // Create new organization using context method
         // Note: createOrganization doesn't support logoUrl yet, so we'll update after creation
         const newOrg = await createOrganization(orgName.trim(), description.trim());
-        
+
         // If logo was uploaded, update the organization with logoUrl
         if (logoUrl && newOrg?.$id) {
           await organizationService.updateOrganization(newOrg.$id, {
@@ -111,7 +126,7 @@ export default function EditOrganizationScreen() {
           });
           await loadUserData();
         }
-        
+
         Alert.alert(
           'Success',
           'Organization created successfully!',
@@ -133,7 +148,7 @@ export default function EditOrganizationScreen() {
           orgName: orgName.trim(),
           description: description.trim(),
         };
-        
+
         // Only include logoUrl if it has a value
         if (logoUrl && logoUrl.trim()) {
           updateData.logoUrl = logoUrl.trim();
@@ -141,34 +156,34 @@ export default function EditOrganizationScreen() {
           // Explicitly set to null to clear the logo
           updateData.logoUrl = null;
         }
-        
+
         console.log('🔄 Updating organization with data:', updateData);
         console.log('🔄 Current logoUrl state:', logoUrl);
         console.log('🔄 Organization ID:', organizationToEdit.$id);
         console.log('🔄 Organization name:', organizationToEdit.orgName);
         console.log('🔄 Is owned org:', organizationToEdit.ownerId === user?.$id);
-        
+
         const updatedOrg = await organizationService.updateOrganization(organizationToEdit.$id, updateData);
-        
+
         console.log('🔄 Updated organization response:', updatedOrg);
         console.log('🔄 Updated organization logoUrl:', updatedOrg?.logoUrl);
-        
+
         // Refresh the organization data in context
         await loadUserData();
-        
+
         // Also explicitly refresh organization to ensure logoUrl is loaded
         if (organizationToEdit?.$id) {
           const refreshedOrg = await organizationService.getOrganization(organizationToEdit.$id);
           console.log('🔄 Refreshed organization:', refreshedOrg);
           console.log('🔄 Refreshed organization logoUrl:', refreshedOrg?.logoUrl);
-          
+
           // Update local state with refreshed data to ensure UI updates immediately
           if (refreshedOrg?.logoUrl) {
             setLogoUrl(refreshedOrg.logoUrl);
             console.log('🔄 Updated local logoUrl state from refreshed org');
           }
         }
-        
+
         Alert.alert(
           'Success',
           'Organization updated successfully!',
@@ -415,9 +430,12 @@ export default function EditOrganizationScreen() {
           {/* Save Button */}
           <View style={styles.saveButtonContainer}>
             <Pressable 
-              style={[styles.saveButton, saving && styles.saveButtonDisabled]} 
+              style={[
+                styles.saveButton, 
+                (saving || (!isCreating && !canEditOrganization) || (isCreating && !canCreateTeam)) && styles.saveButtonDisabled
+              ]} 
               onPress={handleSave}
-              disabled={saving}
+              disabled={saving || (!isCreating && !canEditOrganization) || (isCreating && !canCreateTeam)}
             >
               <Text style={styles.saveButtonText}>
                 {saving ? 'Saving...' : (isCreating ? 'Create Organization' : 'Save Changes')}

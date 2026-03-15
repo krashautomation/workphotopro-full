@@ -6,14 +6,21 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { Colors } from '@/utils/colors';
 import { appwriteConfig, db } from '@/utils/appwrite';
 import { useAuth } from '@/context/AuthContext';
+import { usePermissions } from '@/utils/permissions';
 
 export default function EditJobTitle() {
-  const { jobId, currentTitle } = useLocalSearchParams();
+  const { jobId, currentTitle, jobCreatedBy } = useLocalSearchParams();
   const { user } = useAuth();
+  const { canEditJob } = usePermissions(jobCreatedBy as string | undefined);
   const [title, setTitle] = useState(currentTitle as string || '');
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
+    if (!canEditJob) {
+      Alert.alert('Permission Denied', 'Only team owners or the job creator can edit job titles.');
+      return;
+    }
+
     if (!title.trim()) {
       Alert.alert('Error', 'Please enter a job title');
       return;
@@ -101,12 +108,12 @@ export default function EditJobTitle() {
             justifyContent: 'center',
             paddingVertical: 16,
             paddingHorizontal: 20,
-            backgroundColor: Colors.Primary,
+            backgroundColor: canEditJob ? Colors.Primary : Colors.Gray,
             borderRadius: 12,
             opacity: isSaving ? 0.7 : 1,
           }}
           onPress={handleSave}
-          disabled={isSaving}
+          disabled={isSaving || !canEditJob}
         >
           {isSaving ? (
             <ActivityIndicator size="small" color={Colors.White} />
