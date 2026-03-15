@@ -2242,7 +2242,7 @@ const loadOlderMessages = async () => {
                         </Text>
                     </Pressable>
 
-                    {/* Uploads Tab */}
+                    {/* Media Tab */}
                     <Pressable
                         style={{
                             flex: 1,
@@ -2258,7 +2258,7 @@ const loadOlderMessages = async () => {
                             fontSize: 16,
                             fontWeight: activeTab === 'photos' ? '600' : '400',
                         }}>
-                            Uploads
+                            Media
                         </Text>
                     </Pressable>
 
