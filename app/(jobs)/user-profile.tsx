@@ -286,6 +286,15 @@ export default function UserProfileScreen() {
           </View>
         </View>
 
+        {!isViewingOtherUser && (
+          <Pressable 
+            style={styles.editProfileButton}
+            onPress={() => router.push('/(jobs)/profile-settings')}
+          >
+            <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+          </Pressable>
+        )}
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -450,6 +459,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textSecondary,
     fontSize: 24,
+  },
+  editProfileButton: {
+    backgroundColor: '#22c55e',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  editProfileButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
