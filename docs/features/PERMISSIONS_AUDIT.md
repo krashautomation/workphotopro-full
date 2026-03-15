@@ -126,3 +126,45 @@ Conclusion:
 ### Utility/Context
 - [x] utils/permissions.ts — created
 - [x] context/OrganizationContext.tsx — isCurrentOrgPremium fixed
+
+## 4) Permission Infrastructure Update (2026-03-15)
+
+### New Permissions Added
+- `canEditJob` — owner OR job creator (same logic as canDeleteJob)
+  - Usage: `const { canEditJob } = usePermissions(jobCreatedBy)`
+  - For: edit-job-title.tsx, job-details.tsx
+  
+- `canEditOrganization` — org owner only
+  - Usage: `const { canEditOrganization } = usePermissions()`
+  - For: edit-organization.tsx
+  - Logic: `currentOrganization?.ownerId === user?.$id`
+
+### Available Permissions (Complete List)
+**Role-based:**
+- `canCreateTeam` — owner only
+- `canDeleteTeam` — owner only (with last-team guard)
+- `canInviteMember` — owner only
+- `canRemoveMember` — owner only
+- `canEditTeamSettings` — owner only
+- `canCreateJob` — all team members
+- `canDeleteJob` — owner OR job creator
+- `canEditJob` — owner OR job creator (NEW)
+- `canManageTags` — owner OR admin
+- `canManageBilling` — owner only
+- `canEditOrganization` — org owner only (NEW)
+
+**Plan-based:**
+- `canUploadPhoto` — all team members
+- `canRecordVideo` — premium/trial only
+- `canToggleWatermark` — owner + premium/trial
+- `canToggleHD` — premium/trial only
+- `canGenerateReport` — premium/trial only
+- `canExportReport` — premium/trial only
+- `canShareReport` — premium/trial + canShareJobReports flag
+
+### Next Steps
+- [ ] Implement HIGH priority screens from PERMISSIONS_GAP_ANALYSIS.md:
+  - [ ] archived-teams.tsx (canEditTeamSettings)
+  - [ ] edit-job-title.tsx (canEditJob)
+  - [ ] edit-tag.tsx (canManageTags)
+  - [ ] edit-organization.tsx (canEditOrganization)
