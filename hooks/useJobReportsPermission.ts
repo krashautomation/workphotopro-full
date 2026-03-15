@@ -32,14 +32,20 @@ export function useJobReportsPermission(teamId?: string) {
 
         if (userMembership) {
           // Owners always have permission
-          const role = userMembership.membershipData?.role || userMembership.roles?.[0] || 'member';
+          // Check role in multiple possible locations: role (direct), membershipData.role, or roles array
+          const role = userMembership.role || 
+                       userMembership.membershipData?.role || 
+                       userMembership.roles?.[0] || 
+                       'member';
+          console.log('🔍 useJobReportsPermission: User role:', role, 'membership:', userMembership);
           if (role.toLowerCase() === 'owner' || role.toLowerCase() === 'owners') {
             setCanShare(true);
           } else {
             // Check the permission flag
-            setCanShare(userMembership.membershipData?.canShareJobReports === true);
+            setCanShare(userMembership.canShareJobReports === true || userMembership.membershipData?.canShareJobReports === true);
           }
         } else {
+          console.log('🔍 useJobReportsPermission: No membership found for user', user.$id, 'in team', actualTeamId);
           setCanShare(false);
         }
       } catch (error) {

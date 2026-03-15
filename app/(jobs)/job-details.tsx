@@ -519,7 +519,7 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
                         {teamMembers.map((member, index) => {
                             const memberName = getMemberDisplayName(member)
                             const memberProfilePicture = getMemberProfilePicture(member)
-                            const memberRole = member.membershipData?.role || member.roles?.[0] || 'member'
+                            const memberRole = member.role || member.membershipData?.role || member.roles?.[0] || 'member'
                             const showDivider = index < teamMembers.length - 1
                             
                             return (
