@@ -1,182 +1,23 @@
-# WorkPhotoPro V2 — Permissions & Feature Matrix
+# Feature Matrix
+
+## Overview
+
+Feature availability by **Role** (Owner/Admin/Member) and **Plan** (Free/Trial/Premium).
 
 ## Roles
+
 - **Owner**: Created the org, full control
-- **Admin**: Delegated manager, can run team but not billing/delete
+- **Admin**: Delegated manager (planned for v1.1)
 - **Member**: Regular field worker
 
 ## Plans
+
 - **Free**: Permanent limited tier
-- **Trial**: Full premium for 30 days (everyone starts here)
+- **Trial**: Full premium for 30 days
 - **Premium**: Paid plan ($29/3 users or $79/10 users)
 
-## Limits (Free Tier — TBD)
-- [ ] Max teams: ?
-- [ ] Max jobs: ?
-- [ ] Max photos per job: ?
-- [ ] Max members per team: ?
-- [ ] Max storage: ?
+## Legend
 
----
-
-## Permission Architecture
-
-WorkPhotoPro V2 implements a comprehensive permission system using centralized React hooks and utilities. All permission logic is consolidated in `utils/permissions.ts` and accessed via the `usePermissions()` hook.
-
-**Important:** Permissions are evaluated client-side for UX and server-side for data integrity. Client checks prevent UI actions while server validation prevents malicious requests.
-
-### Overview
-
-The permission system consists of **18 total permissions** divided into two categories:
-
-- **Role-Based Permissions (11)**: Control access based on team/org membership role
-- **Plan-Based Permissions (7)**: Control premium feature access based on subscription tier
-
-### Implemented Permission Functions
-
-#### Role-Based Permissions (11)
-
-| Permission | Required Role | Description |
-|------------|--------------|-------------|
-| `canCreateTeam` | Owner | Create new teams within organization |
-| `canDeleteTeam` | Owner | Delete teams (with last-team guard) |
-| `canInviteMember` | Owner | Invite users to teams via email/username |
-| `canRemoveMember` | Owner | Remove members from teams |
-| `canEditTeamSettings` | Owner | Edit team name, photo, contact info, restore archived |
-| `canCreateJob` | All Members | Create new jobs/projects |
-| `canDeleteJob` | Owner OR Creator | Delete jobs (creator-based exception) |
-| `canEditJob` | Owner OR Creator | Edit job titles and details |
-| `canManageTags` | Owner | Create, edit, delete job tags (Admin support planned for v1.1) |
-| `canManageBilling` | Owner | Manage subscriptions and billing |
-| `canEditOrganization` | Owner | Edit org name, logo, settings |
-
-#### Plan-Based Permissions (7)
-
-| Permission | Required Plan | Description |
-|------------|--------------|-------------|
-| `canUploadPhoto` | All | Upload photos (free tier has limits) |
-| `canRecordVideo` | Premium/Trial | Record video (premium feature) |
-| `canToggleWatermark` | Premium + Owner | Toggle watermark on/off |
-| `canToggleHD` | Premium/Trial | Enable HD photo capture |
-| `canGenerateReport` | Premium/Trial | Generate job reports |
-| `canExportReport` | Premium/Trial | Export reports as PDF/DOCX |
-| `canShareReport` | Premium + Permission | Share reports with clients (canShareJobReports flag) |
-
-### Usage
-
-```typescript
-import { usePermissions } from '@/utils/permissions';
-
-// For job-specific permissions (edit/delete)
-const { canEditJob, canDeleteJob } = usePermissions(jobCreatedBy);
-
-// For general permissions
-const { 
-  canCreateTeam, 
-  canInviteMember, 
-  canManageTags,
-  canRecordVideo 
-} = usePermissions();
-```
-
----
-
-## Permission Coverage Audit (March 2026)
-
-### Audit Summary
-
-| Metric | Count | Status |
-|--------|-------|--------|
-| **Total Screens** | 44 | Complete inventory |
-| **Security-Relevant Screens** | 31 | **100% audited** |
-| **Excluded Screens** | 13 | Documented below |
-| **Permission Coverage** | **100%** | ✅ Complete |
-
-### Coverage Status
-
-✅ **All data modifying operations are protected**  
-✅ **All UI buttons disable when permission is missing**  
-✅ **Permission logic centralized in `utils/permissions.ts`**  
-✅ **No unprotected write operations remain**
-
-### Critical Security Fixes (March 2026)
-
-The following HIGH priority permission gaps were identified and resolved:
-
-| Screen | Permission Added | Status |
-|--------|------------------|--------|
-| `archived-teams.tsx` | `canEditTeamSettings` | ✅ Fixed |
-| `edit-job-title.tsx` | `canEditJob` | ✅ Fixed |
-| `edit-tag.tsx` | `canManageTags` | ✅ Fixed |
-| `edit-organization.tsx` | `canEditOrganization` | ✅ Fixed |
-| `job-uploads.tsx` | `canDeleteJob` | ✅ Fixed |
-
-### Excluded Screens (13 Total)
-
-The following screens are excluded from permission checks because they handle authentication flows, are read-only, or manage user-specific data:
-
-**Authentication (8)**
-- sign-in.tsx, sign-up.tsx, forgot-password.tsx, reset-password.tsx
-- check-email.tsx, verify-email.tsx, accept-invite.tsx
-- (auth)/_layout.tsx
-
-**Read-Only / UI (3)**
-- filter-jobs.tsx (local filters only)
-- settings/cache.tsx (local cache management)
-- web-design-test.tsx (development only)
-
-**External Services (2)**
-- get-premium.tsx (RevenueCat purchase flow)
-- get-package.tsx (subscription tier UI)
-
-### Security Verification
-
-- [x] All collections require authenticated users (role:users). Access is further restricted using orgId/teamId document filtering.
-- [x] No guest or unauthenticated access allowed
-- [x] 18 permissions defined and operational
-- [x] usePermissions hook implemented across all screens
-- [x] Permission checks prevent unauthorized modifications
-- [x] UI buttons disable when permissions missing
-- [x] Alert dialogs show permission denied messages
-
-### Permission Enforcement Layers
-
-Permissions are enforced at three layers:
-
-1. **Collection Security (Appwrite)**
-   - All collections require authenticated users (role:users)
-   - Access is further restricted using orgId/teamId document filtering
-   - No guest or unauthenticated access
-
-2. **Server Logic / Services**
-   - Business rules enforced in service layer
-   - Owner/creator validation before mutations
-   - Team membership verification
-
-3. **UI Permission Hooks**
-   - `usePermissions()` hook for centralized access
-   - Buttons disable when permission missing
-   - Alert dialogs for permission denied feedback
-
----
-
-## Security Status
-
-**WorkPhotoPro V2 Permission System:**
-
-✅ **Centralized permission architecture** — All logic in `utils/permissions.ts`  
-✅ **Role-based and plan-based feature gating** — 18 permissions implemented  
-✅ **100% audited screens** — 31/31 security-relevant screens covered  
-✅ **No unprotected write operations** — All data mutations protected  
-✅ **HIGH priority gaps resolved** — 5 critical fixes implemented  
-
-**Status: Production Ready**
-
----
-
-## Feature Matrix
-
-Legend:
 - ✅ Allowed
 - ❌ Not allowed
 - 🔒 Premium only
@@ -187,7 +28,7 @@ Legend:
 
 ---
 
-### 1. Authentication
+## 1. Authentication
 
 | Feature | Free | Trial | Premium | Owner | Admin | Member | Notes |
 |---------|------|-------|---------|-------|-------|--------|-------|
@@ -200,7 +41,7 @@ Legend:
 
 ---
 
-### 2. Organization
+## 2. Organization
 
 | Feature | Free | Trial | Premium | Owner | Admin | Member | Notes |
 |---------|------|-------|---------|-------|-------|--------|-------|
@@ -214,14 +55,14 @@ Legend:
 
 ---
 
-### 3. Team Management
+## 3. Team Management
 
 | Feature | Free | Trial | Premium | Owner | Admin | Member | Notes |
 |---------|------|-------|---------|-------|-------|--------|-------|
 | View teams | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
 | Create team | 📊 | ✅ | ✅ | ✅ | ❓ | ❌ | Free limit: ? teams |
-| Edit team name/photo | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | |
-| Edit team contact info | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | |
+| Edit team name/photo | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | canEditTeamSettings |
+| Edit team contact info | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | canEditTeamSettings |
 | Delete team | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | Cannot delete last team |
 | Restore archived team | ✅ | ✅ | ✅ | ✅ | ❓ | ❌ | canEditTeamSettings (owner only) |
 | View team settings | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | |
@@ -229,7 +70,7 @@ Legend:
 
 ---
 
-### 4. Team Members
+## 4. Team Members
 
 | Feature | Free | Trial | Premium | Owner | Admin | Member | Notes |
 |---------|------|-------|---------|-------|-------|--------|-------|
@@ -245,7 +86,7 @@ Legend:
 
 ---
 
-### 5. Jobs / Projects
+## 5. Jobs / Projects
 
 | Feature | Free | Trial | Premium | Owner | Admin | Member | Notes |
 |---------|------|-------|---------|-------|-------|--------|-------|
@@ -264,7 +105,7 @@ Legend:
 
 ---
 
-### 6. Photos / Media
+## 6. Photos / Media
 
 | Feature | Free | Trial | Premium | Owner | Admin | Member | Notes |
 |---------|------|-------|---------|-------|-------|--------|-------|
@@ -283,7 +124,7 @@ Legend:
 
 ---
 
-### 7. Chat / Messages
+## 7. Chat / Messages
 
 | Feature | Free | Trial | Premium | Owner | Admin | Member | Notes |
 |---------|------|-------|---------|-------|-------|--------|-------|
@@ -302,7 +143,7 @@ Legend:
 
 ---
 
-### 8. Reports / AI
+## 8. Reports / AI
 
 | Feature | Free | Trial | Premium | Owner | Admin | Member | Notes |
 |---------|------|-------|---------|-------|-------|--------|-------|
@@ -319,7 +160,7 @@ Legend:
 
 ---
 
-### 9. Tags
+## 9. Tags
 
 | Feature | Free | Trial | Premium | Owner | Admin | Member | Notes |
 |---------|------|-------|---------|-------|-------|--------|-------|
@@ -331,7 +172,7 @@ Legend:
 
 ---
 
-### 10. Notifications
+## 10. Notifications
 
 | Feature | Free | Trial | Premium | Owner | Admin | Member | Notes |
 |---------|------|-------|---------|-------|-------|--------|-------|
@@ -341,7 +182,7 @@ Legend:
 
 ---
 
-### 11. Settings
+## 11. Settings
 
 | Feature | Free | Trial | Premium | Owner | Admin | Member | Notes |
 |---------|------|-------|---------|-------|-------|--------|-------|
@@ -353,7 +194,7 @@ Legend:
 
 ---
 
-### 12. Gamification
+## 12. Gamification
 
 | Feature | Free | Trial | Premium | Owner | Admin | Member | Notes |
 |---------|------|-------|---------|-------|-------|--------|-------|
@@ -378,32 +219,9 @@ Legend:
 | 9 | Members share reports? | Yes / No | Owner grants per member |
 | 10 | Members invite others? | Yes / No | No — owner/admin only |
 
----
-
-## Sprint Priority
-
-### Beta Blockers (must work before any users)
-- Sign up → org → team → job → photo loop
-- Team invite and accept
-- Basic job report generation (1 type)
-- PDF export
-
-### Should Have for Beta
-- Real-time chat
-- Push notifications
-- Watermark on free tier photos
-- Trial countdown
-
-### Defer to v1.1
-- Invoice generation
-- Insurance reports
-- Voice transcription
-- Custom templates
-- Admin role
-- Google OAuth
+See [Permissions](./permissions.md) for permission implementation details and [Security Audit](./security-audit.md) for audit results.
 
 ---
 
-*Last updated: March 2026*  
-*Permission System: v1.0 — Production Ready*  
-*Status: All HIGH priority security fixes implemented. See Permission Coverage Audit section for details.*
+*Last Updated: March 2026*  
+*Permission System: v1.0 — Production Ready*

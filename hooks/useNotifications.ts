@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { notificationService, Notification, COLLECTION_ID } from '@/lib/appwrite/notifications';
 import { useAuth } from '@/context/AuthContext';
-import { databases } from '@/lib/appwrite/client';
+import { databases, default as client } from '@/lib/appwrite/client';
 import { useFocusEffect } from 'expo-router';
 
 const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID || '';
@@ -81,25 +81,28 @@ export function useNotifications() {
     if (user) {
       const channel = `databases.${DATABASE_ID}.collections.${COLLECTION_ID}.documents`;
       
-      // Note: Real-time subscriptions require Appwrite Realtime SDK
-      // For now, we'll skip real-time updates and rely on pull-to-refresh
-      // You can implement this later using @appwrite.io/realtime or Appwrite SDK's subscribe method
-      
-      // Example implementation (commented out until Realtime SDK is set up):
-      // const unsubscribe = databases.subscribe(channel, (event: any) => {
-      //   if (event.events.some((e: string) => e.includes(`userId.${user.$id}`))) {
-      //     loadNotifications();
-      //   }
-      // });
-      // return () => unsubscribe();
-
-      // Poll for updates every 10 seconds to keep badge in sync
-      // This ensures the header badge updates when notifications change elsewhere
-      const interval = setInterval(() => {
-        loadNotifications();
-      }, 10000);
-
-      return () => clearInterval(interval);
+      // Subscribe to real-time updates
+      try {
+        const unsubscribe = client.subscribe(channel, (event: any) => {
+          if (event.events.some((e: string) => e.includes(`userId.${user.$id}`))) {
+            loadNotifications();
+          }
+        });
+        return () => {
+          try {
+            unsubscribe();
+          } catch (error) {
+            console.error('Error unsubscribing from notifications:', error);
+          }
+        };
+      } catch (error) {
+        console.error('Error subscribing to notifications:', error);
+        // Fallback to polling if realtime fails
+        const interval = setInterval(() => {
+          loadNotifications();
+        }, 10000);
+        return () => clearInterval(interval);
+      }
     }
   }, [user, loadNotifications]);
 

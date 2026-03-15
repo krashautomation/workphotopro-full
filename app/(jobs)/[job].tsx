@@ -418,10 +418,6 @@ export default function Job() {
     React.useEffect(() => {
         if (!jobId) return;
         
-        // Disable real-time subscriptions temporarily to prevent WebSocket errors
-        console.log('🔍 Real-time subscription: Disabled to prevent WebSocket errors');
-        return;
-        
         const channel = `databases.${appwriteConfig.db}.collections.${appwriteConfig.col.messages}.documents`;
         console.log('🔍 Real-time subscription: Setting up subscription for channel:', channel);
         
