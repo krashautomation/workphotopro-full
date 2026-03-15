@@ -12,6 +12,7 @@ import { tagService } from '@/lib/appwrite/database'
 import { useAuth } from '@/context/AuthContext'
 import { useOrganization } from '@/context/OrganizationContext'
 import { teamService } from '@/lib/appwrite/teams'
+import { usePermissions } from '@/utils/permissions'
 import { SquareChevronRight, SquareCheck } from 'lucide-react-native'
 
 interface JobDetailsProps {
@@ -24,6 +25,7 @@ interface JobDetailsProps {
 export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdate }: JobDetailsProps) {
     const { user } = useAuth()
     const { currentTeam } = useOrganization()
+    const { canDeleteJob, canManageTags } = usePermissions(jobChat?.createdBy)
     const router = useRouter()
     const [isCurrent, setIsCurrent] = React.useState(jobChat?.status === 'active' || jobChat?.status === undefined || false)
     const [isComplete, setIsComplete] = React.useState(jobChat?.status === 'completed' || false)
@@ -279,6 +281,17 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
     const confirmDeleteJob = async () => {
         setIsDeleting(true)
         try {
+            // Check permission before deleting
+            if (!canDeleteJob) {
+                console.error('🔍 JobDetails: Permission denied: User cannot delete this job')
+                Alert.alert(
+                    'Permission Denied', 
+                    'Only job owners or the job creator can delete jobs.'
+                )
+                setIsDeleting(false)
+                return
+            }
+
             console.log('🔍 JobDetails: Starting soft delete for jobId:', jobId)
             console.log('🔍 JobDetails: Database ID:', appwriteConfig.db)
             console.log('🔍 JobDetails: Collection ID:', appwriteConfig.col.jobchat)
@@ -423,9 +436,11 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
             <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Tags</Text>
-                    <Pressable onPress={handleEditTags}>
-                        <IconSymbol name="pencil" color={Colors.Gray} size={20} />
-                    </Pressable>
+                    {canManageTags && (
+                        <Pressable onPress={handleEditTags}>
+                            <IconSymbol name="pencil" color={Colors.Gray} size={20} />
+                        </Pressable>
+                    )}
                 </View>
 
                 {isLoadingTags ? (
@@ -541,36 +556,38 @@ export default function JobDetails({ jobId, jobChat, onJobDeleted, onStatusUpdat
 
                 {/* Delete Job Section */}
                 <View style={{ marginTop: 12, paddingBottom: 20 }}>
-                    <Pressable
-                        style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            paddingVertical: 16,
-                            paddingHorizontal: 20,
-                        backgroundColor: Colors.Primary,
-                            borderRadius: 12,
-                            opacity: isDeleting ? 0.7 : 1,
-                        }}
-                        onPress={handleDeleteJob}
-                        disabled={isDeleting}
-                    >
-                        {isDeleting ? (
-                            <ActivityIndicator size="small" color={Colors.White} />
-                        ) : (
-                            <>
-                                <IconSymbol name="trash" color={Colors.White} size={20} />
-                                <Text style={{
-                                    color: Colors.White,
-                                    fontSize: 16,
-                                    fontWeight: '600',
-                                    marginLeft: 8,
-                                }}>
-                                    Delete Job
-                                </Text>
-                            </>
-                        )}
-                    </Pressable>
+                    {canDeleteJob && (
+                        <Pressable
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                paddingVertical: 16,
+                                paddingHorizontal: 20,
+                            backgroundColor: Colors.Primary,
+                                borderRadius: 12,
+                                opacity: isDeleting ? 0.7 : 1,
+                            }}
+                            onPress={handleDeleteJob}
+                            disabled={isDeleting}
+                        >
+                            {isDeleting ? (
+                                <ActivityIndicator size="small" color={Colors.White} />
+                            ) : (
+                                <>
+                                    <IconSymbol name="trash" color={Colors.White} size={20} />
+                                    <Text style={{
+                                        color: Colors.White,
+                                        fontSize: 16,
+                                        fontWeight: '600',
+                                        marginLeft: 8,
+                                    }}>
+                                        Delete Job
+                                    </Text>
+                                </>
+                            )}
+                        </Pressable>
+                    )}
                 </View>
             </ScrollView>
         </View>

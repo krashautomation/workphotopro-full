@@ -1,16 +1,18 @@
 import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
+import { usePermissions } from '@/utils/permissions';
 import { globalStyles, colors } from '@/styles/globalStyles';
 import { jobChatService } from '@/lib/appwrite/database';
 import { JobChat } from '@/utils/types';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Text, View, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Alert } from 'react-native';
-import { useState, useEffect, useCallback } from 'react';
 import { IconSymbol } from '@/components/IconSymbol';
+import { useState, useEffect, useCallback } from 'react';
 
 export default function TrashedJobs() {
   const { user, isAuthenticated } = useAuth();
   const { currentOrganization, currentTeam, loading: orgLoading } = useOrganization();
+  const { canDeleteJob } = usePermissions();
   const router = useRouter();
   
   // State for trashed jobs management
@@ -76,6 +78,16 @@ export default function TrashedJobs() {
    * Restore a job by setting its deletedAt field to null
    */
   const handleRestoreJob = async (jobId: string, jobTitle: string) => {
+    // Check permission before restoring
+    if (!canDeleteJob) {
+      console.error('❌ TrashedJobs: Permission denied: User cannot restore jobs');
+      Alert.alert(
+        'Permission Denied', 
+        'Only team owners can restore deleted jobs.'
+      );
+      return;
+    }
+    
     try {
       setRestoringJobId(jobId);
       
@@ -169,6 +181,28 @@ export default function TrashedJobs() {
     );
   }
 
+  // Check delete permission - show permission denied screen if not owner
+  if (!canDeleteJob) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <IconSymbol name="chevron.left" size={24} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <Text style={styles.title}>Trashed Jobs</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.permissionDeniedContainer}>
+          <IconSymbol name="lock" size={64} color={colors.textSecondary} />
+          <Text style={styles.emptyText}>Permission Denied</Text>
+          <Text style={styles.emptySubtext}>
+            Only team owners can access trashed jobs.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -235,27 +269,29 @@ export default function TrashedJobs() {
                 </Text>
               </View>
             </View>
-            <TouchableOpacity 
-              style={[
-                styles.restoreButton,
-                restoringJobId === item.$id && styles.restoreButtonDisabled
-              ]}
-              onPress={() => confirmRestoreJob(item.$id, item.title)}
-              disabled={restoringJobId === item.$id}
-            >
-              {restoringJobId === item.$id ? (
-                <ActivityIndicator size="small" color={colors.text} />
-              ) : (
-                <View style={styles.restoreButtonContent}>
-                  <IconSymbol
-                    name="arrow.uturn.backward"
-                    size={16}
-                    color={colors.text}
-                  />
-                  <Text style={styles.restoreButtonText}>Restore</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+            {canDeleteJob && (
+              <TouchableOpacity 
+                style={[
+                  styles.restoreButton,
+                  restoringJobId === item.$id && styles.restoreButtonDisabled
+                ]}
+                onPress={() => confirmRestoreJob(item.$id, item.title)}
+                disabled={restoringJobId === item.$id}
+              >
+                {restoringJobId === item.$id ? (
+                  <ActivityIndicator size="small" color={colors.text} />
+                ) : (
+                  <View style={styles.restoreButtonContent}>
+                    <IconSymbol
+                      name="arrow.uturn.backward"
+                      size={16}
+                      color={colors.text}
+                    />
+                    <Text style={styles.restoreButtonText}>Restore</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -421,5 +457,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  permissionDeniedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
 });

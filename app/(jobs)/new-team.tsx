@@ -6,12 +6,14 @@ import { useAuth } from '@/context/AuthContext';
 import { useOrganization } from '@/context/OrganizationContext';
 import { Colors } from '@/utils/colors';
 import { webColors } from '@/styles/webDesignTokens';
+import { usePermissions } from '@/utils/permissions';
 import { IconSymbol } from '@/components/IconSymbol';
 import Input from '@/components/Input';
 
 export default function NewTeamScreen() {
   const { user } = useAuth();
   const { currentOrganization, createTeam } = useOrganization();
+  const { canCreateTeam } = usePermissions();
   const [saving, setSaving] = useState(false);
   
   // Form state
@@ -21,6 +23,14 @@ export default function NewTeamScreen() {
   const handleCreate = async () => {
     try {
       setSaving(true);
+      
+      // Check permission before creating
+      if (!canCreateTeam) {
+        console.error('❌ NewTeamScreen - Permission denied: User cannot create teams');
+        Alert.alert('Permission Denied', 'Only organization owners can create teams.');
+        setSaving(false);
+        return;
+      }
       
       if (!teamName.trim()) {
         Alert.alert('Error', 'Team name is required');
@@ -69,6 +79,25 @@ export default function NewTeamScreen() {
             style={styles.backButton}
             onPress={() => router.back()}
           >
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Check create permission - show permission denied screen if not owner
+  if (!canCreateTeam) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen options={{ title: 'Create Team' }} />
+        <View style={styles.loadingContainer}>
+          <IconSymbol name="lock" size={64} color={Colors.Gray} />
+          <Text style={styles.errorText}>Permission Denied</Text>
+          <Text style={styles.errorSubtext}>
+            Only organization owners can create teams.
+          </Text>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </Pressable>
         </View>

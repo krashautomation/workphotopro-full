@@ -13,6 +13,7 @@ import Input from '@/components/Input';
 import { storage } from '@/lib/appwrite/client';
 import { ID } from 'react-native-appwrite';
 import { appwriteConfig } from '@/utils/appwrite';
+import { usePermissions } from '@/utils/permissions';
 
 // Safe logging function that won't break if console methods are overridden
 const safeLog = (...args: any[]) => {
@@ -57,6 +58,7 @@ export default function EditTeamScreen() {
 
   const { user } = useAuth();
   const { currentTeam, refreshCurrentTeam } = useOrganization();
+  const { canEditTeamSettings } = usePermissions();
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -132,6 +134,15 @@ export default function EditTeamScreen() {
   const handleSave = async () => {
     try {
       console.log('💾 EditTeamScreen - handleSave called');
+      
+      // Check permission before saving
+      if (!canEditTeamSettings) {
+        console.error('❌ EditTeamScreen - Permission denied: User cannot edit team settings');
+        Alert.alert('Permission Denied', 'Only team owners can edit team settings.');
+        setSaving(false);
+        return;
+      }
+      
       setSaving(true);
       
       console.log('💾 EditTeamScreen - Form state:', {
@@ -320,6 +331,13 @@ export default function EditTeamScreen() {
   };
 
   const uploadTeamPhoto = async (imageUri: string) => {
+    // Check permission before uploading
+    if (!canEditTeamSettings) {
+      console.error('❌ EditTeamScreen - Permission denied: User cannot upload team photo');
+      Alert.alert('Permission Denied', 'Only team owners can upload team photos.');
+      return;
+    }
+    
     let errorOccurred = false;
     let errorDetails: any = null;
     
@@ -586,6 +604,25 @@ export default function EditTeamScreen() {
               router.back();
             }}
           >
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Check edit permission - show permission denied screen if not owner
+  if (!canEditTeamSettings) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Stack.Screen options={{ title: 'Edit Team' }} />
+        <View style={styles.loadingContainer}>
+          <IconSymbol name="lock" size={64} color={Colors.Gray} />
+          <Text style={styles.errorText}>Permission Denied</Text>
+          <Text style={styles.errorSubtext}>
+            Only team owners can edit team settings.
+          </Text>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </Pressable>
         </View>

@@ -115,13 +115,13 @@ Conclusion:
 - [x] app/(jobs)/[job].tsx
 
 ### Priority 3 — Secondary Screens
-- [ ] app/(jobs)/edit-team.tsx
-- [ ] app/(jobs)/new-team.tsx
-- [ ] app/(jobs)/job-details.tsx
-- [ ] app/(jobs)/job-uploads.tsx
-- [ ] app/(jobs)/share-report-modal.tsx
-- [ ] app/(jobs)/trashed-jobs.tsx
-- [ ] app/(jobs)/notifications.tsx
+- [x] app/(jobs)/edit-team.tsx
+- [x] app/(jobs)/new-team.tsx
+- [x] app/(jobs)/job-details.tsx
+- [x] app/(jobs)/job-uploads.tsx — skipped, parent controls access
+- [x] app/(jobs)/share-report-modal.tsx — skipped, parent controls access
+- [x] app/(jobs)/trashed-jobs.tsx — Restore restricted to owners only in v1. Per-job creator check not implemented for list view — future improvement.
+- [x] app/(jobs)/notifications.tsx — Test button removed, no permission migration needed
 
 ### Utility/Context
 - [x] utils/permissions.ts — created
