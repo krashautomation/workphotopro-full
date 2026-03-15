@@ -1,3 +1,46 @@
+## Session 7 - March 15, 2026 (Permissions Migration Complete)
+
+### Completed This Session
+- **Permissions migration completed across all 17 screens**
+  - Priority 1 (5 screens): team-settings, teams, delete-team, manage-member, invite
+  - Priority 2 (5 screens): video-camera, profile-settings, camera, index, [job]
+  - Priority 3 (7 screens): edit-team, new-team, job-details, job-uploads, share-report-modal, trashed-jobs, notifications
+- **Created and deployed `utils/permissions.ts`**
+  - Centralized permission utility with `usePermissions()` hook
+  - Supports role-based (owner/admin/member) and plan-based (premium/trial/free) checks
+  - Job-specific permissions via optional `jobCreatedBy` parameter
+- **Key migrations applied:**
+  - edit-team.tsx: Owner-only edit with `canEditTeamSettings`
+  - new-team.tsx: Owner-only create with `canCreateTeam`
+  - job-details.tsx: Delete/tags with `canDeleteJob`/`canManageTags`
+  - trashed-jobs.tsx: Owner-only restore with `canDeleteJob`
+  - notifications.tsx: Removed test button (dev artifact)
+- **Skipped/Parent-controlled screens:**
+  - job-uploads.tsx: Delete controlled by parent [job].tsx
+  - share-report-modal.tsx: Share controlled by parent [job].tsx
+
+### Verification Results
+- Ran `npx tsc --noEmit` after all migrations
+- **0 net new TypeScript errors** introduced by permission migrations
+- Pre-existing errors remain (React UMD warnings unrelated to permissions)
+- All audit docs updated: PERMISSIONS_AUDIT.md marked complete
+
+### Commits
+- `6630bfe` - Complete Priority 3 permissions migration
+
+### Next Session Priorities
+1. **Test permissions in app** with owner vs member accounts
+2. **Fix real-time subscriptions** (WebSocket errors currently disabled)
+3. **Wire up invitation email** via Appwrite Cloud Function
+4. **Begin AI report generation** (Job Progress report type)
+
+### Reference Docs
+- /docs/features/PERMISSIONS_AUDIT.md
+- /docs/features/PERMISSIONS_MATRIX.md
+- /utils/permissions.ts
+
+---
+
 ## Session 6 - March 14, 2026 (Permissions Migration Checkpoint)
 
 ### Completed This Session
