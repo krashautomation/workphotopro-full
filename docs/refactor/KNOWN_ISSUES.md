@@ -6,7 +6,7 @@
 
 ## Migration Follow-Up Items
 
-- Real-time subscriptions are currently disabled due to WebSocket errors and need a dedicated fix.
+- ✅ **Real-time subscriptions** - Re-enabled and working (Session 9, commit c3e675c)
 - Invitation email sending is currently stubbed and needs an Appwrite Cloud Function implementation.
 - `EXPO_PUBLIC_APP_URL` is not set in `.env`, so invitation links can show `undefined`.
 - Archived team restore flow needs validation testing.

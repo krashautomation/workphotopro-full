@@ -1,3 +1,28 @@
+## Session 9 - March 15, 2026 (Real-time Subscriptions Re-enabled)
+
+### Completed This Session
+- **Re-enabled real-time subscriptions for chat messages**
+  - Removed 3 lines that disabled subscriptions in `app/(jobs)/[job].tsx`
+  - Subscription now active: listens to `messages` collection changes
+  - Messages refresh instantly when new messages arrive from other users
+  - Console logs confirm: "Setting up subscription", "Received event", "Event is for our job"
+
+- **Re-enabled real-time notifications**
+  - Updated `hooks/useNotifications.ts` to use `client.subscribe()` instead of polling
+  - Added error handling with fallback to 10-second polling if realtime fails
+  - Notification badge updates instantly when new notifications arrive
+
+- **Verified working**
+  - Build successful: `npm run android` completed without errors
+  - App loads correctly with realtime enabled
+  - No WebSocket errors in initial testing
+  - Events properly filtered by jobId and userId
+
+### Commit
+- `c3e675c` - feat: Re-enable real-time subscriptions for chat and notifications
+
+---
+
 ## Session 8 - March 15, 2026 (Permissions Gap Analysis & Infrastructure)
 
 ### Completed This Session

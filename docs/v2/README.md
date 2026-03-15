@@ -28,6 +28,7 @@ WorkPhotoPro V2 is a React Native application built with Expo SDK, using Appwrit
 - **Total Screens**: 44
 - **Security-Audited Screens**: 31 (100% coverage)
 - **Permissions**: 18 (11 role-based, 7 plan-based)
+- **Real-time Features**: ✅ Chat messages, ✅ Notifications
 - **Database Collections**: 16+
 - **Status**: Production Ready
 

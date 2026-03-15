@@ -17,7 +17,7 @@ import * as ImagePicker from 'expo-image-picker'
 import * as DocumentPicker from 'expo-document-picker'
 import { Stack, useLocalSearchParams, useFocusEffect, useRouter } from 'expo-router'
 import * as React from 'react'
-import { ActivityIndicator, Alert, Dimensions, Image, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Alert, AppState, Dimensions, Image, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import CachedImage from '@/components/CachedImage'
 import { Query } from 'react-native-appwrite'
 import ImageViewing from 'react-native-image-viewing'
@@ -379,13 +379,13 @@ export default function Job() {
             // Refresh messages - only reload if we're not in the middle of loading older messages or refreshing
             // This prevents race conditions where this useEffect and handleRefresh both try to update messages
             const refreshMessages = async () => {
-                if (!isLoadingOlderMessages && !isRefreshing) {
+                if (!isLoadingOlderMessages && !isRefreshing && messages.length === 0) {
                     setShouldScrollToBottom(true);
                     setOldestMessageId(null);
                     setHasMoreMessages(true);
                     await getMessages(false);
                 } else {
-                    console.log('🔍 useEffect jobId: Skipping refresh - isLoadingOlderMessages:', isLoadingOlderMessages, 'isRefreshing:', isRefreshing);
+                    console.log('🔍 useEffect jobId: Skipping refresh - messages already loaded or loading in progress');
                 }
             };
             refreshMessages();
@@ -422,28 +422,74 @@ export default function Job() {
         console.log('🔍 Real-time subscription: Setting up subscription for channel:', channel);
         
         let unsubscribe: (() => void) | null = null;
+        let retryAttempt = 0;
+        const maxRetries = 1;
         
-        try {
-            unsubscribe = client.subscribe(channel, (event) => {
-                try {
-                    console.log('🔍 Real-time subscription: Received event:', event);
-                    console.log('🔍 Real-time subscription: Event type:', event.events);
-                    console.log('🔍 Real-time subscription: Event payload:', event.payload);
-                    
-                    // Only refresh if the event is related to our job
-                    if (event.payload && (event.payload as any).jobId === jobId) {
-                        console.log('🔍 Real-time subscription: Event is for our job, refreshing messages');
-                        getMessages();
+        const setupSubscription = () => {
+            try {
+                unsubscribe = client.subscribe(channel, (event) => {
+                    try {
+                        console.log('🔍 Real-time subscription: Received event:', event);
+                        console.log('🔍 Real-time subscription: Event type:', event.events);
+                        console.log('🔍 Real-time subscription: Event payload:', event.payload);
+                        
+                        // Only refresh if the event is related to our job
+                        if (event.payload && (event.payload as any).jobId === jobId) {
+                            console.log('🔍 Real-time subscription: Event is for our job, appending new message');
+                            const newMessage = event.payload as any;
+                            setMessages(prev => {
+                                // Deduplicate
+                                if (prev.find(m => m.$id === newMessage.$id)) return prev;
+                                // Append and sort
+                                return [...prev, newMessage].sort((a, b) => 
+                                    new Date(a.$createdAt).getTime() - 
+                                    new Date(b.$createdAt).getTime()
+                                );
+                            });
+                            setShouldScrollToBottom(true);
+                        }
+                    } catch (error) {
+                        console.error('🔍 Real-time subscription: Error handling event:', error);
                     }
-                } catch (error) {
-                    console.error('🔍 Real-time subscription: Error handling event:', error);
+                });
+                
+                // Connection successful
+                console.log('✅ Real-time subscription: Connected successfully');
+                retryAttempt = 0; // Reset retry counter on success
+            } catch (error) {
+                console.error('❌ Real-time subscription: Connection failed', error);
+                
+                // Retry logic: wait 3 seconds and retry once
+                if (retryAttempt < maxRetries) {
+                    retryAttempt++;
+                    console.log(`🔍 Real-time subscription: Retrying connection (attempt ${retryAttempt}/${maxRetries})...`);
+                    setTimeout(() => {
+                        setupSubscription();
+                    }, 3000);
                 }
-            });
-        } catch (error) {
-            console.error('🔍 Real-time subscription: Error setting up subscription:', error);
-        }
+            }
+        };
+        
+        // Initial subscription attempt
+        setupSubscription();
+        
+        // AppState listener to resubscribe when app comes back to foreground
+        const appStateSubscription = AppState.addEventListener(
+            'change',
+            (nextAppState) => {
+                if (nextAppState === 'active') {
+                    console.log('📱 App came to foreground - resubscribing to real-time');
+                    if (unsubscribe) {
+                        unsubscribe();
+                        unsubscribe = null;
+                    }
+                    setupSubscription();
+                }
+            }
+        );
         
         return () => {
+            appStateSubscription.remove();
             try {
                 if (unsubscribe) {
                     console.log('🔍 Real-time subscription: Unsubscribing from channel:', channel);
@@ -550,10 +596,6 @@ export default function Job() {
             // Try immediately
             requestAnimationFrame(() => {
                 scrollToBottom();
-                // Also try after a short delay to ensure content is rendered
-                setTimeout(scrollToBottom, 100);
-                // One more attempt after content is fully laid out
-                setTimeout(scrollToBottom, 300);
             });
             
             // After initial load, set isInitialLoad to false
@@ -1600,8 +1642,8 @@ const loadOlderMessages = async () => {
 
         // Refresh messages to show the new message
         console.log('🔍 sendMessage: Refreshing messages after sending...');
-        setShouldScrollToBottom(true); // Ensure we scroll to bottom after sending
-        await getMessages(false); // Reload recent messages, not older ones
+        // Real-time subscription will append the message automatically
+        setShouldScrollToBottom(true);
 
         await db.updateDocument(
             appwriteConfig.db, 
@@ -1670,8 +1712,13 @@ const loadOlderMessages = async () => {
                 }
             );
             
-            // Refresh messages
-            await getMessages();
+            // Update message in state directly
+            setMessages(prev => prev.map(m =>
+                m.$id === message.$id
+                    ? { ...m, content: 'Message deleted by user', imageUrl: '',
+                        imageFileId: '', videoFileId: '', fileFileId: '' }
+                    : m
+            ));
         } catch (error) {
             console.error('Error deleting message:', error);
             Alert.alert('Error', 'Failed to delete message. Please try again.');
@@ -1776,8 +1823,12 @@ const loadOlderMessages = async () => {
 
             console.log('✅ Task marked as completed:', messageId);
 
-            // Refresh messages to show updated status
-            await getMessages();
+            // Update message in state directly
+            setMessages(prev => prev.map(m =>
+                m.$id === messageId
+                    ? { ...m, taskStatus: 'completed' }
+                    : m
+            ));
         } catch (error) {
             console.error('Error completing task:', error);
             Alert.alert('Error', 'Failed to complete task. Please try again.');
@@ -1816,8 +1867,12 @@ const loadOlderMessages = async () => {
 
             console.log('✅ Duty marked as completed:', messageId);
 
-            // Refresh messages to show updated status
-            await getMessages();
+            // Update message in state directly
+            setMessages(prev => prev.map(m =>
+                m.$id === messageId
+                    ? { ...m, dutyStatus: 'completed' }
+                    : m
+            ));
         } catch (error) {
             console.error('Error completing duty:', error);
             Alert.alert('Error', 'Failed to complete duty. Please try again.');
@@ -2840,38 +2895,7 @@ const loadOlderMessages = async () => {
                             scrollEventThrottle={400}
                             onContentSizeChange={(width, height) => {
                                 // Track content height changes
-                                const prevHeight = contentHeight;
                                 setContentHeight(height);
-                                
-                                // If content height increased, it means new messages were added
-                                // Only auto-scroll if:
-                                // 1. shouldScrollToBottom is true (new message sent)
-                                // 2. Not loading older messages (we're maintaining position)
-                                // 3. User isn't actively scrolling
-                                // 4. Not maintaining scroll position
-                                // 5. Not all messages loaded
-                                if (height > prevHeight && 
-                                    shouldScrollToBottom && 
-                                    !isLoadingOlderMessages && 
-                                    !isUserScrolling.current && 
-                                    !allMessagesLoaded &&
-                                    messageToMaintainPosition.current === null) {
-                                    // Scroll to bottom when new content is added (new messages)
-                                    requestAnimationFrame(() => {
-                                        // Double-check conditions before scrolling
-                                        if (isUserScrolling.current || 
-                                            isLoadingOlderMessages || 
-                                            allMessagesLoaded ||
-                                            messageToMaintainPosition.current !== null) {
-                                            return;
-                                        }
-                                        try {
-                                            listRef.current?.scrollToEnd({ animated: !isInitialLoad });
-                                        } catch (error) {
-                                            console.log('🔍 onContentSizeChange scrollToEnd error:', error);
-                                        }
-                                    });
-                                }
                             }}
                             ListFooterComponent={
                                 isLoadingOlderMessages ? (
