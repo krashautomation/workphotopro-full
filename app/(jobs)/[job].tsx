@@ -3680,7 +3680,7 @@ const loadOlderMessages = async () => {
                                             );
                                             return;
                                         }
-                                        setShowShareReportModal(true);
+                                        setShowShareJobModal(true);
                                     }}
                                     disabled={isUploading}
                                     style={{
