@@ -339,5 +339,69 @@ export interface PaginatedResponse<T> {
   total: number;
 }
 
+// Universal Invite Types for Deep Link Flow
+// https://workphotopro.com/invite/{shortId}
+
+/**
+ * Invite status in the state machine
+ * pending → claimed → accepted
+ */
+export type InviteStatus = 'pending' | 'claimed' | 'accepted' | 'expired';
+
+/**
+ * Response from GET /api/invites/details
+ * Contains invite metadata for display before authentication
+ */
+export interface UniversalInviteDetails {
+  shortId: string;
+  inviterName: string;
+  inviterEmail?: string;
+  organizationName: string;
+  organizationId: string;
+  teamName: string;
+  teamId: string;
+  role: TeamRole;
+  status: InviteStatus;
+  claimedBy?: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+/**
+ * Response from POST /api/invites/claim
+ * Reserves the invite for the authenticated user
+ */
+export interface ClaimInviteResponse {
+  success: boolean;
+  message: string;
+  claimedAt: string;
+  shortId: string;
+}
+
+/**
+ * Response from POST /api/invites/accept
+ * Finalizes membership creation (server-side)
+ */
+export interface AcceptInviteResponse {
+  success: boolean;
+  message: string;
+  membershipId: string;
+  teamId: string;
+  organizationId: string;
+  acceptedAt: string;
+}
+
+/**
+ * Error codes for universal invite flow
+ */
+export type InviteErrorCode =
+  | 'INVITE_NOT_FOUND'
+  | 'INVITE_EXPIRED'
+  | 'INVITE_ALREADY_CLAIMED'
+  | 'ALREADY_MEMBER'
+  | 'NOT_CLAIMED'
+  | 'CLAIMED_BY_OTHER'
+  | 'NETWORK_ERROR';
+
 // Export User type (not exported above)
 export type { User };

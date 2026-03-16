@@ -1,11 +1,15 @@
 # WorkPhotoPro V2 Documentation
 
 ## Navigation
-- [architecture.md](./architecture.md) — System architecture and tech stack
-- [data-model.md](./data-model.md) — Database schema and entities
+- [architecture.md](./architecture.md) — System architecture, tech stack, invite system
+- [data-model.md](./data-model.md) — Database schema, entities, invite collections
 - [permissions.md](./permissions.md) — Permission system and usage
 - [feature-matrix.md](./feature-matrix.md) — Product feature specification
 - [security-audit.md](./security-audit.md) — Security verification and audit results
+
+## New Documentation
+- [Universal Invite Testing](../UNIVERSAL_INVITE_TESTING.md) — Testing guide for universal deep links
+- [Install-Safe Invite Testing](../INSTALL_SAFE_INVITE_TESTING.md) — Testing guide for session resume
 
 ## Overview
 This folder contains the technical and product documentation for WorkPhotoPro V2.  
@@ -29,8 +33,16 @@ WorkPhotoPro V2 is a React Native application built with Expo SDK, using Appwrit
 - **Security-Audited Screens**: 31 (100% coverage)
 - **Permissions**: 18 (11 role-based, 7 plan-based)
 - **Real-time Features**: ✅ Chat messages, ✅ Notifications
-- **Database Collections**: 16+
+- **Database Collections**: 18+
 - **Status**: Production Ready
+
+## What's New in V2
+
+### Universal Invite System (March 2026)
+- **Universal Deep Links**: `https://workphotopro.com/invite/{shortId}`
+- **Install-Safe Resume**: Users can click invites before installing the app
+- **Multi-Format Support**: Universal links, QR codes, and legacy tokens
+- **7-Day Expiration**: Secure time-limited invites with automatic cleanup
 
 ## Documentation Structure
 

@@ -99,6 +99,67 @@ Organization (ownerId)
 | `organizationService` | Org management, billing | `lib/appwrite/teams.ts` |
 | `messageService` | Chat messages, real-time | `lib/appwrite/database.ts` |
 | `authService` | Authentication, sessions | `lib/appwrite/auth.ts` |
+| `inviteService` | Universal invite system | `services/inviteService.ts` |
+
+## Invite System Architecture
+
+### Universal Deep Link Invites
+
+The invite system supports multiple flows for maximum compatibility:
+
+#### 1. Universal Deep Links (Primary)
+```
+https://workphotopro.com/invite/{shortId}
+```
+- Works on iOS (Universal Links) and Android (App Links)
+- Short, shareable format
+- Deep link handler extracts shortId and navigates to accept-invite screen
+
+#### 2. Legacy QR/Short Links
+```
+https://web.workphotopro.com/links/{shortId}
+```
+- Backwards compatible with existing QR codes
+- Resolves to full invite URL
+
+#### 3. Legacy Token Links
+```
+https://web.workphotopro.com/invite/{teamId}?token={token}&orgId={orgId}
+```
+- Direct token-based invites
+- Maintains compatibility with existing invites
+
+### Install-Safe Session Resume
+
+For users who click invites before installing the app:
+
+**Flow:**
+1. User clicks invite in browser → Web creates session with device fingerprint
+2. User installs app → App checks for pending sessions on launch
+3. If session found (< 7 days): App resumes invite automatically
+4. Auto-complete for authenticated users, invite screen for new users
+
+**Components:**
+- `utils/deviceId.ts` - Persistent device identification
+- `hooks/useInviteSession.ts` - Session management hook
+- `GET /api/invites/session` - Backend endpoint for session retrieval
+- `POST /api/invites/session` - Backend endpoint for session creation
+
+### Invite State Machine
+
+```
+Invite Created
+    ↓
+Pending → Claimed → Accepted
+    ↓         ↓         ↓
+  Active   Reserved  Completed
+```
+
+**States:**
+- **Pending**: Invite available, not yet claimed
+- **Claimed**: Reserved by a user (7-day expiration)
+- **Accepted**: Membership created, user joined team
+- **Expired**: Past 7-day window or manually expired
 
 ## Performance Optimizations
 

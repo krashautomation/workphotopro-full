@@ -144,6 +144,29 @@ function RootLayoutNav() {
     // Complete any pending OAuth sessions
     WebBrowser.maybeCompleteAuthSession();
     
+    // Check for pending invite sessions on app launch
+    // This handles install-safe invite resume when user clicks link in browser
+    // then installs/opens the app later
+    const checkInviteSessionOnLaunch = async () => {
+      try {
+        // Only check if app wasn't opened via deep link
+        const initialUrl = await Linking.getInitialURL();
+        if (initialUrl) {
+          console.log('[InviteSession] App opened via deep link, skipping session check');
+          return;
+        }
+        
+        console.log('[InviteSession] Checking for pending invite sessions...');
+        const { checkInviteSessionOnLaunch: checkSession } = await import('@/hooks/useInviteSession');
+        await checkSession(router, user?.$id);
+      } catch (error) {
+        console.error('[InviteSession] Error checking invite session:', error);
+        // Silently fail - don't block app launch
+      }
+    };
+    
+    checkInviteSessionOnLaunch();
+    
     // Handle deep links when app is already running
     const handleUrl = async (event: { url: string }) => {
       console.log('🔗 Deep link received:', event.url);
@@ -186,6 +209,16 @@ function RootLayoutNav() {
           }
         }
         
+        // Handle new universal invite links: https://workphotopro.com/invite/{shortId}
+        if (url.hostname === 'workphotopro.com' && url.pathname.startsWith('/invite/')) {
+          const shortId = url.pathname.split('/invite/')[1];
+          if (shortId) {
+            console.log('🔗 Universal invite link detected! Short ID:', shortId);
+            router.push(`/(auth)/accept-invite?shortId=${encodeURIComponent(shortId)}`);
+            return;
+          }
+        }
+        
         // Check if this is an HTTPS invite link (web.workphotopro.com/invite/{teamId}?token=...)
         if (url.hostname === 'web.workphotopro.com' && url.pathname.startsWith('/invite/')) {
           const teamId = url.pathname.split('/invite/')[1]?.split('?')[0];
@@ -194,7 +227,7 @@ function RootLayoutNav() {
           if (teamId) {
             if (token) {
               console.log('🔗 HTTPS invite link detected! Team ID:', teamId, 'Token:', token);
-              router.push(`/(auth)/accept-invite?teamId=${encodeURIComponent(teamId)}&token=${encodeURIComponent(token)}`);
+              router.push(`/(auth)/accept-invite?teamId=${encodeURIComponent(teamId)}&token=${encodeURIComponent(token)}&orgId=${encodeURIComponent(url.searchParams.get('orgId') || '')}`);
             } else {
               console.log('🔗 HTTPS invite link detected (no token)! Team ID:', teamId);
               router.push(`/(auth)/accept-invite?teamId=${encodeURIComponent(teamId)}`);
@@ -272,7 +305,7 @@ function RootLayoutNav() {
     return () => {
       subscription?.remove();
     };
-  }, []);
+  }, [user, router]);
 
   return <Slot />;
 }

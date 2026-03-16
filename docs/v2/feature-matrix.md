@@ -76,9 +76,11 @@ Feature availability by **Role** (Owner/Admin/Member) and **Plan** (Free/Trial/P
 |---------|------|-------|---------|-------|-------|--------|-------|
 | View member list | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
 | Invite member via email | 📊 | ✅ | ✅ | ✅ | ✅ | ❌ | Free limit: ? members |
-| Invite via QR code | 📊 | ✅ | ✅ | ✅ | ✅ | ❌ | |
+| Invite via QR code | 📊 | ✅ | ✅ | ✅ | ✅ | ❌ | Legacy format |
+| Invite via universal link | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | `workphotopro.com/invite/{shortId}` |
 | Invite via contacts | 📊 | ✅ | ✅ | ✅ | ✅ | ❌ | |
 | Accept invitation | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |
+| Install-safe invite resume | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Auto-resume if clicked before install |
 | Remove member | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | Cannot remove last owner |
 | Change member role | ✅ | ✅ | ✅ | ✅ | ❓ | ❌ | |
 | View member profile | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | |

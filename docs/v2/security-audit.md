@@ -155,6 +155,36 @@ The following HIGH priority permission gaps were identified and resolved:
 
 ---
 
+## Invite System Security
+
+### Universal Deep Link Invites (March 2026)
+
+The invite system implements multiple security layers:
+
+| Security Measure | Implementation | Status |
+|-----------------|----------------|--------|
+| Token Hashing | SHA-256 hash stored, raw token never saved | ✅ |
+| Short ID Encoding | Base62-encoded, non-sequential | ✅ |
+| Expiration | 7-day automatic expiration | ✅ |
+| Claim Protection | One-time claim per invite | ✅ |
+| Session Validation | Device fingerprinting for session resume | ✅ |
+| HTTPS Only | All invite links use HTTPS | ✅ |
+
+### Invite State Machine Security
+
+```
+Pending → Claimed → Accepted
+  ↓         ↓         ↓
+Expires  Expires   Completed
+```
+
+**Security Features:**
+- ✅ Invites can only be claimed once
+- ✅ 7-day expiration prevents indefinite validity
+- ✅ Email validation prevents mismatched acceptances
+- ✅ Server-side membership creation (authoritative)
+- ✅ Device ID persistence for install-safe resume
+
 ## Security Verification Checklist
 
 - [x] All collections require authenticated users (`role:users`)
@@ -168,6 +198,9 @@ The following HIGH priority permission gaps were identified and resolved:
 - [x] Permission checks prevent unauthorized data modification
 - [x] UI buttons disabled when permissions missing
 - [x] Alert dialogs show permission denied messages
+- [x] Invite tokens hashed (SHA-256)
+- [x] Invite expiration enforced (7 days)
+- [x] Device ID securely stored (SecureStore)
 
 ---
 

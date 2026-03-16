@@ -109,6 +109,61 @@ interface Message {
 | `subscriptions` | RevenueCat subscriptions | `userId`, `orgId`, `status`, `expiresAt` |
 | `user_preferences` | User settings | `userId`, `hdCapture`, `showTimestamps` |
 | `contacts` | Phone contacts | `userId`, `name`, `phoneHash` |
+| `invitations` | Universal invite records | `shortId`, `teamId`, `status`, `tokenHash` |
+| `invite_sessions` | Install-safe sessions | `deviceId`, `shortId`, `status`, `expiresAt` |
+
+## Invite System Collections
+
+### invitations
+
+Stores universal invite links with secure token hashing.
+
+```typescript
+interface Invitation {
+  $id: string;
+  shortId: string;        // Base62-encoded short ID
+  teamId: string;         // References Team
+  orgId: string;          // References Organization
+  invitedBy: string;      // User ID who created invite
+  invitedEmail: string;   // Email of invited user
+  role: 'owner' | 'admin' | 'member';
+  tokenHash: string;      // SHA-256 hash of token
+  status: 'pending' | 'claimed' | 'accepted' | 'expired';
+  claimedBy?: string;     // User ID who claimed
+  sentAt: string;
+  expiresAt: string;      // 7 days from creation
+  acceptedAt?: string;
+  acceptedByUserId?: string;
+}
+```
+
+### invite_sessions
+
+Enables install-safe invite resume for users who click links before installing the app.
+
+```typescript
+interface InviteSession {
+  $id: string;
+  sessionId: string;      // Unique session identifier
+  deviceId: string;       // Device fingerprint
+  shortId: string;        // References Invitation
+  status: 'pending' | 'claimed' | 'accepted' | 'expired';
+  inviterName: string;    // Cached for display
+  organizationName: string;
+  teamName: string;
+  email?: string;         // If collected from web
+  createdAt: string;
+  expiresAt: string;      // 7 days from creation
+  claimedBy?: string;     // User ID
+  claimedAt?: string;
+  acceptedAt?: string;
+}
+```
+
+**Indexes:**
+- `deviceId` + `status` + `createdAt` (for session lookups)
+- `shortId` + `status` (for invite status checks)
+- `expiresAt` (for cleanup jobs)
 
 ## Relationships
 

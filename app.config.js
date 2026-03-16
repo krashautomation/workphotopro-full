@@ -33,6 +33,7 @@ module.exports = {
         'applinks:web.workphotopro.com',
         'applinks:workphotopro.app',
         'applinks:links.workphotopro.com',
+        'applinks:workphotopro.com',
       ],
       infoPlist: {
         NSPhotoLibraryAddUsageDescription:
@@ -79,6 +80,11 @@ module.exports = {
               scheme: 'https',
               host: 'web.workphotopro.com',
               pathPrefix: '/reset-password',
+            },
+            {
+              scheme: 'https',
+              host: 'workphotopro.com',
+              pathPrefix: '/invite',
             },
             {
               scheme: 'workphotopro',
