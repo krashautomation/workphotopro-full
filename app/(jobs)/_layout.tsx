@@ -239,6 +239,13 @@ export default function JobsLayout() {
             presentation: 'fullScreenModal',
           }}
         />
+        <Stack.Screen
+          name="photo-annotation-editor"
+          options={{
+            headerShown: false,
+            presentation: 'fullScreenModal',
+          }}
+        />
       </Stack>
     </JobFilterProvider>
   );

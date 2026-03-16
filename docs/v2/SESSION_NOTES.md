@@ -1,7 +1,46 @@
-# Session Notes - March 15, 2026
+# Session Notes - March 16, 2026
 
 ## Current Session Focus
-**Invite System Implementation - Backend API Migration & Mobile App Updates**
+**Photo Annotation Feature - Skia-based Drawing Editor**
+
+---
+
+## ✅ Completed Today
+
+### 1. Photo Annotation Feature
+- **Status:** ✅ Implemented and scaffolded
+- **Package Installed:** `@shopify/react-native-skia`
+- **New Screen:** `app/(jobs)/photo-annotation-editor.tsx`
+
+### 2. Drawing Tools Implemented
+- **Brush Tool:** Freehand drawing with pan gesture
+- **Circle Tool:** Tap-and-drag to define center and radius, live preview
+- **Color Picker:** 6 colors (Red, Green, Blue, Yellow, Purple, White)
+- **Size Selector:** 4 sizes (S, M, L, XL)
+
+### 3. History Features
+- **Undo:** Remove last path from history stack
+- **Redo:** Restore path from redo stack
+- **Clear All:** Reset canvas and history
+
+### 4. Navigation Integration
+- **Route Params:** Uses `useLocalSearchParams()` for `photoUri`
+- **Return Flow:** Passes `annotatedPhotoUri` back to camera workflow
+- **Presentation:** `fullScreenModal`
+
+### 5. Modified Files
+- `app/(jobs)/photo-annotation-editor.tsx` - Full Skia implementation
+- `app/(jobs)/_layout.tsx` - Registered new screen
+- `app/(jobs)/camera.tsx` - Added `annotatedPhotoUri` handling
+- `components/WatermarkedPhoto.tsx` - Added "Annotate" button
+- `components/IconSymbol.tsx` - Added `arrow.left` icon
+- `package.json` - Added `@shopify/react-native-skia`
+
+### 6. Testing Notes
+- Navigate flow: Camera → Preview → Annotate → Editor
+- Save returns annotated photo URI to camera
+- Cancel returns without changes
+- Existing "Done" workflow remains intact
 
 ---
 
@@ -43,21 +82,19 @@
 
 ## ⏳ Pending / Next Steps
 
-### 1. Mobile App Integration & Testing
+### Photo Annotation - Phase 2 Enhancements
+- [ ] Implement actual image merge/save with Skia snapshot
+- [ ] Test brush and circle tools on multiple devices
+- [ ] Test undo/redo/clear with complex drawings
+- [ ] Test navigation flows (Annotate → Save → return, Annotate → Cancel → return)
+- [ ] Verify original photo unchanged on Cancel
+- [ ] Performance testing with high-resolution photos
+
+### Previous Pending Items (from March 15)
 - [ ] Test universal deep link flow on iOS/Android
 - [ ] Test legacy QR code flows still work
-- [ ] Test install-safe session resume
 - [ ] Test declined/cancelled/revoked status handling
-- [ ] Verify authentication errors (401) handled correctly
-- [ ] Test session endpoints work without authentication
-
-### 2. Backend Endpoint Completion
-- [ ] GET /api/invitations/details - Backend implementing
-- [ ] POST /api/invitations/claim - Backend implementing
-- [ ] POST /api/invitations/accept - Backend implementing
-- [ ] POST /api/invites/session - Backend implementing
-- [ ] GET /api/invites/session - Backend implementing
-- **ETA:** Backend team committed to completion within 24 hours
+- [ ] Backend endpoint completion
 
 ### 3. Monitoring & Validation
 - [ ] Monitor install-safe resume flows
@@ -143,6 +180,6 @@ Old → New:
 
 ---
 
-*Last Updated: March 15, 2026*
+*Last Updated: March 16, 2026*
 *Session Owner: Mobile App Team*
-*Next Session: TBD (pending backend completion)*
+*Next Session: TBD*

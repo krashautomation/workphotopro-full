@@ -72,6 +72,7 @@ const MAPPING = {
   "arrow.clockwise": "refresh",
   "arrow.triangle.2.circlepath": "refresh",
   "arrow.triangle.2.circlepath.circle": "refresh",
+  "arrow.left": "arrow-back",
   // Payment icons
   "creditcard": "credit-card",
   // Contact and settings icons

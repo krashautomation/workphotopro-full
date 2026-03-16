@@ -9,6 +9,33 @@
 
 ## Changelog
 
+### March 16, 2026 - Photo Annotation Feature
+**New Feature:** Photo annotation editor with Skia-based drawing tools
+
+**Changes:**
+- Added `@shopify/react-native-skia` dependency
+- New screen: `app/(jobs)/photo-annotation-editor.tsx`
+- Added "Annotate" button in `WatermarkedPhoto` component
+- Navigation integration with `fullScreenModal` presentation
+
+**Features:**
+- Brush tool: Freehand drawing with color/size selection
+- Circle tool: Tap-and-drag with live preview
+- Color picker: 6 colors (Red, Green, Blue, Yellow, Purple, White)
+- Size selector: 4 sizes (S, M, L, XL)
+- Undo/Redo: Full path history management
+- Clear All: Reset canvas
+- Save/Export: Returns annotated image URI
+
+**Navigation Flow:**
+```
+Camera → Capture → Preview (WatermarkedPhoto)
+    → [Annotate] → PhotoAnnotationEditor
+    → [Save/Cancel] → Returns to camera workflow
+```
+
+---
+
 ### March 2026 - Backend API Migration
 **Breaking Change:** Backend endpoints migrated from `/api/invites/*` to `/api/invitations/*`
 

@@ -19,7 +19,11 @@ import { appwriteConfig, db } from '@/utils/appwrite'
 import { usePermissions } from '@/utils/permissions'
 
 export default function CameraPage() {
-    const { jobId, photoFlow } = useLocalSearchParams()
+    const { jobId, photoFlow, annotatedPhotoUri } = useLocalSearchParams<{ 
+        jobId?: string; 
+        photoFlow?: string; 
+        annotatedPhotoUri?: string 
+    }>()
     const { user } = useAuth()
     const { currentOrganization, isHDCaptureEnabled, loadUserData } = useOrganization()
     const { canUploadPhoto, canToggleHD } = usePermissions()
@@ -46,6 +50,18 @@ export default function CameraPage() {
         () => jobOrganization ?? currentOrganization,
         [jobOrganization, currentOrganization]
     )
+
+    // Handle annotated photo from annotation editor
+    React.useEffect(() => {
+        if (annotatedPhotoUri && typeof annotatedPhotoUri === 'string') {
+            console.log('[Camera] Received annotated photo:', annotatedPhotoUri)
+            setCapturedPhoto({
+                uri: annotatedPhotoUri,
+                width: 0,
+                height: 0,
+            })
+        }
+    }, [annotatedPhotoUri])
 
     React.useEffect(() => {
         let isMounted = true

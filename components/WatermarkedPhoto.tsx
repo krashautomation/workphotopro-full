@@ -5,6 +5,7 @@ import { getFormattedTimestamp } from '@/utils/watermark';
 import { IconSymbol } from './IconSymbol';
 import { Colors } from '@/utils/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import ViewShot from 'react-native-view-shot';
 
 interface WatermarkedPhotoProps {
@@ -22,6 +23,7 @@ interface WatermarkedPhotoProps {
 export function WatermarkedPhoto({ image, options, onDone, onCancel, isCapturing }: WatermarkedPhotoProps) {
   const insets = useSafeAreaInsets();
   const viewShotRef = useRef<ViewShot>(null);
+  const router = useRouter();
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [isImageLoaded, setIsImageLoaded] = React.useState(false);
   const [isHiddenImageLoaded, setIsHiddenImageLoaded] = React.useState(false);
@@ -213,6 +215,23 @@ export function WatermarkedPhoto({ image, options, onDone, onCancel, isCapturing
             <Text style={styles.buttonText}>Cancel</Text>
           </Pressable>
 
+          {/* Annotate button */}
+          <Pressable 
+            onPress={() => {
+              if (image?.uri) {
+                router.push({
+                  pathname: '/(jobs)/photo-annotation-editor' as any,
+                  params: { photoUri: image.uri },
+                });
+              }
+            }}
+            style={styles.annotateButton}
+            disabled={isCapturing || isProcessing}
+          >
+            <IconSymbol name="pencil" color={Colors.White} size={20} />
+            <Text style={styles.annotateButtonText}>Annotate</Text>
+          </Pressable>
+
           {/* Spacer */}
           <View style={styles.spacer} />
 
@@ -392,6 +411,23 @@ const styles = StyleSheet.create({
   buttonText: {
     color: Colors.White,
     fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  annotateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+    borderRadius: 25,
+    minHeight: 44,
+  },
+  annotateButtonText: {
+    color: Colors.White,
+    fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
   },
