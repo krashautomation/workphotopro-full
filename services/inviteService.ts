@@ -4,16 +4,44 @@
  * Handles the new universal deep link invite flow:
  * https://workphotopro.com/invite/{shortId}
  * 
- * API Endpoints:
- * - GET /api/invites/details - Get invite details (inviter name, org name)
- * - POST /api/invites/claim - Claim the invite for current user
- * - POST /api/invites/accept - Accept invite and create membership
+ * API Endpoints (Updated for Backend Migration):
+ * - GET /api/invitations/details - Get invite details (inviter name, org name)
+ * - POST /api/invitations/claim - Claim the invite for current user
+ * - POST /api/invitations/accept - Accept invite and create membership
+ * 
+ * Session Endpoints (Unchanged):
+ * - GET /api/invites/session - Check for pending sessions
+ * - POST /api/invites/session - Create session (web only)
+ * 
+ * BREAKING CHANGES (March 2026):
+ * - Migrated from /api/invites/* to /api/invitations/* (except session endpoints)
+ * - All endpoints except GET details require Appwrite session authentication
+ * - New status values: declined, cancelled, revoked
  */
+
+import { account } from '@/lib/appwrite/client';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_WEB_API_URL || 'https://workphotopro.com';
 
 /**
- * Response from GET /api/invites/details
+ * Valid invitation statuses
+ * pending → claimed → accepted
+ * pending → declined
+ * pending → cancelled (by sender)
+ * pending → revoked
+ * pending/claimed → expired
+ */
+export type InvitationStatus = 
+  | 'pending' 
+  | 'claimed' 
+  | 'accepted' 
+  | 'expired'
+  | 'declined'
+  | 'cancelled'
+  | 'revoked';
+
+/**
+ * Response from GET /api/invitations/details
  */
 export interface UniversalInviteDetails {
   shortId: string;
@@ -24,24 +52,33 @@ export interface UniversalInviteDetails {
   teamName: string;
   teamId: string;
   role: string;
-  status: 'pending' | 'claimed' | 'accepted' | 'expired';
+  status: InvitationStatus;
   claimedBy?: string;
   expiresAt: string;
   createdAt: string;
+  // New fields from backend migration
+  invitedEmail?: string;
+  invitedName?: string;
+  invitedBy?: string;
+  sentAt?: string;
+  acceptedAt?: string;
+  acceptedByUserId?: string;
 }
 
 /**
- * Response from POST /api/invites/claim
+ * Response from POST /api/invitations/claim
  */
 export interface ClaimInviteResponse {
   success: boolean;
   message: string;
   claimedAt: string;
   shortId: string;
+  emailSent?: boolean;
+  emailError?: string | null;
 }
 
 /**
- * Response from POST /api/invites/accept
+ * Response from POST /api/invitations/accept
  */
 export interface AcceptInviteResponse {
   success: boolean;
@@ -67,6 +104,44 @@ export class InviteAPIError extends Error {
 }
 
 /**
+ * Ensure user is authenticated before making API calls
+ * Uses Appwrite session validation
+ */
+async function ensureAuthenticated(): Promise<void> {
+  try {
+    await account.get();
+    console.log('[InviteService] ✅ User authenticated');
+  } catch (error) {
+    console.error('[InviteService] ❌ User not authenticated');
+    throw new InviteAPIError(
+      'You must be signed in to perform this action.',
+      401,
+      'UNAUTHORIZED'
+    );
+  }
+}
+
+/**
+ * Get user-friendly message for invitation status
+ */
+export function getStatusErrorMessage(status: InvitationStatus): string {
+  switch (status) {
+    case 'declined':
+      return 'This invitation has been declined.';
+    case 'cancelled':
+      return 'This invitation has been cancelled by the sender.';
+    case 'revoked':
+      return 'This invitation has been revoked.';
+    case 'expired':
+      return 'This invitation has expired.';
+    case 'accepted':
+      return 'This invitation has already been accepted.';
+    default:
+      return 'This invitation is no longer available.';
+  }
+}
+
+/**
  * Get invite details by shortId
  * Shows invite info before user authenticates
  * 
@@ -78,7 +153,7 @@ export async function getInviteDetails(shortId: string): Promise<UniversalInvite
   
   try {
     const response = await fetch(
-      `${API_BASE_URL}/api/invites/details?shortId=${encodeURIComponent(shortId)}`,
+      `${API_BASE_URL}/api/invitations/details?shortId=${encodeURIComponent(shortId)}`,
       {
         method: 'GET',
         headers: {
@@ -108,6 +183,16 @@ export async function getInviteDetails(shortId: string): Promise<UniversalInvite
         data.message || 'Failed to fetch invite details',
         response.status,
         data.errorCode
+      );
+    }
+
+    // Check if invite is in a terminal state
+    if (['declined', 'cancelled', 'revoked', 'accepted'].includes(data.status)) {
+      const message = getStatusErrorMessage(data.status);
+      throw new InviteAPIError(
+        message,
+        400,
+        `INVITE_${data.status.toUpperCase()}`
       );
     }
 
@@ -141,15 +226,17 @@ export async function claimInvite(
 ): Promise<ClaimInviteResponse> {
   console.log(`[InviteService] Claiming invite: ${shortId} for user: ${userId}`);
   
+  // Ensure user is authenticated
+  await ensureAuthenticated();
+  
   try {
-    const response = await fetch(`${API_BASE_URL}/api/invites/claim`, {
+    const response = await fetch(`${API_BASE_URL}/api/invitations/claim`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         shortId,
-        userId,
       }),
     });
 
@@ -185,6 +272,15 @@ export async function claimInvite(
           'This invite has expired.',
           410,
           'INVITE_EXPIRED'
+        );
+      }
+      // Handle new status errors
+      if (data.status) {
+        const message = getStatusErrorMessage(data.status);
+        throw new InviteAPIError(
+          message,
+          400,
+          `INVITE_${data.status.toUpperCase()}`
         );
       }
       throw new InviteAPIError(
@@ -225,15 +321,17 @@ export async function acceptInvite(
 ): Promise<AcceptInviteResponse> {
   console.log(`[InviteService] Accepting invite: ${shortId} for user: ${userId}`);
   
+  // Ensure user is authenticated
+  await ensureAuthenticated();
+  
   try {
-    const response = await fetch(`${API_BASE_URL}/api/invites/accept`, {
+    const response = await fetch(`${API_BASE_URL}/api/invitations/accept`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         shortId,
-        userId,
       }),
     });
 
@@ -352,7 +450,7 @@ export function getInviteErrorMessage(error: any): string {
  * @param status - The invite status
  * @returns boolean indicating if invite can be claimed
  */
-export function isInviteClaimable(status: string): boolean {
+export function isInviteClaimable(status: InvitationStatus): boolean {
   return status === 'pending';
 }
 
@@ -365,7 +463,7 @@ export function isInviteClaimable(status: string): boolean {
  * @returns boolean indicating if invite can be accepted
  */
 export function isInviteAcceptable(
-  status: string,
+  status: InvitationStatus,
   claimedBy: string | undefined,
   currentUserId: string
 ): boolean {
@@ -387,13 +485,18 @@ export function isInviteAcceptable(
  */
 
 /**
+ * Valid invite session statuses
+ */
+export type InviteSessionStatus = 'pending' | 'claimed' | 'accepted' | 'expired';
+
+/**
  * Invite Session data structure
  */
 export interface InviteSession {
   sessionId: string;
   deviceId: string;
   shortId: string;
-  status: 'pending' | 'claimed' | 'accepted' | 'expired';
+  status: InviteSessionStatus;
   inviterName: string;
   organizationName: string;
   teamName: string;
@@ -457,6 +560,7 @@ export function isInviteSessionValid(session: InviteSession): boolean {
 /**
  * Check for pending invite session by deviceId
  * Called on app launch to resume install-safe invites
+ * NOTE: This endpoint does NOT require authentication
  * 
  * @param deviceId - The device identifier
  * @returns Promise<InviteSessionResponse> - Session data if found

@@ -346,6 +346,15 @@ export default function AcceptInvite() {
           case 'INVITE_EXPIRED':
             setError('This invitation has expired. Please ask for a new invitation.');
             break;
+          case 'INVITE_DECLINED':
+            setError('This invitation has been declined.');
+            break;
+          case 'INVITE_CANCELLED':
+            setError('This invitation has been cancelled by the sender.');
+            break;
+          case 'INVITE_REVOKED':
+            setError('This invitation has been revoked.');
+            break;
           case 'INVITE_ALREADY_CLAIMED':
             setError('This invitation has already been claimed by someone else.');
             break;
@@ -364,6 +373,9 @@ export default function AcceptInvite() {
             break;
           case 'CLAIMED_BY_OTHER':
             setError('This invitation was claimed by a different user.');
+            break;
+          case 'UNAUTHORIZED':
+            setError('You must be signed in to accept this invitation.');
             break;
           default:
             setError(errorMessage);
@@ -492,6 +504,12 @@ export default function AcceptInvite() {
               ? 'This invitation has already been used.'
               : inviteDetails.status === 'expired'
               ? 'This invitation has expired.'
+              : inviteDetails.status === 'declined'
+              ? 'This invitation has been declined.'
+              : inviteDetails.status === 'cancelled'
+              ? 'This invitation has been cancelled by the sender.'
+              : inviteDetails.status === 'revoked'
+              ? 'This invitation has been revoked.'
               : 'This invitation is no longer available.'}
           </Text>
         </View>

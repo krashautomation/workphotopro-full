@@ -345,8 +345,16 @@ export interface PaginatedResponse<T> {
 /**
  * Invite status in the state machine
  * pending → claimed → accepted
+ * pending → declined | cancelled | revoked | expired
  */
-export type InviteStatus = 'pending' | 'claimed' | 'accepted' | 'expired';
+export type InviteStatus = 
+  | 'pending' 
+  | 'claimed' 
+  | 'accepted' 
+  | 'expired'
+  | 'declined'
+  | 'cancelled'
+  | 'revoked';
 
 /**
  * Response from GET /api/invites/details
