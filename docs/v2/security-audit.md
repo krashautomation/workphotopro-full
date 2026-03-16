@@ -169,21 +169,40 @@ The invite system implements multiple security layers:
 | Claim Protection | One-time claim per invite | ✅ |
 | Session Validation | Device fingerprinting for session resume | ✅ |
 | HTTPS Only | All invite links use HTTPS | ✅ |
+| Session Authentication | Appwrite session required for claim/accept | ✅ |
+| Terminal State Protection | Declined/cancelled/revoked cannot be claimed | ✅ |
+
+### API Security Model
+
+**Authenticated Endpoints** (`/api/invitations/*`):
+- Require valid Appwrite session via `account.get()`
+- Session cookies automatically validated by backend
+- User identity extracted from session (not request body)
+
+**Unauthenticated Endpoints** (`/api/invites/session`):
+- No authentication required for install-safe resume
+- Device ID-based lookup only
+- Read-only operations (no mutations)
 
 ### Invite State Machine Security
 
 ```
 Pending → Claimed → Accepted
   ↓         ↓         ↓
-Expires  Expires   Completed
+Declined  Expires   Completed
+Cancelled
+Revoked
+Expired
 ```
 
 **Security Features:**
 - ✅ Invites can only be claimed once
 - ✅ 7-day expiration prevents indefinite validity
+- ✅ Terminal states (declined/cancelled/revoked) block all operations
 - ✅ Email validation prevents mismatched acceptances
 - ✅ Server-side membership creation (authoritative)
 - ✅ Device ID persistence for install-safe resume
+- ✅ Session-based authentication prevents unauthorized claims
 
 ## Security Verification Checklist
 
@@ -201,6 +220,10 @@ Expires  Expires   Completed
 - [x] Invite tokens hashed (SHA-256)
 - [x] Invite expiration enforced (7 days)
 - [x] Device ID securely stored (SecureStore)
+- [x] Session authentication required for claim/accept
+- [x] Terminal state protection (declined/cancelled/revoked)
+- [x] User identity from session (not request body)
+- [x] Endpoint migration from /api/invites/* to /api/invitations/*
 
 ---
 

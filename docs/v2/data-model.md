@@ -121,19 +121,24 @@ Stores universal invite links with secure token hashing.
 ```typescript
 interface Invitation {
   $id: string;
-  shortId: string;        // Base62-encoded short ID
+  shortId: string;        // Base62-encoded short ID (12 chars)
   teamId: string;         // References Team
   orgId: string;          // References Organization
   invitedBy: string;      // User ID who created invite
-  invitedEmail: string;   // Email of invited user
+  invitedEmail: string;   // Email of invited user (required)
+  invitedName?: string;   // Optional name of invited user
   role: 'owner' | 'admin' | 'member';
-  tokenHash: string;      // SHA-256 hash of token
-  status: 'pending' | 'claimed' | 'accepted' | 'expired';
+  tokenHash: string;      // SHA-256 hash of token (camelCase)
+  status: 'pending' | 'claimed' | 'accepted' | 'expired' | 'declined' | 'cancelled' | 'revoked';
   claimedBy?: string;     // User ID who claimed
-  sentAt: string;
+  claimedByUserId?: string; // Same as claimedBy (backend compatibility)
+  sentAt: string;         // When invitation email was sent
   expiresAt: string;      // 7 days from creation
-  acceptedAt?: string;
-  acceptedByUserId?: string;
+  acceptedAt?: string;    // When invitation was accepted
+  acceptedByUserId?: string; // Who accepted the invitation
+  reminderSent?: boolean; // Whether reminder email was sent
+  createdAt: string;
+  updatedAt: string;
 }
 ```
 
@@ -144,21 +149,28 @@ Enables install-safe invite resume for users who click links before installing t
 ```typescript
 interface InviteSession {
   $id: string;
-  sessionId: string;      // Unique session identifier
-  deviceId: string;       // Device fingerprint
+  sessionId: string;      // Unique session identifier (UUID)
+  deviceId: string;       // Device fingerprint (UUID from mobile app)
   shortId: string;        // References Invitation
+  source: 'email' | 'qr' | 'share' | 'sms' | 'unknown'; // How user clicked
   status: 'pending' | 'claimed' | 'accepted' | 'expired';
+  ip: string;             // Client IP address
+  userAgent: string;      // Browser/app user agent
   inviterName: string;    // Cached for display
   organizationName: string;
   teamName: string;
   email?: string;         // If collected from web
-  createdAt: string;
-  expiresAt: string;      // 7 days from creation
-  claimedBy?: string;     // User ID
+  claimedByUserId?: string; // User ID who claimed (renamed from claimedBy)
   claimedAt?: string;
   acceptedAt?: string;
+  createdAt: string;
+  expiresAt: string;      // 7 days from creation
 }
 ```
+
+**API Endpoints:**
+- `POST /api/invites/session` - Create session (web only, no auth required)
+- `GET /api/invites/session?deviceId={deviceId}` - Check for pending sessions (no auth required)
 
 **Indexes:**
 - `deviceId` + `status` + `createdAt` (for session lookups)

@@ -153,13 +153,39 @@ Invite Created
 Pending → Claimed → Accepted
     ↓         ↓         ↓
   Active   Reserved  Completed
+    ↓
+Declined / Cancelled / Revoked / Expired
 ```
 
 **States:**
 - **Pending**: Invite available, not yet claimed
 - **Claimed**: Reserved by a user (7-day expiration)
 - **Accepted**: Membership created, user joined team
+- **Declined**: User explicitly declined the invitation
+- **Cancelled**: Sender cancelled the invitation before acceptance
+- **Revoked**: Invitation was revoked by admin/system
 - **Expired**: Past 7-day window or manually expired
+
+### API Endpoints (Updated March 2026)
+
+**Invitation Operations** (Require Authentication):
+```
+GET  /api/invitations/details?shortId={shortId}
+POST /api/invitations/claim
+POST /api/invitations/accept
+```
+
+**Session Operations** (No Authentication Required):
+```
+GET  /api/invites/session?deviceId={deviceId}
+POST /api/invites/session
+```
+
+**Authentication:**
+- Invitation endpoints require valid Appwrite session
+- Uses `account.get()` to validate session before API calls
+- Session cookies automatically included by HTTP client
+- Session endpoints remain unauthenticated for install-safe resume
 
 ## Performance Optimizations
 

@@ -7,9 +7,28 @@
 - [feature-matrix.md](./feature-matrix.md) — Product feature specification
 - [security-audit.md](./security-audit.md) — Security verification and audit results
 
-## New Documentation
-- [Universal Invite Testing](../UNIVERSAL_INVITE_TESTING.md) — Testing guide for universal deep links
-- [Install-Safe Invite Testing](../INSTALL_SAFE_INVITE_TESTING.md) — Testing guide for session resume
+## Changelog
+
+### March 2026 - Backend API Migration
+**Breaking Change:** Backend endpoints migrated from `/api/invites/*` to `/api/invitations/*`
+
+**Changes:**
+- `GET /api/invites/details` → `GET /api/invitations/details`
+- `POST /api/invites/claim` → `POST /api/invitations/claim`
+- `POST /api/invites/accept` → `POST /api/invitations/accept`
+- Session endpoints unchanged: `/api/invites/session`
+
+**New Features:**
+- Session authentication required for claim/accept operations
+- New invitation statuses: `declined`, `cancelled`, `revoked`
+- Appwrite session validation before authenticated API calls
+- Terminal state protection (declined/cancelled/revoked invitations cannot be claimed)
+
+**Field Name Updates:**
+- `inviterId` → `invitedBy`
+- `token_hash` → `tokenHash` (camelCase)
+- `email` → `invitedEmail` (now required)
+- Added: `orgId`, `invitedName`, `role`, `sentAt`, `acceptedAt`, `acceptedByUserId`, `reminderSent`
 
 ## Overview
 This folder contains the technical and product documentation for WorkPhotoPro V2.  
@@ -37,6 +56,12 @@ WorkPhotoPro V2 is a React Native application built with Expo SDK, using Appwrit
 - **Status**: Production Ready
 
 ## What's New in V2
+
+### Backend API Migration (March 2026)
+- **Endpoint Migration**: Migrated from `/api/invites/*` to `/api/invitations/*`
+- **Session Authentication**: Appwrite session required for claim/accept operations
+- **Extended Status Values**: Added `declined`, `cancelled`, `revoked` states
+- **Enhanced Security**: Terminal state protection and session validation
 
 ### Universal Invite System (March 2026)
 - **Universal Deep Links**: `https://workphotopro.com/invite/{shortId}`
