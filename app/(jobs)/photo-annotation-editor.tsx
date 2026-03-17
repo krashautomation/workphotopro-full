@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { StyleSheet, View, Text, Pressable, Dimensions, Alert } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { StyleSheet, View, Text, Pressable, Dimensions } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -13,9 +13,9 @@ import {
     StrokeJoin,
     useImage, 
     Image as SkiaImage,
-    SkImage,
 } from '@shopify/react-native-skia';
-import * as FileSystem from 'expo-file-system';
+import { useSharedValue, runOnJS } from 'react-native-reanimated';
+import * as FileSystem from 'expo-file-system/legacy';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Colors } from '@/utils/colors';
 
@@ -26,151 +26,254 @@ interface PathData {
     paint: ReturnType<typeof Skia.Paint>;
 }
 
+interface CirclePreview {
+    x: number;
+    y: number;
+    r: number;
+}
+
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function PhotoAnnotationEditor() {
     const { photoUri } = useLocalSearchParams<{ photoUri: string }>();
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const canvasRef = useRef<ReturnType<typeof Skia.Path.Make>>(null);
+    const canvasRef = useRef<any>(null);
     
+    // React state for rendering
     const [selectedTool, setSelectedTool] = useState<ToolType>('brush');
     const [brushColor, setBrushColor] = useState('#ef4444');
     const [brushSize, setBrushSize] = useState(5);
     const [paths, setPaths] = useState<PathData[]>([]);
     const [redoStack, setRedoStack] = useState<PathData[]>([]);
     const [currentPath, setCurrentPath] = useState<PathData | null>(null);
+    const [previewCircle, setPreviewCircle] = useState<CirclePreview | null>(null);
     const [circleStart, setCircleStart] = useState<{ x: number; y: number } | null>(null);
-    const [previewCircle, setPreviewCircle] = useState<{ x: number; y: number; r: number } | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    
+    // Shared values for worklet (real-time drawing)
+    const selectedToolRef = useSharedValue<ToolType>('brush');
+    const brushColorRef = useSharedValue('#ef4444');
+    const brushSizeRef = useSharedValue(5);
+    const currentPaintRef = useSharedValue<ReturnType<typeof Skia.Paint> | null>(null);
+    const circleStartRef = useSharedValue<{ x: number; y: number } | null>(null);
+    const previewCircleRef = useSharedValue<{ x: number; y: number; r: number } | null>(null);
     
     const skiaImage = useImage(photoUri ?? undefined);
 
-    const createPaint = useCallback(() => {
+    const createPaint = useCallback((color: string, size: number) => {
         const paint = Skia.Paint();
-        paint.setColor(Skia.Color(brushColor));
-        paint.setStrokeWidth(brushSize);
+        paint.setColor(Skia.Color(color));
+        paint.setStrokeWidth(size);
         paint.setStyle(PaintStyle.Stroke);
         paint.setStrokeCap(StrokeCap.Round);
         paint.setStrokeJoin(StrokeJoin.Round);
         return paint;
-    }, [brushColor, brushSize]);
+    }, []);
+
+    // Initialize paint on mount
+    useEffect(() => {
+        currentPaintRef.value = createPaint(brushColor, brushSize);
+    }, []);
 
     const canUndo = paths.length > 0;
     const canRedo = redoStack.length > 0;
 
-    const drawGesture = Gesture.Pan()
+    // Commit to React state (called from worklet via runOnJS)
+    const commitBrushPath = useCallback((pathData: PathData) => {
+        setCurrentPath(null);
+        setPaths(prev => [...prev, pathData]);
+        setRedoStack([]);
+    }, []);
+
+    const commitCirclePath = useCallback((circleData: CirclePreview, color: string, size: number) => {
+        if (circleData.r > 0) {
+            const circlePath = Skia.Path.Make();
+            circlePath.addCircle(circleData.x, circleData.y, circleData.r);
+            const paint = createPaint(color, size);
+            setPaths(prev => [...prev, { path: circlePath, paint }]);
+            setRedoStack([]);
+        }
+        setPreviewCircle(null);
+    }, [createPaint]);
+
+    // Worklet handlers
+    // Update brush path with new points (called from worklet)
+    const updateCurrentPathPoints = useCallback((x: number, y: number) => {
+        setCurrentPath(prev => {
+            if (!prev) return null;
+            prev.path.lineTo(x, y);
+            return { ...prev };
+        });
+    }, []);
+
+    // Update circle preview on JS thread
+    const updateCirclePreview = useCallback((x: number, y: number, radius: number) => {
+        setPreviewCircle({ x, y, r: radius });
+    }, []);
+
+    // Brush gesture - handles freehand drawing
+    const brushGesture = Gesture.Pan()
         .onStart((e) => {
-            if (selectedTool === 'brush') {
-                const path = Skia.Path.Make();
-                path.moveTo(e.x, e.y);
-                const paint = createPaint();
-                setCurrentPath({ path, paint });
-            } else if (selectedTool === 'circle') {
-                setCircleStart({ x: e.x, y: e.y });
-                setPreviewCircle({ x: e.x, y: e.y, r: 0 });
-            }
+            'worklet';
+            const paint = currentPaintRef.value;
+            if (!paint) return;
+            
+            const path = Skia.Path.Make();
+            path.moveTo(e.x, e.y);
+            const pathData = { path, paint };
+            runOnJS(setCurrentPath)(pathData);
         })
         .onUpdate((e) => {
-            if (selectedTool === 'brush' && currentPath) {
-                currentPath.path.lineTo(e.x, e.y);
-                setCurrentPath({ ...currentPath });
-            } else if (selectedTool === 'circle' && circleStart) {
-                const dx = e.x - circleStart.x;
-                const dy = e.y - circleStart.y;
-                const radius = Math.sqrt(dx * dx + dy * dy);
-                setPreviewCircle({ x: circleStart.x, y: circleStart.y, r: radius });
-            }
+            'worklet';
+            // Update path with new points via JS thread
+            runOnJS(updateCurrentPathPoints)(e.x, e.y);
         })
         .onEnd(() => {
-            if (selectedTool === 'brush' && currentPath) {
-                setPaths([...paths, currentPath]);
-                setCurrentPath(null);
-                setRedoStack([]);
-            } else if (selectedTool === 'circle' && circleStart && previewCircle && previewCircle.r > 0) {
-                const circlePath = Skia.Path.Make();
-                circlePath.addCircle(previewCircle.x, previewCircle.y, previewCircle.r);
-                setPaths([...paths, { path: circlePath, paint: createPaint() }]);
-                setCircleStart(null);
-                setPreviewCircle(null);
-                setRedoStack([]);
-            }
+            'worklet';
+            // Commit is handled automatically via React state
         });
 
-    const handleUndo = () => {
+    // Circle gesture - handles tap-drag circle drawing
+    const circleGesture = Gesture.Pan()
+        .onStart((e) => {
+            'worklet';
+            const start = { x: e.x, y: e.y };
+            circleStartRef.value = start;
+            previewCircleRef.value = { x: e.x, y: e.y, r: 0 };
+            runOnJS((x: number, y: number) => {
+                setCircleStart({ x, y });
+                setPreviewCircle({ x, y, r: 0 });
+            })(e.x, e.y);
+        })
+        .onUpdate((e) => {
+            'worklet';
+            const start = circleStartRef.value;
+            if (!start) return;
+            const radius = Math.sqrt(
+                Math.pow(e.x - start.x, 2) + 
+                Math.pow(e.y - start.y, 2)
+            );
+            const circle = { x: start.x, y: start.y, r: radius };
+            previewCircleRef.value = circle;
+            runOnJS((x: number, y: number, r: number) => {
+                setPreviewCircle({ x, y, r });
+            })(start.x, start.y, radius);
+        })
+        .onEnd(() => {
+            'worklet';
+            const circle = previewCircleRef.value;
+            if (circle && circle.r > 0) {
+                const color = brushColorRef.value;
+                const size = brushSizeRef.value;
+                runOnJS(commitCirclePath)(circle, color, size);
+            }
+            circleStartRef.value = null;
+            previewCircleRef.value = null;
+            runOnJS(() => {
+                setPreviewCircle(null);
+                setCircleStart(null);
+            })();
+        });
+
+    // Choose gesture based on selected tool
+    const drawGesture = selectedTool === 'brush' ? brushGesture : circleGesture;
+
+    // Sync React state with shared values when tool/color/size changes
+    const handleToolChange = useCallback((tool: ToolType) => {
+        setSelectedTool(tool);
+        selectedToolRef.value = tool;
+    }, [selectedToolRef]);
+
+    const handleColorChange = useCallback((color: string) => {
+        setBrushColor(color);
+        brushColorRef.value = color;
+        currentPaintRef.value = createPaint(color, brushSize);
+    }, [brushColorRef, currentPaintRef, createPaint, brushSize]);
+
+    const handleSizeChange = useCallback((size: number) => {
+        setBrushSize(size);
+        brushSizeRef.value = size;
+        currentPaintRef.value = createPaint(brushColor, size);
+    }, [brushSizeRef, currentPaintRef, createPaint, brushColor]);
+
+    const handleUndo = useCallback(() => {
         if (paths.length === 0) return;
         const lastPath = paths[paths.length - 1];
-        setPaths(paths.slice(0, -1));
-        setRedoStack([lastPath, ...redoStack]);
-    };
+        setPaths(prev => prev.slice(0, -1));
+        setRedoStack(prev => [lastPath, ...prev]);
+    }, [paths]);
 
-    const handleRedo = () => {
+    const handleRedo = useCallback(() => {
         if (redoStack.length === 0) return;
         const [first, ...rest] = redoStack;
-        setPaths([...paths, first]);
+        setPaths(prev => [...prev, first]);
         setRedoStack(rest);
-    };
+    }, [redoStack]);
 
-    const handleClear = () => {
+    const handleClear = useCallback(() => {
         setPaths([]);
-        setCurrentPath(null);
         setRedoStack([]);
+        setCurrentPath(null);
         setPreviewCircle(null);
-        setCircleStart(null);
-    };
+    }, []);
 
-    const handleSave = async () => {
-        if (!photoUri) {
-            Alert.alert('Error', 'No image to save');
+    const handleSave = useCallback(async () => {
+        if (!photoUri || !canvasRef.current) {
+            router.back();
             return;
         }
 
+        setIsSaving(true);
+
         try {
-            setIsSaving(true);
+            // Create snapshot from canvas
+            const snapshot = canvasRef.current.makeImageSnapshot();
+            if (!snapshot) {
+                console.error('[PhotoAnnotation] Failed to create snapshot');
+                router.replace({ 
+                    pathname: '/(jobs)/camera', 
+                    params: { annotatedPhotoUri: photoUri }
+                });
+                return;
+            }
+
+            // Encode to base64
+            const base64 = snapshot.encodeToBase64();
             
-            // Get the canvas reference and create snapshot
-            // Since we can't directly access canvasRef from Skia, we need to capture via view
-            // For now, we'll use a workaround - return the original URI if snapshot fails
-            // In production, you'd use makeImageFromView or similar
-            
-            // For the annotation workflow, we save paths to the original photo
-            // The actual merging happens via the canvas snapshot
-            // Since Skia's makeImageSnapshot needs explicit canvas reference,
-            // we'll return the annotated paths data and let the parent handle merging
-            
-            // Simple approach: return original URI for now with annotation metadata
-            // In a full implementation, you'd render to an offscreen canvas and snapshot
-            
-            console.log('[PhotoAnnotation] Saving with paths:', paths.length);
-            
-            // For this implementation, we'll return the original URI
-            // The actual Skia snapshot requires more complex setup with refs
-            Alert.alert(
-                'Save Annotation', 
-                'Annotation saved! In production, this would merge the drawing with the image.',
-                [
-                    {
-                        text: 'OK',
-                        onPress: () => {
-                            router.replace({
-                                pathname: '/(jobs)/camera',
-                                params: { annotatedPhotoUri: photoUri },
-                            });
-                        },
-                    },
-                ]
+            // Generate unique filename
+            const filename = `annotated_${Date.now()}.png`;
+            const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+
+            // Save to filesystem
+            await FileSystem.writeAsStringAsync(
+                fileUri,
+                base64,
+                { encoding: FileSystem.EncodingType.Base64 }
             );
+
+            console.log('[PhotoAnnotation] Saved annotated image to:', fileUri);
+
+            // Navigate with new annotated image URI
+            router.replace({ 
+                pathname: '/(jobs)/camera', 
+                params: { annotatedPhotoUri: fileUri }
+            });
         } catch (error) {
             console.error('[PhotoAnnotation] Error saving:', error);
-            Alert.alert('Error', 'Failed to save annotation');
+            // Fallback to original
+            router.replace({ 
+                pathname: '/(jobs)/camera', 
+                params: { annotatedPhotoUri: photoUri }
+            });
         } finally {
             setIsSaving(false);
         }
-    };
+    }, [photoUri, paths, router]);
 
-    const handleCancel = () => {
+    const handleCancel = useCallback(() => {
         router.back();
-    };
+    }, [router]);
 
     const colors = [
         { color: '#ef4444', name: 'Red' },
@@ -188,6 +291,9 @@ export default function PhotoAnnotationEditor() {
         { size: 12, label: 'XL' },
     ];
 
+    // Current paint for rendering
+    const currentPaint = createPaint(brushColor, brushSize);
+
     return (
         <GestureHandlerRootView style={styles.container}>
             <StatusBar style="light" backgroundColor="#000" translucent={true} />
@@ -200,7 +306,7 @@ export default function PhotoAnnotationEditor() {
             {/* Canvas Area */}
             <View style={styles.canvasContainer}>
                 {photoUri && skiaImage ? (
-                    <Canvas style={styles.canvas}>
+                    <Canvas ref={canvasRef} style={styles.canvas}>
                         {/* Background photo */}
                         <SkiaImage
                             image={skiaImage}
@@ -210,7 +316,7 @@ export default function PhotoAnnotationEditor() {
                             height={SCREEN_HEIGHT}
                             fit="contain"
                         />
-                        {/* Existing paths */}
+                        {/* Existing paths - render from React state */}
                         {paths.map((p, i) => (
                             <SkiaPath
                                 key={`path-${i}`}
@@ -218,14 +324,14 @@ export default function PhotoAnnotationEditor() {
                                 paint={p.paint}
                             />
                         ))}
-                        {/* Current path being drawn */}
+                        {/* Current path being drawn - render from React state */}
                         {currentPath && (
                             <SkiaPath
                                 path={currentPath.path}
                                 paint={currentPath.paint}
                             />
                         )}
-                        {/* Preview circle while dragging */}
+                        {/* Preview circle - render from React state */}
                         {previewCircle && previewCircle.r > 0 && (
                             <SkiaPath
                                 path={Skia.Path.Make().addCircle(
@@ -233,7 +339,7 @@ export default function PhotoAnnotationEditor() {
                                     previewCircle.y,
                                     previewCircle.r
                                 )}
-                                paint={createPaint()}
+                                paint={currentPaint}
                             />
                         )}
                     </Canvas>
@@ -259,7 +365,7 @@ export default function PhotoAnnotationEditor() {
                 {/* Tool Selector */}
                 <View style={styles.toolSelector}>
                     <Pressable
-                        onPress={() => setSelectedTool('brush')}
+                        onPress={() => handleToolChange('brush')}
                         style={[
                             styles.toolButton,
                             selectedTool === 'brush' && styles.toolButtonActive,
@@ -279,7 +385,7 @@ export default function PhotoAnnotationEditor() {
                     </Pressable>
                     
                     <Pressable
-                        onPress={() => setSelectedTool('circle')}
+                        onPress={() => handleToolChange('circle')}
                         style={[
                             styles.toolButton,
                             selectedTool === 'circle' && styles.toolButtonActive,
@@ -305,7 +411,7 @@ export default function PhotoAnnotationEditor() {
                         {colors.map((c) => (
                             <Pressable
                                 key={c.color}
-                                onPress={() => setBrushColor(c.color)}
+                                onPress={() => handleColorChange(c.color)}
                                 style={[
                                     styles.colorButton,
                                     { backgroundColor: c.color },
@@ -322,7 +428,7 @@ export default function PhotoAnnotationEditor() {
                         {sizes.map((s) => (
                             <Pressable
                                 key={s.size}
-                                onPress={() => setBrushSize(s.size)}
+                                onPress={() => handleSizeChange(s.size)}
                                 style={[
                                     styles.sizeButton,
                                     brushSize === s.size && styles.sizeButtonActive,

@@ -536,28 +536,34 @@ export default function CameraPage() {
     }
 
     const handleDone = async (processedImageUri?: string) => {
-        const imageToSave = processedImageUri || capturedPhoto?.uri;
+        console.log('📸 [Camera] handleDone invoked', { processedImageUri, capturedPhotoUri: capturedPhoto?.uri });
+        
+        const imageToSave = capturedPhoto?.uri || processedImageUri;
         
         if (imageToSave) {
             try {
-                // Store the captured image URI in secure store
+                // Store the captured image URI in secure store for recovery
                 await SecureStore.setItemAsync('capturedImageUri', imageToSave)
-                console.log('✅ Saved image:', imageToSave)
+                console.log('✅ [Camera] Saved image:', imageToSave)
                 
                 // If we have a jobId and are in photo flow mode, navigate directly to that job chat
                 if (photoFlow === 'true' && jobId && typeof jobId === 'string') {
+                    console.log('📸 [Camera] Navigating to job chat with pending photo');
                     router.replace({
                         pathname: '/(jobs)/[job]',
-                        params: { job: jobId },
+                        params: { job: jobId, pendingPhotoUri: imageToSave },
                     })
                 } else {
-                    // Normal flow: navigate back (which may go to jobs list or previous screen)
+                    // Normal flow: navigate back with pending photo
+                    console.log('📸 [Camera] Navigating back (photoFlow not true)');
                     router.back()
                 }
             } catch (error) {
                 console.error('Error storing photo:', error)
                 Alert.alert('Error', 'Failed to save photo. Please try again.')
             }
+        } else {
+            console.warn('⚠️ [Camera] handleDone called but no imageToSave', { processedImageUri, capturedPhoto: capturedPhoto?.uri });
         }
     }
 

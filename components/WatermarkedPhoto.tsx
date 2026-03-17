@@ -72,6 +72,12 @@ export function WatermarkedPhoto({ image, options, onDone, onCancel, isCapturing
   }, [image]);
 
   const handleDone = async () => {
+    // If image is already annotated (from annotation editor), use it directly
+    if (image?.uri && image.uri.includes('annotated_')) {
+      onDone(image.uri);
+      return;
+    }
+
     const viewShot = viewShotRef.current;
     
     if (!viewShot || !viewShot.capture) {

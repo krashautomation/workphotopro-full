@@ -62,7 +62,7 @@ const getSenderColor = (senderId: string, isCurrentUser: boolean): string => {
 };
 
 export default function Job() {
-    const { job: jobId } = useLocalSearchParams()
+    const { job: jobId, pendingPhotoUri } = useLocalSearchParams<{ job?: string; pendingPhotoUri?: string }>()
     const { user, getUserProfilePicture } = useAuth();
     const { currentTeam, currentOrganization } = useOrganization();
     const insets = useSafeAreaInsets();
@@ -71,6 +71,7 @@ export default function Job() {
 
     console.log('🔍 Job Component: Component mounted/rendered');
     console.log('🔍 Job Component: jobId from params:', jobId);
+    console.log('🔍 Job Component: pendingPhotoUri from params:', pendingPhotoUri);
     console.log('🔍 Job Component: user info:', { userId: user?.$id, userName: user?.name });
     console.log('🔍 Job Component: Appwrite config:', {
         db: appwriteConfig.db,
@@ -229,6 +230,14 @@ export default function Job() {
     React.useEffect(() => {
         const checkCapturedMedia = async () => {
             try {
+                // First check for pending photo URI from navigation params (explicit pass)
+                if (pendingPhotoUri) {
+                    console.log('🔍 Received pending photo URI from params:', pendingPhotoUri)
+                    setSelectedImages([pendingPhotoUri])
+                    return
+                }
+                
+                // Fallback to SecureStore (legacy behavior)
                 const capturedImageUri = await SecureStore.getItemAsync('capturedImageUri')
                 if (capturedImageUri) {
                     console.log('🔍 Received captured image URI:', capturedImageUri)
@@ -249,7 +258,7 @@ export default function Job() {
             }
         }
         checkCapturedMedia()
-    }, []) // Run once on mount and when screen comes into focus
+    }, [pendingPhotoUri]) // Run once on mount and when screen comes into focus
 
     // Cleanup scroll timeout on unmount
     React.useEffect(() => {
