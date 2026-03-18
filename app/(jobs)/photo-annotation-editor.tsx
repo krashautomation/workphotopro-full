@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import { StyleSheet, View, Text, Pressable, Dimensions } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import {
     StrokeJoin,
     useImage,
     Image as SkiaImage,
+    SkRect,
 } from '@shopify/react-native-skia';
 import { useSharedValue, runOnJS } from 'react-native-reanimated';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -44,8 +45,6 @@ export default function PhotoAnnotationEditor() {
     }>();
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const canvasRef = useRef<any>(null);
-
     // React state for rendering
     const [brushColor, setBrushColor] = useState('#ef4444');
     const [brushSize, setBrushSize] = useState(5);
@@ -54,6 +53,7 @@ export default function PhotoAnnotationEditor() {
     const [previewCircle, setPreviewCircle] = useState<CirclePreview | null>(null);
     const [circleStart, setCircleStart] = useState<{ x: number; y: number } | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [canvasDimensions, setCanvasDimensions] = useState({ width: SCREEN_WIDTH, height: SCREEN_HEIGHT });
 
     // Shared values for worklet (real-time drawing)
     const brushColorRef = useSharedValue('#ef4444');
@@ -169,7 +169,7 @@ export default function PhotoAnnotationEditor() {
     }, []);
 
     const handleSave = useCallback(async () => {
-        if (!photoUri || !canvasRef.current) {
+        if (!photoUri || !skiaImage) {
             router.navigate({
                 pathname: '/(jobs)/camera',
                 params: { annotatedPhotoUri: originalPhotoUri ?? photoUri, jobId, photoFlow },
@@ -180,41 +180,64 @@ export default function PhotoAnnotationEditor() {
         setIsSaving(true);
 
         try {
-            // Create snapshot from canvas
-            const snapshot = canvasRef.current.makeImageSnapshot();
+            const imgW = skiaImage.width();
+            const imgH = skiaImage.height();
+            const { width: canvasW, height: canvasH } = canvasDimensions;
+
+            // Calculate how fit="contain" maps the image into the canvas display area
+            const fitScale = Math.min(canvasW / imgW, canvasH / imgH);
+            const fitW = imgW * fitScale;
+            const fitH = imgH * fitScale;
+            const offsetX = (canvasW - fitW) / 2;
+            const offsetY = (canvasH - fitH) / 2;
+
+            // Create offscreen surface at original image dimensions
+            const surface = Skia.Surface.Make(imgW, imgH);
+            if (!surface) {
+                throw new Error('Failed to create Skia surface');
+            }
+            const offscreenCanvas = surface.getCanvas();
+
+            // Draw original image at native resolution
+            const imgPaint = Skia.Paint();
+            const srcRect: SkRect = { x: 0, y: 0, width: imgW, height: imgH };
+            offscreenCanvas.drawImageRect(skiaImage, srcRect, srcRect, imgPaint);
+
+            // Transform annotations from canvas-display space → image space:
+            //   imageCoord = (canvasCoord - offset) / fitScale
+            // In Skia canvas transforms (applied right-to-left to points):
+            //   scale(1/fitScale) * translate(-offsetX, -offsetY) * p = (p - offset) / fitScale ✓
+            offscreenCanvas.save();
+            offscreenCanvas.scale(1 / fitScale, 1 / fitScale);
+            offscreenCanvas.translate(-offsetX, -offsetY);
+            for (const pathData of paths) {
+                offscreenCanvas.drawPath(pathData.path, pathData.paint);
+            }
+            offscreenCanvas.restore();
+
+            const snapshot = surface.makeImageSnapshot();
             if (!snapshot) {
-                console.error('[PhotoAnnotation] Failed to create snapshot');
-                router.navigate({
-                    pathname: '/(jobs)/camera',
-                    params: { annotatedPhotoUri: originalPhotoUri ?? photoUri, jobId, photoFlow },
-                });
-                return;
+                throw new Error('Failed to create snapshot from surface');
             }
 
-            // Encode to base64
             const base64 = snapshot.encodeToBase64();
-
-            // Generate unique filename
             const filename = `annotated_${Date.now()}.png`;
             const fileUri = `${FileSystem.cacheDirectory}${filename}`;
 
-            // Save to filesystem
             await FileSystem.writeAsStringAsync(
                 fileUri,
                 base64,
                 { encoding: FileSystem.EncodingType.Base64 }
             );
 
-            console.log('[PhotoAnnotation] Saved annotated image to:', fileUri);
+            console.log('[PhotoAnnotation] Saved annotated image to:', fileUri, `(${imgW}x${imgH})`);
 
-            // Navigate with new annotated image URI
             router.navigate({
                 pathname: '/(jobs)/camera',
                 params: { annotatedPhotoUri: fileUri, jobId, photoFlow },
             });
         } catch (error) {
             console.error('[PhotoAnnotation] Error saving:', error);
-            // Fallback to original
             router.navigate({
                 pathname: '/(jobs)/camera',
                 params: { annotatedPhotoUri: originalPhotoUri ?? photoUri, jobId, photoFlow },
@@ -222,7 +245,7 @@ export default function PhotoAnnotationEditor() {
         } finally {
             setIsSaving(false);
         }
-    }, [photoUri, originalPhotoUri, jobId, photoFlow, paths, router]);
+    }, [photoUri, originalPhotoUri, jobId, photoFlow, paths, skiaImage, canvasDimensions, router]);
 
     const handleCancel = useCallback(() => {
         const restoreUri = originalPhotoUri ?? photoUri;
@@ -270,16 +293,22 @@ export default function PhotoAnnotationEditor() {
             />
 
             {/* Canvas Area */}
-            <View style={styles.canvasContainer}>
+            <View
+                style={styles.canvasContainer}
+                onLayout={(e) => {
+                    const { width, height } = e.nativeEvent.layout;
+                    setCanvasDimensions({ width, height });
+                }}
+            >
                 {photoUri && skiaImage ? (
-                    <Canvas ref={canvasRef} style={styles.canvas}>
+                    <Canvas style={styles.canvas}>
                         {/* Background photo */}
                         <SkiaImage
                             image={skiaImage}
                             x={0}
                             y={0}
-                            width={SCREEN_WIDTH}
-                            height={SCREEN_HEIGHT}
+                            width={canvasDimensions.width}
+                            height={canvasDimensions.height}
                             fit="contain"
                         />
                         {/* Existing paths - render from React state */}
