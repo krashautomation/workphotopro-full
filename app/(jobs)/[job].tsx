@@ -35,7 +35,6 @@ import VideoPlayer from '@/components/VideoPlayer'
 import FullScreenVideoPlayer from '@/components/FullScreenVideoPlayer'
 import AudioRecorder from '@/components/AudioRecorder'
 import AudioPlayer from '@/components/AudioPlayer'
-import EmojiPicker, { EmojiPickerView } from '@/components/EmojiPicker'
 import { ClipboardList, CalendarCheck, LayoutList } from 'lucide-react-native'
 import { usePermissions } from '@/utils/permissions'
 
@@ -132,7 +131,6 @@ export default function Job() {
     const [showShareReportModal, setShowShareReportModal] = React.useState(false);
     const [reportId, setReportId] = React.useState<string | null>(null);
     const [isLoadingReport, setIsLoadingReport] = React.useState(false);
-    const [showEmojiPicker, setShowEmojiPicker] = React.useState(false);
     const [showAttachmentMenu, setShowAttachmentMenu] = React.useState(false);
     const [showClipboardMenu, setShowClipboardMenu] = React.useState(false);
     const [isTaskMessage, setIsTaskMessage] = React.useState(false); // Flag to mark message as task when sending
@@ -995,7 +993,6 @@ const loadOlderMessages = async () => {
     const pickImage = async () => {
         setShowAttachmentMenu(false);
         setShowClipboardMenu(false);
-        setShowEmojiPicker(false);
         try {
             const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
             
@@ -1030,7 +1027,6 @@ const loadOlderMessages = async () => {
     const pickDocument = async () => {
         setShowAttachmentMenu(false);
         setShowClipboardMenu(false);
-        setShowEmojiPicker(false);
         try {
             const result = await DocumentPicker.getDocumentAsync({
                 type: [
@@ -3376,25 +3372,11 @@ const loadOlderMessages = async () => {
                                 borderColor: Colors.Gray,
                                 borderRadius: 8,
                             }}>
-                                {/* Emoji Picker Button */}
-                                <EmojiPicker
-                                    onEmojiSelect={(emoji) => setMessageContent(emoji)}
-                                    isOpen={showEmojiPicker}
-                                    onOpenChange={setShowEmojiPicker}
-                                    isDisabled={isUploading}
-                                    renderPickerSeparately={true}
-                                    onCloseOtherMenus={() => {
-                                        setShowAttachmentMenu(false);
-                                        setShowClipboardMenu(false);
-                                    }}
-                                />
-
                                 {/* Attachment Menu */}
                                 <View style={{ position: 'relative' }}>
                                     <Pressable 
                                         onPress={() => {
                                             if (isUploading) return;
-                                            setShowEmojiPicker(false);
                                             setShowClipboardMenu(false);
                                             setShowAttachmentMenu((prev) => !prev);
                                         }}
@@ -3480,7 +3462,6 @@ const loadOlderMessages = async () => {
                                     <Pressable 
                                         onPress={() => {
                                             if (isUploading) return;
-                                            setShowEmojiPicker(false);
                                             setShowAttachmentMenu(false);
                                             setShowClipboardMenu((prev) => !prev);
                                         }}
@@ -3571,7 +3552,6 @@ const loadOlderMessages = async () => {
                                 onFocus={() => {
                                     setShowAttachmentMenu(false);
                                     setShowClipboardMenu(false);
-                                    setShowEmojiPicker(false);
                                 }}
                                 style={{minHeight: 40, maxHeight: 120, color: Colors.Text, flexGrow: 1,
                                     paddingVertical: 8, paddingHorizontal: 3, flexShrink: 1,
@@ -3602,15 +3582,6 @@ const loadOlderMessages = async () => {
                                     )}
                                 </Pressable>
                             </View>
-
-                            {/* Emoji Picker View */}
-                            <EmojiPickerView
-                                isOpen={showEmojiPicker}
-                                onEmojiSelect={(emoji) => {
-                                    setMessageContent(emoji);
-                                    setShowEmojiPicker(false);
-                                }}
-                            />
 
                             {/* Camera Menu Row */}
                             <View
