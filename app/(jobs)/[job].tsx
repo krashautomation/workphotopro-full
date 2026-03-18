@@ -1073,7 +1073,10 @@ const loadOlderMessages = async () => {
 
     const pickCamera = () => {
         if (canUploadPhoto) {
-            router.push(`/(jobs)/camera?jobId=${jobId}`);
+            router.push({
+                pathname: '/(jobs)/camera',
+                params: { jobId, photoFlow: 'true' },
+            });
         }
     };
 

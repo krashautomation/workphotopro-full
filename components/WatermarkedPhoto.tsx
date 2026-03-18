@@ -14,13 +14,20 @@ interface WatermarkedPhotoProps {
     width: number;
     height: number;
   };
+  originalPhoto?: {
+    uri: string;
+    width: number;
+    height: number;
+  } | null;
   options: WatermarkOptions;
   onDone: (processedImageUri: string) => void;
   onCancel: () => void;
   isCapturing: boolean;
+  jobId?: string;
+  photoFlow?: string;
 }
 
-export function WatermarkedPhoto({ image, options, onDone, onCancel, isCapturing }: WatermarkedPhotoProps) {
+export function WatermarkedPhoto({ image, originalPhoto, options, onDone, onCancel, isCapturing, jobId, photoFlow }: WatermarkedPhotoProps) {
   const insets = useSafeAreaInsets();
   const viewShotRef = useRef<ViewShot>(null);
   const router = useRouter();
@@ -211,23 +218,29 @@ export function WatermarkedPhoto({ image, options, onDone, onCancel, isCapturing
 
         {/* Footer with controls - outside the ViewShot so it doesn't get captured */}
         <View style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
-          {/* Cancel button */}
-          <Pressable 
-            onPress={onCancel} 
+          {/* Retake button */}
+          <Pressable
+            onPress={onCancel}
             style={styles.cancelButton}
             disabled={isCapturing || isProcessing}
           >
-            <IconSymbol name="xmark" color={Colors.White} size={24} />
-            <Text style={styles.buttonText}>Cancel</Text>
+            <IconSymbol name="arrow.counterclockwise" color={Colors.White} size={24} />
+            <Text style={styles.buttonText}>Retake</Text>
           </Pressable>
 
           {/* Annotate button */}
-          <Pressable 
+          <Pressable
             onPress={() => {
-              if (image?.uri) {
+              const originalUri = originalPhoto?.uri || image?.uri;
+              if (originalUri) {
                 router.push({
                   pathname: '/(jobs)/photo-annotation-editor' as any,
-                  params: { photoUri: image.uri },
+                  params: {
+                    photoUri: originalUri,
+                    originalPhotoUri: originalUri,
+                    jobId,
+                    photoFlow,
+                  },
                 });
               }
             }}

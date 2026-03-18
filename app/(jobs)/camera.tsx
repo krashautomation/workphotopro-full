@@ -37,6 +37,7 @@ export default function CameraPage() {
     }
 
     const [capturedPhoto, setCapturedPhoto] = React.useState<CapturedImage | null>(null)
+    const [originalPhoto, setOriginalPhoto] = React.useState<CapturedImage | null>(null)
     const [watermarkOptions, setWatermarkOptions] = React.useState<WatermarkOptions>(getDefaultWatermarkPreferences())
     const [hdPreferences, setHdPreferences] = React.useState<Record<string, ResolutionPreference>>({})
     const [timestampPreferences, setTimestampPreferences] = React.useState<Record<string, TimestampPreference>>({})
@@ -525,6 +526,7 @@ export default function CameraPage() {
 
                 if (processedImage) {
                     setCapturedPhoto(processedImage)
+                    setOriginalPhoto(processedImage)
                 }
             } catch (error) {
                 console.error('Error taking picture:', error)
@@ -568,7 +570,13 @@ export default function CameraPage() {
     }
 
     const handleCancel = () => {
-        router.back()
+        if (capturedPhoto) {
+            // In photo preview — Retake: clear both and return to camera
+            setCapturedPhoto(null)
+            setOriginalPhoto(null)
+        } else {
+            router.back()
+        }
     }
 
     // Request permission on mount
@@ -700,12 +708,15 @@ export default function CameraPage() {
                     /* Show preview when photo is captured */
                     <View style={styles.previewContainer}>
                         {capturedPhoto && (
-                            <WatermarkedPhoto 
-                                image={capturedPhoto} 
-                                options={watermarkOptions} 
-                                onDone={handleDone} 
-                                onCancel={handleCancel} 
+                            <WatermarkedPhoto
+                                image={capturedPhoto}
+                                originalPhoto={originalPhoto}
+                                options={watermarkOptions}
+                                onDone={handleDone}
+                                onCancel={handleCancel}
                                 isCapturing={isCapturing}
+                                jobId={jobId}
+                                photoFlow={photoFlow}
                             />
                         )}
                     </View>

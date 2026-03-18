@@ -36,7 +36,12 @@ interface CirclePreview {
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function PhotoAnnotationEditor() {
-    const { photoUri } = useLocalSearchParams<{ photoUri: string }>();
+    const { photoUri, originalPhotoUri, jobId, photoFlow } = useLocalSearchParams<{
+        photoUri: string;
+        originalPhotoUri?: string;
+        jobId?: string;
+        photoFlow?: string;
+    }>();
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const canvasRef = useRef<any>(null);
@@ -165,7 +170,10 @@ export default function PhotoAnnotationEditor() {
 
     const handleSave = useCallback(async () => {
         if (!photoUri || !canvasRef.current) {
-            router.back();
+            router.navigate({
+                pathname: '/(jobs)/camera',
+                params: { annotatedPhotoUri: originalPhotoUri ?? photoUri, jobId, photoFlow },
+            });
             return;
         }
 
@@ -176,9 +184,9 @@ export default function PhotoAnnotationEditor() {
             const snapshot = canvasRef.current.makeImageSnapshot();
             if (!snapshot) {
                 console.error('[PhotoAnnotation] Failed to create snapshot');
-                router.replace({
+                router.navigate({
                     pathname: '/(jobs)/camera',
-                    params: { annotatedPhotoUri: photoUri }
+                    params: { annotatedPhotoUri: originalPhotoUri ?? photoUri, jobId, photoFlow },
                 });
                 return;
             }
@@ -200,25 +208,33 @@ export default function PhotoAnnotationEditor() {
             console.log('[PhotoAnnotation] Saved annotated image to:', fileUri);
 
             // Navigate with new annotated image URI
-            router.replace({
+            router.navigate({
                 pathname: '/(jobs)/camera',
-                params: { annotatedPhotoUri: fileUri }
+                params: { annotatedPhotoUri: fileUri, jobId, photoFlow },
             });
         } catch (error) {
             console.error('[PhotoAnnotation] Error saving:', error);
             // Fallback to original
-            router.replace({
+            router.navigate({
                 pathname: '/(jobs)/camera',
-                params: { annotatedPhotoUri: photoUri }
+                params: { annotatedPhotoUri: originalPhotoUri ?? photoUri, jobId, photoFlow },
             });
         } finally {
             setIsSaving(false);
         }
-    }, [photoUri, paths, router]);
+    }, [photoUri, originalPhotoUri, jobId, photoFlow, paths, router]);
 
     const handleCancel = useCallback(() => {
-        router.back();
-    }, [router]);
+        const restoreUri = originalPhotoUri ?? photoUri;
+        if (restoreUri) {
+            router.navigate({
+                pathname: '/(jobs)/camera',
+                params: { annotatedPhotoUri: restoreUri, jobId, photoFlow },
+            });
+        } else {
+            router.back();
+        }
+    }, [router, originalPhotoUri, photoUri, jobId, photoFlow]);
 
     const colors = [
         { color: '#ef4444', name: 'Red' },
