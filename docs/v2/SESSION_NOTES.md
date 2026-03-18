@@ -1,13 +1,58 @@
 # Session Notes - March 16, 2026
 
 ## Current Session Focus
-**Photo Annotation Feature - Skia-based Drawing Editor**
+**Photo Annotation Feature - Debugging & Integration Issues**
+
+---
+
+## ⚠️ Known Issue: Annotated Photo Not Saving Correctly
+
+### Problem Description
+After implementing the annotation feature, a bug was discovered where:
+1. User can annotate a photo (draw circles/markings)
+2. User clicks Save in annotation editor
+3. User returns to preview screen but sees ORIGINAL (unannotated) photo
+4. Clicking Done sends the original photo, not the annotated one
+
+### Root Cause Analysis
+The issue is that when returning from annotation editor:
+- The annotated image IS saved to a file (`annotated_${timestamp}.png`)
+- The camera receives the `annotatedPhotoUri` param
+- But the WatermarkedPhoto component still displays/shows the original photo
+
+### Attempted Fixes (Rolled Back)
+1. **SecureStore approach** - Tried using a canonical key to pass annotated URI
+   - Result: Caused state pollution - old annotated photos persisted across new captures
+   
+2. **useFocusEffect approach** - Tried to reload photo on screen focus
+   - Result: Complex timing issues, not reliable
+
+3. **Hybrid approach (params + SecureStore)**
+   - Result: Still had cleanup issues, rolled back
+
+### Current State
+- ✅ Annotation editor saves annotated image correctly
+- ✅ Annotated image file is created
+- ⚠️ Preview screen doesn't display annotated image after save
+- ⚠️ Done button sends original (unannotated) photo to chat
+
+### Files Modified in Debug Attempts
+- `app/(jobs)/camera.tsx` - Added annotated photo loading logic
+- `app/(jobs)/photo-annotation-editor.tsx` - Added save/export logic
+- `app/(jobs)/[job].tsx` - Added pending photo handling
+- `components/WatermarkedPhoto.tsx` - Added annotated detection in handleDone
+
+### Suggested Next Steps
+1. **Debug the preview display** - Why doesn't WatermarkedPhoto show annotated image?
+2. **Check state propagation** - Is `capturedPhoto.uri` being updated correctly?
+3. **Verify Skia snapshot** - Is the snapshot actually including the base image?
+4. **Consider simpler fix** - Skip preview entirely after annotation, go straight to chat
 
 ---
 
 ## ✅ Completed Today
 
-### 1. Photo Annotation Feature
+### 1. Photo Annotation Feature - Initial Implementation
 - **Status:** ✅ Implemented and scaffolded
 - **Package Installed:** `@shopify/react-native-skia`
 - **New Screen:** `app/(jobs)/photo-annotation-editor.tsx`
@@ -82,12 +127,11 @@
 
 ## ⏳ Pending / Next Steps
 
-### Photo Annotation - Phase 2 Enhancements
-- [ ] Implement actual image merge/save with Skia snapshot
-- [ ] Test brush and circle tools on multiple devices
-- [ ] Test undo/redo/clear with complex drawings
-- [ ] Test navigation flows (Annotate → Save → return, Annotate → Cancel → return)
-- [ ] Verify original photo unchanged on Cancel
+### Photo Annotation - Bug Fixing
+- [ ] Debug why annotated photo doesn't display in preview after Save
+- [ ] Verify Skia snapshot includes base image (not just transparent layer)
+- [ ] Check state propagation from camera to WatermarkedPhoto
+- [ ] Test alternative: navigate directly to chat after annotation save
 - [ ] Performance testing with high-resolution photos
 
 ### Previous Pending Items (from March 15)
@@ -182,4 +226,4 @@ Old → New:
 
 *Last Updated: March 16, 2026*
 *Session Owner: Mobile App Team*
-*Next Session: TBD*
+*Next Session: TBD - Annotation bug fixing*

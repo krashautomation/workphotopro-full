@@ -1,5 +1,13 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
+nul
+con
+prn
+aux
+lpt1
+lpt2
+lpt3
+
 # dependencies
 node_modules/
 

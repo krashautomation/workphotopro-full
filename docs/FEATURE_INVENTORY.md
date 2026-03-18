@@ -90,6 +90,7 @@ Comprehensive inventory of all features, screens, integrations, and database col
 - **Trash Management**: View and restore deleted jobs
 - **Job Sharing**: Share jobs via public links or QR codes
 - **Job Reports**: Generate and share PDF reports
+  - **Detailed Documentation**: [REPORT_GENERATION.md](./features/REPORT_GENERATION.md)
 - **Achievements**: Gamification with XP for job activities
 - **Tag System**: Color-coded tags for job organization
 
@@ -187,9 +188,10 @@ Comprehensive inventory of all features, screens, integrations, and database col
   - Client-side integration exists
   - Server-side via Cloud Functions (stubbed)
   - Trigger functionality has TODO comment
-- **PDF Report Generation**: Generate job reports
-- **Report Sharing**: Share reports via PDF
+- **PDF Report Generation**: Generate job reports (web-based)
+- **Report Sharing**: Share reports via PDF, WhatsApp, Messages
 - **Watermark Reports**: Branded report output
+- **Detailed Documentation**: [REPORT_GENERATION.md](./features/REPORT_GENERATION.md)
 
 ---
 
