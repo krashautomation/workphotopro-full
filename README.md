@@ -246,6 +246,33 @@ This is a complete rewrite of WorkPhotoPro, migrating from Clerk to Appwrite:
 - [ ] Add search and filtering
 - [ ] Build analytics dashboard
 
+## 🗄️ Database Schema Backup & Restore
+
+Snapshots all collection schemas (attributes, indexes, permissions — no data) to `backups/appwrite-schema.json`.
+
+### Backup
+
+```bash
+npm run backup:schema
+```
+
+Run this whenever you change the schema. Commit `backups/appwrite-schema.json` to git to track schema history.
+
+### Restore (disaster recovery)
+
+1. Create a new database in the Appwrite Console and note its ID
+2. Ensure `APPWRITE_API_KEY` is set in `.env` (needs Databases scope)
+3. Set `APPWRITE_DATABASE_ID` to the new database ID
+4. Run:
+
+```bash
+npm run restore:schema
+```
+
+After restoring, re-enable **document-level security** per collection in the Appwrite Console (Settings → Document Security) — this cannot be automated.
+
+See `docs/DISASTER_RECOVERY.md` for full details.
+
 ## 🐛 Troubleshooting
 
 ### "Missing environment variable" error
